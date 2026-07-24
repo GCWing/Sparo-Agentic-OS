@@ -1,12 +1,13 @@
 import { createTauriCommandError } from '@/infrastructure/api/errors/TauriCommandError';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
+import type { SessionDomain } from '@/shared/types/session-history';
 
 export interface SettingsFlowSessionIdentity {
   sessionId: string;
   sessionName: string;
   agentType: 'SettingsAgent';
   workspacePath?: string | null;
-  storageScope: 'agentic_os';
+  domain: SessionDomain;
 }
 
 function validateIdentity(value: SettingsFlowSessionIdentity): SettingsFlowSessionIdentity {
@@ -14,7 +15,7 @@ function validateIdentity(value: SettingsFlowSessionIdentity): SettingsFlowSessi
     !value?.sessionId?.trim()
     || !value.sessionName?.trim()
     || value.agentType !== 'SettingsAgent'
-    || value.storageScope !== 'agentic_os'
+    || value.domain?.kind !== 'global'
   ) {
     throw new Error('Invalid settings FlowChat session identity');
   }

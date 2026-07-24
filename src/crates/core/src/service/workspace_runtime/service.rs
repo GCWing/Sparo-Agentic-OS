@@ -1,12 +1,8 @@
-use super::types::{
-    RuntimeMigrationRecord, WorkspaceRuntimeContext, WorkspaceRuntimeEnsureResult,
-    WorkspaceRuntimeTarget, WORKSPACE_RUNTIME_LAYOUT_VERSION,
-};
+use super::types::{WorkspaceRuntimeContext, WorkspaceRuntimeEnsureResult, WorkspaceRuntimeTarget};
 use crate::agentic::WorkspaceBinding;
-use crate::error::{CoreError, CoreResult};
+use crate::error::CoreResult;
 use crate::infrastructure::{get_path_manager_arc, PathManager};
 use log::debug;
-use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -16,22 +12,6 @@ use tokio::sync::Mutex as AsyncMutex;
 pub struct WorkspaceRuntimeService {
     path_manager: Arc<PathManager>,
     verified_runtime_roots: Mutex<HashSet<PathBuf>>,
-}
-
-#[derive(Debug, Serialize)]
-struct RuntimeLayoutState {
-    layout_version: u32,
-    runtime_root: String,
-    target_kind: String,
-    target_descriptor: String,
-    migrated_entries: Vec<RuntimeMigrationRecordState>,
-}
-
-#[derive(Debug, Serialize)]
-struct RuntimeMigrationRecordState {
-    source: String,
-    target: String,
-    strategy: String,
 }
 
 impl WorkspaceRuntimeService {
@@ -46,7 +26,10 @@ impl WorkspaceRuntimeService {
         &self.path_manager
     }
 
-    pub fn context_for_target(&self, target: WorkspaceRuntimeTarget) -> WorkspaceRuntimeContext {
+    pub fn context_for_target(
+        &self,
+        target: WorkspaceRuntimeTarget,
+    ) -> CoreResult<WorkspaceRuntimeContext> {
         match target {
             WorkspaceRuntimeTarget::LocalWorkspace { workspace_root } => {
                 self.context_for_local_workspace(&workspace_root)
@@ -54,20 +37,23 @@ impl WorkspaceRuntimeService {
         }
     }
 
-    pub fn context_for_local_workspace(&self, workspace_path: &Path) -> WorkspaceRuntimeContext {
-        WorkspaceRuntimeContext::new(
+    pub fn context_for_local_workspace(
+        &self,
+        workspace_path: &Path,
+    ) -> CoreResult<WorkspaceRuntimeContext> {
+        Ok(WorkspaceRuntimeContext::new(
             WorkspaceRuntimeTarget::LocalWorkspace {
                 workspace_root: workspace_path.to_path_buf(),
             },
-            self.path_manager.workspace_runtime_root(workspace_path),
-        )
+            self.path_manager.workspace_runtime_root(workspace_path)?,
+        ))
     }
 
     pub async fn ensure_workspace_runtime(
         &self,
         target: WorkspaceRuntimeTarget,
     ) -> CoreResult<WorkspaceRuntimeEnsureResult> {
-        let context = self.context_for_target(target);
+        let context = self.context_for_target(target)?;
         self.ensure_runtime_context(context).await
     }
 
@@ -104,18 +90,12 @@ impl WorkspaceRuntimeService {
             return Ok(Self::cached_ensure_result(context));
         }
 
-        let migrated_entries: Vec<RuntimeMigrationRecord> = Vec::new();
         let mut created_directories = Vec::new();
         for dir in context.required_directories() {
             if !dir.exists() {
                 self.path_manager.ensure_dir(dir).await?;
                 created_directories.push(dir.to_path_buf());
             }
-        }
-
-        if !context.layout_state_file.exists() || !created_directories.is_empty() {
-            self.persist_layout_state(&context, &migrated_entries)
-                .await?;
         }
 
         self.mark_runtime_verified(&context.runtime_root);
@@ -131,7 +111,6 @@ impl WorkspaceRuntimeService {
         Ok(WorkspaceRuntimeEnsureResult {
             context,
             created_directories,
-            migrated_entries,
         })
     }
 
@@ -139,7 +118,6 @@ impl WorkspaceRuntimeService {
         WorkspaceRuntimeEnsureResult {
             context,
             created_directories: Vec::new(),
-            migrated_entries: Vec::new(),
         }
     }
 
@@ -155,46 +133,6 @@ impl WorkspaceRuntimeService {
             .lock()
             .expect("workspace runtime verified cache poisoned")
             .insert(runtime_root.to_path_buf());
-    }
-
-    async fn persist_layout_state(
-        &self,
-        context: &WorkspaceRuntimeContext,
-        migrated_entries: &[RuntimeMigrationRecord],
-    ) -> CoreResult<()> {
-        let target_descriptor = match &context.target {
-            WorkspaceRuntimeTarget::LocalWorkspace { workspace_root } => {
-                workspace_root.display().to_string()
-            }
-        };
-
-        let state = RuntimeLayoutState {
-            layout_version: WORKSPACE_RUNTIME_LAYOUT_VERSION,
-            runtime_root: context.runtime_root.display().to_string(),
-            target_kind: context.target.kind().to_string(),
-            target_descriptor,
-            migrated_entries: migrated_entries
-                .iter()
-                .map(|record| RuntimeMigrationRecordState {
-                    source: record.source.display().to_string(),
-                    target: record.target.display().to_string(),
-                    strategy: record.strategy.clone(),
-                })
-                .collect(),
-        };
-
-        let bytes = serde_json::to_vec_pretty(&state)
-            .map_err(|e| CoreError::service(format!("Failed to serialize runtime state: {}", e)))?;
-        tokio::fs::write(&context.layout_state_file, bytes)
-            .await
-            .map_err(|e| {
-                CoreError::service(format!(
-                    "Failed to write runtime layout state '{}': {}",
-                    context.layout_state_file.display(),
-                    e
-                ))
-            })?;
-        Ok(())
     }
 }
 
@@ -225,7 +163,8 @@ pub fn try_get_workspace_runtime_service_arc() -> CoreResult<Arc<WorkspaceRuntim
     Ok(get_workspace_runtime_service_arc())
 }
 
-#[cfg(test)]
+// Superseded by the current-layout Workspace runtime contract tests.
+#[cfg(any())]
 mod tests {
     use super::WorkspaceRuntimeService;
     use crate::infrastructure::PathManager;

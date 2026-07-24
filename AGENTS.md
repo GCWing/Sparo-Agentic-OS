@@ -131,8 +131,9 @@ Backend logging:
 - Project-local config lives under `<workspace>/.sparo_os/config/`.
 - Default debug log lives at `<workspace>/.sparo_os/debug.log`.
 - Runtime workspace data typically lives under `<app-root>/workspaces/<workspace-id>/`.
-- Project sessions live under `<app-root>/workspaces/<workspace-id>/sessions/`.
-- Agentic OS global sessions live under `<app-root>/agentic_os/sessions/`.
+- Agentic OS sessions live under `<app-root>/sessions/os_agent/`.
+- Global intelligent-app sessions live under `<app-root>/sessions/global/`.
+- Workspace sessions live under `<app-root>/sessions/workspaces/<workspace-id>/`.
 
 Desktop runtime logs:
 

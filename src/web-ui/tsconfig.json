@@ -23,6 +23,7 @@
     /* Path mapping */
     "baseUrl": ".",
     "paths": {
+      "@sparo/icons": ["../packages/icons/src/index.ts"],
       "@/*": ["src/*"],
       "@/shared/*": ["src/shared/*"],
       "@/core/*": ["src/core/*"],

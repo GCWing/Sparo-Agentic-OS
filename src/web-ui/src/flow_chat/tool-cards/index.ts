@@ -52,6 +52,8 @@ const ComponentAuthoringToolDisplay = lazy(() => import('./ComponentAuthoringToo
 const GenerativeWidgetToolCard = lazy(() => import('./GenerativeWidgetToolCard').then(module => ({ default: module.GenerativeWidgetToolCard })));
 const DesignArtifactIndexCard = lazy(() => import('./DesignArtifactIndexCard').then(module => ({ default: module.DesignArtifactIndexCard })));
 const DesignTokensProposalCard = lazy(() => import('./DesignTokensProposalCard').then(module => ({ default: module.DesignTokensProposalCard })));
+const PptLiveToolCard = lazy(() => import('./PptLiveToolCard').then(module => ({ default: module.PptLiveToolCard })));
+const PptDesignCaseConfirmationCard = lazy(() => import('./PptDesignCaseConfirmationCard').then(module => ({ default: module.PptDesignCaseConfirmationCard })));
 const SessionControlToolCard = lazy(() => import('./SessionControlToolCard').then(module => ({ default: module.SessionControlToolCard })));
 const SessionMessageToolCard = lazy(() => import('./SessionMessageToolCard').then(module => ({ default: module.SessionMessageToolCard })));
 const SessionHistoryDisplay = lazy(() => import('./SessionHistoryDisplay').then(module => ({ default: module.SessionHistoryDisplay })));
@@ -84,6 +86,23 @@ export interface ToolUiFamilyRegistryEntry {
   id: string;
   test: (toolName: string) => boolean;
   entry: ToolUiRegistryEntry;
+}
+
+const APP_DEFINED_FAMILY_UI_REGISTRY: Record<string, ToolUiRegistryEntry> = {
+  'ppt-live': {
+    component: PptLiveToolCard,
+    template: 'custom',
+    family: 'ppt-live',
+  },
+  'ppt-design-case-confirmation': {
+    component: PptDesignCaseConfirmationCard,
+    template: 'custom',
+    family: 'ppt-design-case-confirmation',
+  },
+};
+
+export function getAppDefinedFamilyRenderer(family?: string): ToolUiRegistryEntry | undefined {
+  return family ? APP_DEFINED_FAMILY_UI_REGISTRY[family] : undefined;
 }
 
 // Tool card config map - uses backend tool names

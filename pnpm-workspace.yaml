@@ -1,6 +1,7 @@
 packages:
   - "src/web-ui"
   - "src/mobile-web"
+  - "src/packages/*"
   - "installer"
   - "tests/e2e"
   - "videos/*"

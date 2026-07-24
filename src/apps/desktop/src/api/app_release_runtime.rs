@@ -3,10 +3,11 @@
 use std::collections::BTreeMap;
 
 use semver::{Version, VersionReq};
+use serde::{Deserialize, Serialize};
 use sparo_core::agentic_os::work::{
     CreateWorkRequest, PrimarySurfacePolicy, ResolveAppWorkRequest, StartWorkRequest, WorkAppKind,
-    WorkAppRef, WorkAppRelationRole, WorkAssignmentKind, WorkAssignmentRef, WorkScope, WorkSubject,
-    WorkSurfaceRef,
+    WorkAppRef, WorkAppRelationRole, WorkAssignmentKind, WorkAssignmentRef, WorkRecord, WorkScope,
+    WorkSubject, WorkSurfaceRef,
 };
 use sparo_core::app_platform::{
     list_system_shared_components, register_private_product_app_runtime_components,
@@ -99,24 +100,228 @@ impl AuthoritativeAppRelease {
         }
         Ok(())
     }
+
+    pub fn validate_existing_work_runtime(&self, work: &WorkRecord) -> Result<(), String> {
+        let binding = self.binding()?;
+        validate_scope_requirement(&binding, &work.scope)?;
+        match binding.launch.kind {
+            ProductAppLaunchKind::ApplicationSurface => {
+                let surface = std::iter::once(&work.primary_surface)
+                    .chain(work.surfaces.iter())
+                    .find_map(|surface| match surface {
+                        WorkSurfaceRef::ApplicationSurface {
+                            product_app_id,
+                            product_app_surface_id,
+                            surface_id,
+                        } if product_app_id == &binding.app_id => {
+                            Some((product_app_surface_id, surface_id))
+                        }
+                        _ => None,
+                    })
+                    .ok_or_else(|| {
+                        format!(
+                            "Work {} has no application surface accepted by Release {}",
+                            work.id, binding.release_id
+                        )
+                    })?;
+                self.validate_application_surface_runtime(&work.scope, surface.0, surface.1)
+            }
+            ProductAppLaunchKind::AgentSession | ProductAppLaunchKind::AppBuilder => {
+                if std::iter::once(&work.primary_surface)
+                    .chain(work.surfaces.iter())
+                    .any(|surface| matches!(surface, WorkSurfaceRef::ApplicationSurface { .. }))
+                {
+                    return Err(format!(
+                        "Work {} application surface is not accepted by Release {}",
+                        work.id, binding.release_id
+                    ));
+                }
+                let agent_type = binding
+                    .launch
+                    .agent_type
+                    .as_deref()
+                    .unwrap_or(binding.launch.target_id.as_str());
+                validate_agent_assignment(work.assignment.as_ref(), agent_type, &binding.release_id)
+            }
+        }
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ReleaseExecutionPurpose {
-    NewWork,
-    ExistingWorkRuntime,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProductAppWorkCompatibilityStatus {
+    Compatible,
+    AppUnavailable,
+    AppDisabled,
+    AppSelectionChanged,
+    VersionIncompatible,
 }
 
-/// Resolves and authorizes exactly one immutable Release without consulting Activation.
-/// This intentionally keeps historical Work bindings executable after the active Release advances.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProductAppWorkCompatibility {
+    pub status: ProductAppWorkCompatibilityStatus,
+    pub slot_id: String,
+    pub app_id: String,
+    pub created_with_release_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_with_version: Option<String>,
+    pub work_data_schema_version: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub installed_app_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub installed_release_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub installed_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub installed_data_schema_version: Option<String>,
+}
+
+impl ProductAppWorkCompatibility {
+    pub fn is_compatible(&self) -> bool {
+        self.status == ProductAppWorkCompatibilityStatus::Compatible
+    }
+
+    fn rejection_message(&self) -> String {
+        match self.status {
+            ProductAppWorkCompatibilityStatus::Compatible => {
+                "Product App Work is compatible".to_string()
+            }
+            ProductAppWorkCompatibilityStatus::AppUnavailable => format!(
+                "PRODUCT_APP_WORK_APP_UNAVAILABLE: App {} is not installed for Work data schema {}",
+                self.app_id, self.work_data_schema_version
+            ),
+            ProductAppWorkCompatibilityStatus::AppDisabled => format!(
+                "PRODUCT_APP_WORK_APP_DISABLED: App slot {} is disabled",
+                self.slot_id
+            ),
+            ProductAppWorkCompatibilityStatus::AppSelectionChanged => format!(
+                "PRODUCT_APP_WORK_APP_SELECTION_CHANGED: Work expects App {}, but slot {} currently selects {}",
+                self.app_id,
+                self.slot_id,
+                self.installed_app_id.as_deref().unwrap_or("unknown")
+            ),
+            ProductAppWorkCompatibilityStatus::VersionIncompatible => format!(
+                "PRODUCT_APP_WORK_VERSION_INCOMPATIBLE: Work data schema {} from Release {} cannot be opened by installed App {} Release {} data schema {}",
+                self.work_data_schema_version,
+                self.created_with_release_id,
+                self.installed_app_id.as_deref().unwrap_or("unknown"),
+                self.installed_release_id.as_deref().unwrap_or("unknown"),
+                self.installed_data_schema_version.as_deref().unwrap_or("unknown")
+            ),
+        }
+    }
+}
+
+/// Evaluates historical Work data against the single currently installed App.
+///
+/// The Work's Release is audit metadata only. It is never resolved as an
+/// execution target. Compatibility is intentionally strict: the installed
+/// Release must belong to the same logical App and declare the exact same data
+/// schema version.
+pub async fn inspect_product_app_work_compatibility(
+    state: &AppState,
+    app_ref: &WorkAppRef,
+) -> Result<ProductAppWorkCompatibility, String> {
+    let created_with_version = state
+        .app_revision_store
+        .list_releases(Some(&app_ref.app_id))
+        .await
+        .into_iter()
+        .find(|release| release.release_id == app_ref.release_id)
+        .map(|release| release.version);
+    let mut result = ProductAppWorkCompatibility {
+        status: ProductAppWorkCompatibilityStatus::AppUnavailable,
+        slot_id: app_ref.slot_id.clone(),
+        app_id: app_ref.app_id.clone(),
+        created_with_release_id: app_ref.release_id.clone(),
+        created_with_version,
+        work_data_schema_version: app_ref.data_schema_version.clone(),
+        installed_app_id: None,
+        installed_release_id: None,
+        installed_version: None,
+        installed_data_schema_version: None,
+    };
+
+    if state
+        .app_revision_store
+        .get_app(&app_ref.app_id)
+        .await
+        .is_none()
+    {
+        return Ok(result);
+    }
+    let Some(activation) = state
+        .app_revision_store
+        .get_effective_activation(&AppActivationScope::System, &app_ref.slot_id)
+        .await
+    else {
+        return Ok(result);
+    };
+    result.installed_app_id = Some(activation.selected_app_id.clone());
+    result.installed_release_id = Some(activation.active_release_id.clone());
+    if !activation.enabled {
+        result.status = ProductAppWorkCompatibilityStatus::AppDisabled;
+        return Ok(result);
+    }
+    if activation.selected_app_id != app_ref.app_id {
+        result.status = ProductAppWorkCompatibilityStatus::AppSelectionChanged;
+        return Ok(result);
+    }
+
+    let installed = state
+        .app_revision_store
+        .resolve_release(&activation.selected_app_id, &activation.active_release_id)
+        .await
+        .map_err(|error| error.to_string())?;
+    result.installed_version = Some(installed.release.version.clone());
+    result.installed_data_schema_version = Some(installed.release.data_schema_version.clone());
+    result.status = if installed.release.data_schema_version == app_ref.data_schema_version {
+        ProductAppWorkCompatibilityStatus::Compatible
+    } else {
+        ProductAppWorkCompatibilityStatus::VersionIncompatible
+    };
+    Ok(result)
+}
+
+/// Resolves an existing Work exclusively through the current system Activation.
+/// Historical Release coordinates carried by the Work are never executable.
+pub async fn resolve_current_app_release_for_work(
+    state: &AppState,
+    app_ref: &WorkAppRef,
+) -> Result<(AuthoritativeAppRelease, WorkAppRef), String> {
+    let compatibility = inspect_product_app_work_compatibility(state, app_ref).await?;
+    if !compatibility.is_compatible() {
+        return Err(compatibility.rejection_message());
+    }
+    let app_id = compatibility
+        .installed_app_id
+        .as_deref()
+        .ok_or_else(|| compatibility.rejection_message())?;
+    let release_id = compatibility
+        .installed_release_id
+        .as_deref()
+        .ok_or_else(|| compatibility.rejection_message())?;
+    let authoritative = resolve_authorized_app_release(state, app_id, release_id).await?;
+    let binding = authoritative.binding()?;
+    let current_ref = WorkAppRef::product_app(
+        binding.slot_id,
+        binding.app_id,
+        binding.release_id,
+        binding.config_revision,
+        binding.data_schema_version,
+    );
+    Ok((authoritative, current_ref))
+}
+
+/// Resolves and authorizes exactly one current immutable Release.
 pub async fn resolve_authorized_app_release(
     state: &AppState,
     app_id: &str,
     release_id: &str,
-    purpose: ReleaseExecutionPurpose,
 ) -> Result<AuthoritativeAppRelease, String> {
     let app_record = state.app_revision_store.get_app(app_id).await;
-    if purpose == ReleaseExecutionPurpose::NewWork && app_record.is_none() {
+    if app_record.is_none() {
         return Err(format!(
             "Intelligent App {app_id} is archived and cannot create new Work"
         ));
@@ -336,13 +541,8 @@ async fn authorize_refs(
             validate_effective_activation(state, scope, app_ref).await?;
             continue;
         }
-        let release = resolve_authorized_app_release(
-            state,
-            &app_ref.app_id,
-            &app_ref.release_id,
-            ReleaseExecutionPurpose::NewWork,
-        )
-        .await?;
+        let release =
+            resolve_authorized_app_release(state, &app_ref.app_id, &app_ref.release_id).await?;
         validate_product_app_ref(app_ref, &release)?;
         validate_scope_requirement(&release.binding()?, scope)?;
         validate_effective_activation(state, scope, app_ref).await?;
@@ -431,7 +631,7 @@ fn authoritative_primary_ref(
     Ok(candidates.into_iter().next())
 }
 
-async fn register_authoritative_agent_release(
+pub(crate) async fn register_authoritative_agent_release(
     state: &AppState,
     release: &AuthoritativeAppRelease,
 ) -> Result<(), String> {
@@ -574,16 +774,16 @@ fn validate_scope_requirement(
     scope: &WorkScope,
 ) -> Result<(), String> {
     if binding.launch.scope_requirement == ProductAppLaunchScopeRequirement::WorkspaceRequired
-        && matches!(scope, WorkScope::System)
+        && matches!(scope, WorkScope::Global)
     {
         return Err(format!(
             "Release {} requires a workspace-scoped Work",
             binding.release_id
         ));
     }
-    if let WorkScope::Workspace { workspace_path } = scope {
-        if workspace_path.trim().is_empty() {
-            return Err("Workspace-scoped Work requires a non-empty workspace path".to_string());
+    if let WorkScope::Workspace { workspace_id } = scope {
+        if workspace_id.trim().is_empty() {
+            return Err("Workspace-scoped Work requires a non-empty workspace id".to_string());
         }
     }
     Ok(())
@@ -755,7 +955,7 @@ mod tests {
         let mut forged = Some(WorkAssignmentRef::agent("OSAgent"));
         assert!(normalize_authoritative_launch(
             &binding,
-            &WorkScope::System,
+            &WorkScope::Global,
             &mut policy,
             &mut surface,
             &mut forged,
@@ -765,7 +965,7 @@ mod tests {
         let mut assignment = None;
         normalize_authoritative_launch(
             &binding,
-            &WorkScope::System,
+            &WorkScope::Global,
             &mut policy,
             &mut surface,
             &mut assignment,
@@ -792,7 +992,7 @@ mod tests {
         let mut assignment = None;
         normalize_authoritative_launch(
             &binding,
-            &WorkScope::System,
+            &WorkScope::Global,
             &mut policy,
             &mut surface,
             &mut assignment,
@@ -822,7 +1022,6 @@ mod tests {
             slot_id: "writer".to_string(),
             selected_app_id: "user.writer".to_string(),
             active_release_id: "release-1".to_string(),
-            previous_release_id: None,
             enabled: false,
         };
         assert!(validate_activation_matches_ref(&activation, &app_ref).is_err());

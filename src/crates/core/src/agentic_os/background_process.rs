@@ -195,7 +195,7 @@ pub async fn list_background_processes() -> CoreResult<BackgroundProcessList> {
     processes.push(workspace_overview_process().await?);
     processes.push(memory_consolidation_process().await);
     processes.push(global_daily_report_process().await?);
-    processes.push(daily_letter_process().await);
+    processes.push(daily_letter_process().await?);
     processes.push(global_milestone_process().await?);
     processes.extend(auto_memory_processes());
 
@@ -466,7 +466,8 @@ async fn memory_consolidation_process() -> BackgroundProcess {
 
 async fn global_daily_report_process() -> CoreResult<BackgroundProcess> {
     let state = load_global_daily_report_state().await?;
-    let output_path = get_path_manager_arc().agentic_os_daily_reports_dir();
+    let output_path =
+        crate::service::global_daily_report::state::global_daily_report_runtime_dir()?;
     let status = match state.last_attempt_status.as_ref() {
         Some(GlobalDailyReportAttemptStatus::Running) => BackgroundProcessStatus::Running,
         Some(GlobalDailyReportAttemptStatus::Error) => BackgroundProcessStatus::Failed,
@@ -505,10 +506,10 @@ async fn global_daily_report_process() -> CoreResult<BackgroundProcess> {
     })
 }
 
-async fn daily_letter_process() -> BackgroundProcess {
-    let output_path = global_daily_letters_output_dir();
+async fn daily_letter_process() -> CoreResult<BackgroundProcess> {
+    let output_path = global_daily_letters_output_dir()?;
     let Some(service) = get_global_daily_letter_service() else {
-        return BackgroundProcess {
+        return Ok(BackgroundProcess {
             id: "daily_letter".to_string(),
             kind: BackgroundProcessKind::DailyLetter,
             category: BackgroundProcessCategory::Report,
@@ -530,7 +531,7 @@ async fn daily_letter_process() -> BackgroundProcess {
                 uri: None,
             }],
             actions: vec![BackgroundProcessAction::OpenSettings],
-        };
+        });
     };
 
     let state = service.state_snapshot().await;
@@ -539,7 +540,7 @@ async fn daily_letter_process() -> BackgroundProcess {
         state.next_auto_run_not_before_ms,
         state.last_error.as_deref(),
     );
-    BackgroundProcess {
+    Ok(BackgroundProcess {
         id: "daily_letter".to_string(),
         kind: BackgroundProcessKind::DailyLetter,
         category: BackgroundProcessCategory::Report,
@@ -572,7 +573,7 @@ async fn daily_letter_process() -> BackgroundProcess {
             uri: None,
         }],
         actions: actions_for_status(status),
-    }
+    })
 }
 
 async fn global_milestone_process() -> CoreResult<BackgroundProcess> {

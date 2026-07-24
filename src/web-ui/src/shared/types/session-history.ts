@@ -5,11 +5,20 @@
  */
 
 import type { AppScope } from './app-scope';
+import type { ProductAppWorkMultiplicity } from './app-manifest';
 import type { ProductAppRuntimeContext } from './product-app-runtime';
 
 export type SessionKind = 'normal' | 'btw' | 'internal';
 export type PersistedSessionKind = 'standard' | 'subagent';
-export type SessionStorageScope = 'workspace' | 'agentic_os';
+export type SessionDomain =
+  | { kind: 'os_agent' }
+  | { kind: 'global' }
+  | { kind: 'workspace'; workspace_id: string };
+
+export interface SessionLocator {
+  domain: SessionDomain;
+  session_id: string;
+}
 
 /**
  * Identifies what triggered a dialog turn.
@@ -69,8 +78,29 @@ export interface ProductAppRuntimeChatMetadata {
   allowUserPrompt?: boolean;
 }
 
+export interface ProductAppRuntimeFlowChatCardMetadata {
+  id: string;
+  description?: string;
+  ui: Record<string, unknown>;
+}
+
+export interface ProductAppRuntimeAgentWorkspaceMetadata {
+  managedRoot: string;
+  workspaceAccess: 'none' | 'readOnly' | 'readWrite';
+  documentRoots?: string[];
+  privateRoots?: string[];
+}
+
 export interface ProductAppRuntimeSessionMetadata {
   appId: string;
+  /** Authoritative Work binding added by the Product App session API. */
+  workId?: string;
+  /** Authoritative visible-chat ownership added by the Product App session API. */
+  sessionChannel?: {
+    channelId: string;
+    entityId?: string | null;
+    role: 'surface_chat' | string;
+  };
   slotId?: string | null;
   releaseId: string;
   configRevision?: string | null;
@@ -81,11 +111,15 @@ export interface ProductAppRuntimeSessionMetadata {
   profile: 'product-app-runtime' | string;
   sourceRevision?: string;
   interactionTitle?: string;
+  /** Optional only for sessions persisted before multiplicity became part of the header contract. */
+  workMultiplicity?: ProductAppWorkMultiplicity;
   scope: AppScope;
   workspacePath?: string | null;
   runtimeContext?: ProductAppRuntimeContext | null;
   chat?: ProductAppRuntimeChatMetadata;
+  agentWorkspace?: ProductAppRuntimeAgentWorkspaceMetadata;
   tabs: ProductAppRuntimeTabMetadata[];
+  flowChatCards?: ProductAppRuntimeFlowChatCardMetadata[];
 }
 
 export type AgentSessionBindingMode =
@@ -355,6 +389,7 @@ export interface SessionCustomMetadata extends Record<string, unknown> {
 
 export interface SessionMetadata {
   sessionId: string;
+  domain: SessionDomain;
   sessionName: string;
   agentType: string;
   sessionKind?: PersistedSessionKind;
@@ -370,7 +405,6 @@ export interface SessionMetadata {
   customMetadata?: SessionCustomMetadata;
   todos?: any[];
   workspacePath?: string;
-  storageScope?: SessionStorageScope;
   /**
    * Unread completion status for the session.
    */

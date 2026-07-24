@@ -10,7 +10,11 @@ import {
   commitPendingSessionNavigation,
 } from '@/app/navigation/navigationController';
 
-const navigationMock = vi.hoisted(() => ({ epoch: 0 }));
+const navigationMock = vi.hoisted(() => ({
+  epoch: 0,
+  prepareProductAppWork: vi.fn(),
+  warning: vi.fn(),
+}));
 
 vi.mock('@/app/navigation/workspaceNavigation', () => ({
   openWorkspaceScene: vi.fn(),
@@ -26,6 +30,16 @@ vi.mock('@/app/navigation/navigationController', () => ({
 }));
 vi.mock('@/app/scenes/apps/product-app-runtime/productAppRuntimeService', () => ({
   openProductAppRuntimeForWorkSurface: vi.fn(),
+}));
+vi.mock('@/infrastructure/api/service-api/ProductAppRuntimeAPI', () => ({
+  productAppRuntimeAPI: {
+    prepareProductAppWork: navigationMock.prepareProductAppWork,
+  },
+}));
+vi.mock('@/shared/notification-system', () => ({
+  notificationService: {
+    warning: navigationMock.warning,
+  },
 }));
 
 function resetWorkDockStore() {
@@ -47,7 +61,12 @@ const applicationSurface: WorkSurfaceRef = {
   surfaceId: 'primary',
 };
 
-function appWork(id: string, surfaces: WorkSurfaceRef[]): WorkRecord {
+function appWork(
+  id: string,
+  surfaces: WorkSurfaceRef[],
+  scope: WorkRecord['scope'] = { kind: 'global' },
+  workspacePath?: string,
+): WorkRecord {
   return {
     id,
     kind: 'app_workflow',
@@ -61,7 +80,8 @@ function appWork(id: string, surfaces: WorkSurfaceRef[]): WorkRecord {
       intent: 'run',
     },
     appRefs: [],
-    scope: { kind: 'system' },
+    scope,
+    workspacePath,
     primarySurface: applicationSurface,
     surfaces,
     lifecycle: { events: [] },
@@ -85,6 +105,14 @@ describe('openWork navigation', () => {
     vi.mocked(openProductAppRuntimeForWorkSurface).mockReset().mockResolvedValue(undefined);
     vi.mocked(commitPendingSessionNavigation).mockClear();
     vi.mocked(cancelPendingSessionNavigation).mockClear();
+    navigationMock.prepareProductAppWork.mockReset().mockResolvedValue({
+      status: 'compatible',
+      slotId: 'excel-live',
+      appId: 'builtin-excel-live',
+      createdWithReleaseId: 'release-excel-1',
+      workDataSchemaVersion: '1',
+    });
+    navigationMock.warning.mockReset();
   });
 
   it('opens an artifact in its owner Work Center context', () => {
@@ -107,17 +135,48 @@ describe('openWork navigation', () => {
     expect(state.workCenterSelectedArtifactId).toBeNull();
   });
 
-  it('opens an existing composite Product App session before runtime resolution', async () => {
+  it('rebinds an existing composite session through the current runtime', async () => {
     const linkedSession: WorkSurfaceRef = { kind: 'agent_session', sessionId: 'excel-session' };
 
     await openWork(appWork('work-excel', [applicationSurface, linkedSession]));
 
-    expect(openMainSession).toHaveBeenCalledWith('excel-session', {
-      context: { kind: 'work', workId: 'work-excel' },
-      commitPendingSurface: true,
-      navigationEpoch: 1,
-    });
-    expect(openProductAppRuntimeForWorkSurface).not.toHaveBeenCalled();
+    expect(openMainSession).not.toHaveBeenCalled();
+    expect(openProductAppRuntimeForWorkSurface).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workLocator: {
+          scope: { kind: 'global' },
+          workId: 'work-excel',
+        },
+        appId: 'builtin-excel-live',
+      }),
+      expect.objectContaining({ context: { kind: 'work', workId: 'work-excel' } }),
+    );
+  });
+
+  it('keeps the typed Workspace locator when reopening an application surface', async () => {
+    await openWork(appWork(
+      'work-workspace',
+      [applicationSurface],
+      { kind: 'workspace', workspaceId: 'ws_project' },
+      'D:/workspace/project',
+    ));
+
+    expect(openProductAppRuntimeForWorkSurface).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workLocator: {
+          scope: { kind: 'workspace', workspaceId: 'ws_project' },
+          workId: 'work-workspace',
+        },
+      }),
+      expect.objectContaining({
+        scope: {
+          kind: 'workspace',
+          workspaceId: 'ws_project',
+          workspacePath: 'D:/workspace/project',
+          workspaceName: null,
+        },
+      }),
+    );
   });
 
   it('coalesces repeated opens while the same Work is preparing', async () => {
@@ -129,9 +188,9 @@ describe('openWork navigation', () => {
 
     const first = openWork(work);
     const second = openWork(work);
-    await Promise.resolve();
-
-    expect(openProductAppRuntimeForWorkSurface).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => {
+      expect(openProductAppRuntimeForWorkSurface).toHaveBeenCalledTimes(1);
+    });
     expect(commitPendingSessionNavigation).toHaveBeenCalledWith(
       'pending-work:work-slow',
       expect.objectContaining({
@@ -147,7 +206,7 @@ describe('openWork navigation', () => {
   it('invalidates an older Work preparation when a newer Work is selected', async () => {
     const guards = new Map<string, () => boolean>();
     vi.mocked(openProductAppRuntimeForWorkSurface).mockImplementation(async (request, options) => {
-      guards.set(request.workId, options.isNavigationCurrent!);
+      guards.set(request.workLocator.workId, options.isNavigationCurrent!);
     });
 
     await openWork(appWork('work-a', [applicationSurface]));
@@ -160,15 +219,42 @@ describe('openWork navigation', () => {
     expect(guards.get('work-b')?.()).toBe(true);
   });
 
-  it('falls back to the application surface when a linked session is missing', async () => {
-    vi.mocked(openMainSession).mockResolvedValueOnce('missing');
+  it('does not open a stale linked session directly', async () => {
     const linkedSession: WorkSurfaceRef = { kind: 'agent_session', sessionId: 'deleted-session' };
 
     await openWork(appWork('work-fallback', [applicationSurface, linkedSession]));
 
     expect(openProductAppRuntimeForWorkSurface).toHaveBeenCalledWith(
-      expect.objectContaining({ workId: 'work-fallback', appId: 'builtin-excel-live' }),
+      expect.objectContaining({
+        workLocator: {
+          scope: { kind: 'global' },
+          workId: 'work-fallback',
+        },
+        appId: 'builtin-excel-live',
+      }),
       expect.objectContaining({ context: { kind: 'work', workId: 'work-fallback' } }),
     );
+    expect(openMainSession).not.toHaveBeenCalled();
+  });
+
+  it('keeps incompatible Work data visible without starting old code', async () => {
+    navigationMock.prepareProductAppWork.mockResolvedValueOnce({
+      status: 'versionIncompatible',
+      slotId: 'excel-live',
+      appId: 'builtin-excel-live',
+      createdWithReleaseId: 'release-excel-1',
+      createdWithVersion: '1.0.0',
+      workDataSchemaVersion: '1',
+      installedReleaseId: 'release-excel-2',
+      installedVersion: '2.0.0',
+      installedDataSchemaVersion: '2',
+    });
+
+    await openWork(appWork('work-incompatible', [applicationSurface]));
+
+    expect(openMainSession).not.toHaveBeenCalled();
+    expect(openProductAppRuntimeForWorkSurface).not.toHaveBeenCalled();
+    expect(navigationMock.warning).toHaveBeenCalledTimes(1);
+    expect(useWorkDockStore.getState().workCenterSelectedWorkId).toBe('work-incompatible');
   });
 });

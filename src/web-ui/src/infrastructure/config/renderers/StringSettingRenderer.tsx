@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
-import { Textarea, TextField } from '@/design-system';
+import { FormField, Textarea, TextField } from '@/design-system';
 import { ConfigConfirmationRejectedError } from '../transaction/ConfigTransactionClient';
 import type { SettingRendererFieldProps } from './types';
 
@@ -102,14 +102,11 @@ export function StringSettingRenderer({
   };
 
   const sharedProps = {
-    id,
-    label,
     value: draft,
     minLength,
     maxLength,
     disabled: disabled || loading,
     error: Boolean(errorMessage || hasExternalConflict),
-    errorMessage: hasExternalConflict ? conflictMessage : errorMessage,
     onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const nextValue = event.currentTarget.value;
       draftRef.current = nextValue;
@@ -120,22 +117,28 @@ export function StringSettingRenderer({
     onKeyDown: handleKeyDown,
   };
 
-  if (multiline) {
-    return (
-      <Textarea
-        {...sharedProps}
-        hint={description}
-        rows={rows}
-        style={{ fontFamily: 'var(--ds-font-family-mono)' }}
-      />
-    );
-  }
-
+  const renderedError = hasExternalConflict ? conflictMessage : errorMessage;
   return (
-    <TextField
-      {...sharedProps}
+    <FormField
+      controlId={id}
+      label={label}
       description={description}
-      pattern={pattern}
-    />
+      error={renderedError}
+      orientation="horizontal"
+      controlWidth={multiline ? 'wide' : 'balanced'}
+    >
+      {multiline ? (
+        <Textarea
+          {...sharedProps}
+          rows={rows}
+          style={{ fontFamily: 'var(--ds-font-family-mono)' }}
+        />
+      ) : (
+        <TextField
+          {...sharedProps}
+          pattern={pattern}
+        />
+      )}
+    </FormField>
   );
 }

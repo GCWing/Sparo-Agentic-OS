@@ -1,3 +1,8 @@
+import type { SessionLocator } from '@/shared/types/session-history';
+import type { WorkLocator, WorkScope } from '@/shared/types/work-locator';
+
+export type { WorkLocator, WorkScope } from '@/shared/types/work-locator';
+
 export type WorkId = string;
 
 export type WorkKind =
@@ -32,10 +37,6 @@ export interface WorkTitleState {
   locked: boolean;
   subjectRef?: string | null;
 }
-
-export type WorkScope =
-  | { kind: 'system' }
-  | { kind: 'workspace'; workspacePath: string };
 
 export type WorkAppKind = 'native_app' | 'product_app';
 
@@ -148,7 +149,25 @@ export interface WorkExecutionBinding {
 export interface AgentSessionRef {
   sessionId: string;
   workspacePath?: string | null;
+  locator?: SessionLocator | null;
+  owner?: SessionOwner | null;
 }
+
+export type ProductAppSessionRole = 'surface_chat' | 'backend_internal';
+
+export type SessionOwner =
+  | { kind: 'workspace_user' }
+  | { kind: 'agentic_os' }
+  | {
+      kind: 'product_app';
+      appId: string;
+      workId: string;
+      channel: {
+        channelId: string;
+        entityId?: string | null;
+      };
+      role: ProductAppSessionRole;
+    };
 
 export interface ArtifactRef {
   id: string;
@@ -395,6 +414,7 @@ export interface WorkRecord {
   subject: WorkSubject;
   appRefs: WorkAppRelation[];
   scope: WorkScope;
+  workspacePath?: string | null;
   primarySurface: WorkSurfaceRef;
   surfaces: WorkSurfaceRef[];
   assignment?: WorkAssignmentRef | null;
@@ -461,6 +481,7 @@ export interface CreateWorkRequest {
   subject: WorkSubject;
   appRefs?: WorkAppRelation[];
   scope: WorkScope;
+  workspacePath?: string | null;
   visibility?: WorkVisibility;
   primarySurfacePolicy?: PrimarySurfacePolicy;
   primarySurface?: WorkSurfaceRef | null;
@@ -477,6 +498,7 @@ export interface StartWorkRequest {
   subject: WorkSubject;
   appRefs?: WorkAppRelation[];
   scope: WorkScope;
+  workspacePath?: string | null;
   visibility?: WorkVisibility;
   primarySurfacePolicy?: 'work_session';
   assignment: { kind: 'agent'; agentType: string };
@@ -484,7 +506,7 @@ export interface StartWorkRequest {
 }
 
 export interface UpdateWorkRequest {
-  workId: WorkId;
+  locator: WorkLocator;
   title?: string;
   objective?: string;
   summary?: string;
@@ -503,6 +525,7 @@ export interface ResolveAppWorkRequest {
   title: string;
   objective: string;
   scope: WorkScope;
+  workspacePath?: string | null;
   visibility?: WorkVisibility;
   primarySurfacePolicy?: PrimarySurfacePolicy;
   primarySurface?: WorkSurfaceRef | null;
@@ -516,6 +539,7 @@ export interface ResolveComponentWorkRequest {
   title: string;
   objective: string;
   scope: WorkScope;
+  workspacePath?: string | null;
   visibility?: WorkVisibility;
   primarySurfacePolicy?: PrimarySurfacePolicy;
   assignment?: WorkAssignmentRef | null;
@@ -523,15 +547,15 @@ export interface ResolveComponentWorkRequest {
 }
 
 export interface LinkSessionToWorkRequest {
-  workId: WorkId;
-  sessionId: string;
+  workLocator: WorkLocator;
+  locator: SessionLocator;
   workspacePath?: string | null;
   surface?: WorkSurfaceRef | null;
   setPrimary?: boolean;
 }
 
 export interface AdvanceWorkRequest {
-  workId: WorkId;
+  locator: WorkLocator;
   instructions: string;
   advancePolicy?: 'start_if_idle' | 'enqueue' | 'retry' | string;
 }
@@ -544,16 +568,16 @@ export type ControlWorkAction =
   | 'reopen';
 
 export interface ControlWorkRequest {
-  workId: WorkId;
+  locator: WorkLocator;
   action: ControlWorkAction;
 }
 
 export interface RecordBuilderValidationResultRequest {
-  workId: WorkId;
+  locator: WorkLocator;
   validationResult: WorkBuilderValidationResult;
 }
 
 export interface RecordBuilderPreviewResultRequest {
-  workId: WorkId;
+  locator: WorkLocator;
   previewResult: WorkBuilderPreviewResult;
 }

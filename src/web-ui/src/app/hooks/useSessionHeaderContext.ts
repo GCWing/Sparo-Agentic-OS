@@ -17,6 +17,7 @@ import {
   selectFocusedSessionId,
   useWorkspaceSurfaceStore,
 } from '../navigation/workspaceSurfaceStore';
+import { resolveProductAppTopBarContext } from '../navigation/workspaceTopBarContext';
 import type { SessionHeaderContext } from '../stores/headerStore';
 
 export function useSessionHeaderContext(): SessionHeaderContext | null {
@@ -32,21 +33,35 @@ export function useSessionHeaderContext(): SessionHeaderContext | null {
       return null;
     }
 
-    let workspaceDisplayName = '';
-    if (session.workspacePath?.trim()) {
-      const ws = resolveWorkspaceForSession(session, openedWorkspacesList);
+    const productAppMetadata = session.customMetadata?.productAppRuntime;
+    const productApp = resolveProductAppTopBarContext(productAppMetadata);
+    const productAppWorkspace = productAppMetadata?.scope.kind === 'workspace'
+      ? productAppMetadata.scope
+      : null;
+    const workspacePath = productApp
+      ? productAppWorkspace?.workspacePath
+      : session.workspacePath;
+
+    let workspaceDisplayName = productAppWorkspace?.workspaceName?.trim() ?? '';
+    if (workspacePath?.trim()) {
+      const ws = resolveWorkspaceForSession({
+        ...session,
+        workspacePath,
+        workspaceId: productAppWorkspace?.workspaceId ?? session.workspaceId,
+      }, openedWorkspacesList);
       if (ws) {
         workspaceDisplayName = getWorkspaceDisplayName(ws).trim();
       }
       if (!workspaceDisplayName) {
-        workspaceDisplayName = fallbackWorkspaceFolderLabel(session.workspacePath);
+        workspaceDisplayName = fallbackWorkspaceFolderLabel(workspacePath);
       }
     }
 
     return {
       descriptor: session.descriptor,
-      workspacePath: session.workspacePath,
+      workspacePath,
       workspaceDisplayName,
+      productApp: productApp ?? undefined,
     };
   }, [openedWorkspacesList, session]);
 }

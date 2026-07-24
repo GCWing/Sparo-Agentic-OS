@@ -945,7 +945,7 @@ impl BashTool {
         tool_use_id: &str,
     ) -> Option<std::path::PathBuf> {
         context
-            .workspace_session_tool_result_path(chat_session_id, &format!("{}.txt", tool_use_id))
+            .session_tool_result_path(chat_session_id, &format!("{}.txt", tool_use_id))
             .ok()
     }
 
@@ -1032,8 +1032,7 @@ impl BashTool {
         );
 
         // Store background output under the session-scoped runtime tool-results tree:
-        // local:  <app-root>/workspaces/<workspace-id>/sessions/<chat-session-id>/tool-results/<tool-use-id>.txt
-        // remote: ~/.sparo_os/remote_ssh/<host>/<remote-path>/sessions/<chat-session-id>/tool-results/<tool-use-id>.txt
+        // local:  <app-root>/sessions/<domain>/<chat-session-id>/tool-results/<tool-use-id>.txt
         let output_file_path =
             Self::background_output_file_path(context, chat_session_id, &tool_use_id);
 

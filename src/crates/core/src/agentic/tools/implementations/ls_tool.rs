@@ -6,6 +6,7 @@ use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
 use crate::agentic::tools::workspace_paths::is_sparo_runtime_uri;
+use crate::agentic::tools::ToolPathOperation;
 use crate::error::{CoreError, CoreResult};
 use crate::service::filesystem::{format_directory_listing, list_directory_entries};
 use async_trait::async_trait;
@@ -235,6 +236,7 @@ Usage:
             .unwrap_or(self.default_limit);
 
         let resolved = context.resolve_tool_path(path)?;
+        context.enforce_path_operation(ToolPathOperation::List, &resolved)?;
 
         // Remote workspace path: execute ls via SSH shell
         if resolved.uses_remote_workspace_backend() {

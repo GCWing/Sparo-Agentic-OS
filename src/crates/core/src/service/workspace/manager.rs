@@ -2,9 +2,7 @@
 
 use crate::error::{CoreError, CoreResult};
 use crate::service::workspace_session::{
-    canonicalize_local_workspace_root, local_workspace_roots_equal,
-    local_workspace_stable_storage_id, normalize_local_workspace_root_for_stable_id,
-    LOCAL_WORKSPACE_SCOPE_HOST,
+    canonicalize_local_workspace_root, local_workspace_roots_equal, LOCAL_WORKSPACE_SCOPE_HOST,
 };
 use crate::util::FrontMatterMarkdown;
 use log::warn;
@@ -48,6 +46,14 @@ pub(crate) const IDENTITY_FILE_NAME: &str = "IDENTITY.md";
 
 /// User-visible / API host label for workspace scoping (local disk uses `localhost`).
 pub(crate) const WORKSPACE_HOST_META_KEY: &str = "workspaceHost";
+const WORKSPACE_MARKER_RELATIVE_PATH: &str = ".sparo_os/workspace.json";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct WorkspaceMarker {
+    schema_version: u32,
+    workspace_id: String,
+}
 
 /// Parsed agent identity fields from `IDENTITY.md` frontmatter.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -129,6 +135,65 @@ fn normalize_identity_field(value: Option<String>) -> Option<String> {
     })
 }
 
+async fn load_or_create_workspace_id(workspace_root: &Path) -> CoreResult<String> {
+    let marker_path = workspace_root.join(WORKSPACE_MARKER_RELATIVE_PATH);
+    match fs::read_to_string(&marker_path).await {
+        Ok(content) => {
+            let marker: WorkspaceMarker = serde_json::from_str(&content).map_err(|error| {
+                CoreError::validation(format!(
+                    "Invalid workspace identity file '{}': {}",
+                    marker_path.display(),
+                    error
+                ))
+            })?;
+            if marker.schema_version != 1
+                || !marker.workspace_id.starts_with("ws_")
+                || marker.workspace_id.contains('/')
+                || marker.workspace_id.contains('\\')
+            {
+                return Err(CoreError::validation(format!(
+                    "Invalid workspace identity in '{}'",
+                    marker_path.display()
+                )));
+            }
+            Ok(marker.workspace_id)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let workspace_id = format!("ws_{}", uuid::Uuid::new_v4().simple());
+            let marker = WorkspaceMarker {
+                schema_version: 1,
+                workspace_id: workspace_id.clone(),
+            };
+            let parent = marker_path.parent().ok_or_else(|| {
+                CoreError::io(format!(
+                    "Workspace marker has no parent: {}",
+                    marker_path.display()
+                ))
+            })?;
+            fs::create_dir_all(parent).await?;
+            let temp_path =
+                parent.join(format!(".workspace.{}.tmp", uuid::Uuid::new_v4().simple()));
+            let bytes = serde_json::to_vec_pretty(&marker)?;
+            fs::write(&temp_path, bytes).await?;
+            fs::rename(&temp_path, &marker_path)
+                .await
+                .map_err(|error| {
+                    CoreError::io(format!(
+                        "Failed to commit workspace identity '{}': {}",
+                        marker_path.display(),
+                        error
+                    ))
+                })?;
+            Ok(workspace_id)
+        }
+        Err(error) => Err(CoreError::io(format!(
+            "Failed to read workspace identity '{}': {}",
+            marker_path.display(),
+            error
+        ))),
+    }
+}
+
 /// Workspace metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceInfo {
@@ -179,9 +244,9 @@ impl WorkspaceInfo {
         let workspace_kind = options.workspace_kind.clone();
 
         let now = chrono::Utc::now();
-        let (canonical_pb, norm_str) =
+        let (canonical_pb, _) =
             canonicalize_local_workspace_root(&root_path).map_err(CoreError::service)?;
-        let id = local_workspace_stable_storage_id(&norm_str);
+        let id = load_or_create_workspace_id(&canonical_pb).await?;
 
         let mut workspace = Self {
             id,
@@ -300,52 +365,6 @@ impl WorkspaceManager {
         }
     }
 
-    /// Reassigns a workspace id (e.g. migrating from UUID to `local_*` stable id).
-    pub fn rekey_workspace_id(&mut self, old_id: &str, new_id: String) -> CoreResult<()> {
-        if old_id == new_id.as_str() {
-            return Ok(());
-        }
-        let Some(mut workspace) = self.workspaces.remove(old_id) else {
-            return Err(CoreError::service(format!(
-                "rekey_workspace_id: workspace not found: {}",
-                old_id
-            )));
-        };
-        if self.workspaces.contains_key(&new_id) {
-            self.workspaces.insert(old_id.to_string(), workspace);
-            return Err(CoreError::service(format!(
-                "rekey_workspace_id: target id already exists: {}",
-                new_id
-            )));
-        }
-        workspace.id = new_id.clone();
-        if let Ok((pb, _)) = canonicalize_local_workspace_root(&workspace.root_path) {
-            workspace.root_path = pb;
-        }
-        workspace.metadata.insert(
-            WORKSPACE_HOST_META_KEY.to_string(),
-            serde_json::json!(LOCAL_WORKSPACE_SCOPE_HOST),
-        );
-        self.workspaces.insert(new_id.clone(), workspace);
-
-        for id in &mut self.opened_workspace_ids {
-            if id.as_str() == old_id {
-                *id = new_id.clone();
-            }
-        }
-        if let Some(ref mut cur) = self.last_used_workspace_id {
-            if cur.as_str() == old_id {
-                *cur = new_id.clone();
-            }
-        }
-        for rid in &mut self.recent_workspaces {
-            if rid.as_str() == old_id {
-                *rid = new_id.clone();
-            }
-        }
-        Ok(())
-    }
-
     /// Opens a workspace.
     pub async fn open_workspace(&mut self, path: PathBuf) -> CoreResult<WorkspaceInfo> {
         self.open_workspace_with_options(path, WorkspaceOpenOptions::default())
@@ -393,39 +412,10 @@ impl WorkspaceManager {
         }
 
         let existing_workspace_id = {
-            let canon_norm = match normalize_local_workspace_root_for_stable_id(&path) {
-                Ok(n) => n,
-                Err(e) => return Err(CoreError::service(e)),
-            };
-            let stable_local_id = local_workspace_stable_storage_id(&canon_norm);
-
-            if self.workspaces.contains_key(&stable_local_id) {
-                Some(stable_local_id)
-            } else {
-                let legacy_id = self
-                    .workspaces
-                    .iter()
-                    .find(|(wid, w)| {
-                        wid.as_str() != stable_local_id.as_str()
-                            && local_workspace_roots_equal(&w.root_path, &path)
-                    })
-                    .map(|(wid, _)| wid.clone());
-
-                if let Some(legacy) = legacy_id {
-                    match self.rekey_workspace_id(&legacy, stable_local_id.clone()) {
-                        Ok(()) => Some(stable_local_id),
-                        Err(e) => {
-                            warn!(
-                                "Could not rekey local workspace {} -> {}: {}",
-                                legacy, stable_local_id, e
-                            );
-                            Some(legacy)
-                        }
-                    }
-                } else {
-                    None
-                }
-            }
+            self.workspaces
+                .iter()
+                .find(|(_, workspace)| local_workspace_roots_equal(&workspace.root_path, &path))
+                .map(|(workspace_id, _)| workspace_id.clone())
         };
 
         if let Some(workspace_id) = existing_workspace_id {
@@ -458,6 +448,9 @@ impl WorkspaceManager {
         let workspace = WorkspaceInfo::new(path, options.clone()).await?;
         let workspace_id = workspace.id.clone();
 
+        if let Some(existing) = self.workspaces.get_mut(&workspace_id) {
+            *existing = workspace.clone();
+        }
         self.workspaces
             .insert(workspace_id.clone(), workspace.clone());
         if keep_opened {

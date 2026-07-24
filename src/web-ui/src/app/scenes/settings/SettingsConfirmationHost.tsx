@@ -9,6 +9,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { ConfirmDialog } from '@/design-system';
 import {
+  configCatalogStore,
   configManager,
   type ConfigConfirmationRequiredError,
 } from '@/infrastructure/config';
@@ -62,8 +63,18 @@ export function SettingsConfirmationHost({ children }: { children: ReactNode }) 
   }, []);
 
   const preview = useMemo(() => pending?.error.plan.changes
-    .map((change) => humanizeId(change.settingId))
-    .join('\n'), [pending]);
+    .map((change) => {
+      const descriptor = configCatalogStore.getDescriptor(change.settingId);
+      if (!descriptor) {
+        return humanizeId(change.settingId);
+      }
+      const { fieldId, titleKey } = descriptor.presentation;
+      const fallback = t(`settings/config-center:fields.${fieldId}`, {
+        defaultValue: humanizeId(fieldId),
+      });
+      return t(titleKey, { defaultValue: fallback });
+    })
+    .join('\n'), [pending, t]);
 
   return (
     <SettingsConfirmationContext.Provider value={requestConfirmation}>

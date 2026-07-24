@@ -9,7 +9,6 @@ import {
   PencilLine,
   Play,
   Plus,
-  RotateCcw,
   RefreshCw,
   ShieldCheck,
   Sprout,
@@ -39,7 +38,7 @@ import type {
 import { getCatalogAppLaunchBehavior } from '@/app/agentic-os/work/domain/productAppLaunchPolicy';
 import { nativeAppWorkRef, productAppWorkRef, sameAppRef, sameProductAppRef } from '@/app/agentic-os/work/domain/productAppRefs';
 import type { WorkRecord, WorkStatus } from '@/app/agentic-os/work/domain/workTypes';
-import { AppIcon } from '../AppIcon';
+import { AppIcon } from '@/app/components/AppIcon';
 import type { AppDetailKind } from '../appsStore';
 import './AppDetailScene.scss';
 
@@ -67,7 +66,6 @@ interface AppDetailSceneProps {
   managing: boolean;
   onInstall: () => void;
   onCustomize: () => void;
-  onRollback: () => void;
   onSyncUpstream: () => void;
 }
 
@@ -585,7 +583,6 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
   managing,
   onInstall,
   onCustomize,
-  onRollback,
   onSyncUpstream,
 }) => {
   const { t } = useTranslation('scenes/apps');
@@ -888,12 +885,6 @@ export const AppDetailScene: React.FC<AppDetailSceneProps> = ({
               <Button variant="primary" size="small" onClick={onInstall} disabled={managing}>
                 <Download size={14} aria-hidden />
                 {t('productSystem.manage.update')}
-              </Button>
-            ) : null}
-            {productApp.previousReleaseId ? (
-              <Button variant="secondary" size="small" onClick={onRollback} disabled={managing}>
-                <RotateCcw size={14} aria-hidden />
-                {t('productSystem.actions.rollback')}
               </Button>
             ) : null}
           </div>

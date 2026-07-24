@@ -2124,34 +2124,85 @@ mod transaction_tests {
     }
 
     #[tokio::test]
-    async fn startup_rejects_unknown_current_schema_field() {
-        let (_temp, manager) = isolated_manager().await;
+    async fn startup_accepts_removed_fields_and_canonicalizes_them_on_next_save() {
+        let (_temp, mut manager) = isolated_manager().await;
         let path_manager = manager.path_manager.clone();
         let config_file = path_manager.app_config_file();
+        let seeded = commit_language(&mut manager, "en-US", "seed-stale-history").await;
+        let stale = manager
+            .transaction
+            .commits
+            .get_mut(&seeded.commit_id)
+            .expect("seeded commit");
+        stale.raw_changes[0].setting_id = "core.themes.pointer.scale".to_string();
+        stale.raw_changes[0].path = "themes.pointer.scale".to_string();
+        let authority = atomic_store::lock_exclusive(&config_file)
+            .await
+            .expect("config authority");
+        let stale_transaction = manager.transaction.clone();
+        manager
+            .persist_transaction_state(&authority, stale_transaction)
+            .await
+            .expect("persist stale journal");
+        drop(authority);
+
         let mut persisted: Value = serde_json::from_slice(
             &tokio::fs::read(&config_file)
                 .await
                 .expect("read persisted config"),
         )
         .expect("parse persisted config");
-        persisted["app"]["unknown_current_field"] = Value::Bool(true);
+        persisted["themes"]["pointer"] = serde_json::json!({
+            "scale": 1.25,
+            "accent": "legacy"
+        });
         tokio::fs::write(
             &config_file,
-            serde_json::to_vec_pretty(&persisted).expect("serialize invalid current config"),
+            serde_json::to_vec_pretty(&persisted).expect("serialize config with removed field"),
         )
         .await
-        .expect("write invalid current config");
+        .expect("write config with removed field");
         drop(manager);
 
-        let error = ConfigManager::new(ConfigManagerSettings {
-            path_manager: Some(path_manager),
+        let mut restarted = ConfigManager::new(ConfigManagerSettings {
+            path_manager: Some(path_manager.clone()),
             ..ConfigManagerSettings::default()
         })
         .await
-        .err()
-        .expect("unknown current field must fail");
+        .expect("removed fields must not block startup");
+        assert!(restarted.startup_status().is_persistent());
+        assert!(restarted.startup_status().writes_allowed);
+        assert_eq!(
+            restarted.config.themes.current,
+            persisted["themes"]["current"]
+        );
+        assert_eq!(restarted.transaction.revision, seeded.revision);
+        assert!(!restarted
+            .transaction
+            .commits
+            .contains_key(&seeded.commit_id));
+        assert!(!restarted
+            .transaction
+            .idempotency
+            .contains_key("seed-stale-history"));
 
-        assert!(error.to_string().contains("unknown_current_field"));
+        let unchanged: Value = serde_json::from_slice(
+            &tokio::fs::read(&config_file)
+                .await
+                .expect("read unchanged config"),
+        )
+        .expect("parse unchanged config");
+        assert!(unchanged["themes"].get("pointer").is_some());
+
+        commit_language(&mut restarted, "zh-CN", "canonicalize-removed-field").await;
+        let canonical: Value = serde_json::from_slice(
+            &tokio::fs::read(&config_file)
+                .await
+                .expect("read canonical config"),
+        )
+        .expect("parse canonical config");
+        assert!(canonical["themes"].get("pointer").is_none());
+        assert_eq!(canonical["app"]["language"], "zh-CN");
     }
 
     #[tokio::test]
@@ -2167,7 +2218,7 @@ mod transaction_tests {
                 .expect("read persisted config"),
         )
         .expect("parse persisted config");
-        persisted["app"]["unknown_current_field"] = Value::Bool(true);
+        persisted["app"]["language"] = Value::Bool(true);
         let original_config =
             serde_json::to_vec_pretty(&persisted).expect("serialize invalid current config");
         let original_vault = b"original-vault-bytes".to_vec();
@@ -2245,7 +2296,7 @@ mod transaction_tests {
         )
         .expect("parse rebuilt default config");
         assert_eq!(rebuilt["version"], CONFIG_SCHEMA_VERSION);
-        assert!(rebuilt["app"].get("unknown_current_field").is_none());
+        assert_eq!(rebuilt["app"]["language"], "zh-CN");
         assert!(!vault_file.exists());
         assert!(!key_file.exists());
 

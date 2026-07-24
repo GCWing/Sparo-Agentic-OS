@@ -164,28 +164,8 @@
 }
 
 .sparo-settings-manual-mode__header {
-  display: grid;
-  gap: var(--ds-space-2, 8px);
   padding-bottom: var(--ds-space-4, 16px);
   border-bottom: 1px solid var(--ds-color-border-subtle);
-
-  h1,
-  p {
-    margin: 0;
-  }
-
-  h1 {
-    font-size: var(--ds-font-size-xl, 20px);
-    font-weight: 650;
-    letter-spacing: -0.02em;
-  }
-
-  p {
-    max-width: 52rem;
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-font-size-sm, 13px);
-    line-height: 1.6;
-  }
 }
 
 .sparo-settings-section-host {

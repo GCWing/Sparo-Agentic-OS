@@ -6,11 +6,12 @@ use super::{
     scheduler::DialogSubmissionPolicy,
     turn_outcome::{SessionControlActor, TurnCancellationReason, TurnOutcome},
 };
-use crate::agentic::agents::{get_agent_registry, AgentCategory, PptLiveAgent, SettingsAgent};
+use crate::agentic::agents::{get_agent_registry, AgentCategory, SettingsAgent};
 use crate::agentic::app_builder_context::AppBuilderExecutionContext;
 use crate::agentic::core::{
     has_prompt_markup, Message, MessageContent, ProcessingPhase, PromptEnvelope, Session,
-    SessionConfig, SessionKind, SessionState, SessionStorageScope, SessionSummary, TurnStats,
+    SessionConfig, SessionDomain, SessionKind, SessionLocator, SessionState, SessionSummary,
+    TurnStats,
 };
 use crate::agentic::events::{
     AgenticEvent, EventPriority, EventQueue, EventRouter, EventSubscriber, SessionSurfaceMode,
@@ -35,12 +36,13 @@ use crate::agentic::memory::{
     AutoMemoryCompletedTurnFollowup, AutoMemoryManager, AutoMemoryQueueAction,
     AutoMemoryWorkspaceRunSnapshot,
 };
+use crate::agentic::product_app_context::resolve_product_app_execution_context;
 use crate::agentic::round_preempt::DialogRoundPreemptSource;
 use crate::agentic::session::SessionManager;
 use crate::agentic::session_hooks::{SessionHook, SessionHookBus, SessionHookKind};
 use crate::agentic::side_question::build_btw_user_input;
 use crate::agentic::tools::pipeline::{SubagentParentInfo, ToolPipeline};
-use crate::agentic::tools::ToolRuntimeRestrictions;
+use crate::agentic::tools::{build_product_app_runtime_restrictions, ToolRuntimeRestrictions};
 use crate::agentic::WorkspaceBinding;
 use crate::error::{CoreError, CoreResult};
 use crate::infrastructure::get_path_manager_arc;
@@ -79,8 +81,6 @@ const SETTINGS_AGENT_SESSION_ID_PREFIX: &str = "settings-agent-";
 const SETTINGS_AGENT_REQUEST_ID_MAX_BYTES: usize = 128;
 const SETTINGS_AGENT_PROMPT_MAX_BYTES: usize = 64 * 1024;
 const SETTINGS_AGENT_MODEL_ID: &str = "primary";
-const PPT_LIVE_BACKEND_CREATOR_PREFIX: &str = "product-app-runtime:";
-const PPT_LIVE_BACKEND_CREATOR_MARKER: &str = ":backend:ppt:";
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -289,40 +289,6 @@ pub struct ConversationCoordinator {
 }
 
 impl ConversationCoordinator {
-    fn ppt_live_agent_execution_settings(phase: Option<&str>) -> DialogExecutionSettings {
-        let mut allowed_tools = get_agent_registry()
-            .get_agent(PptLiveAgent::ID, None)
-            .map(|agent| agent.default_tools())
-            .unwrap_or_default();
-        if phase == Some("slides") {
-            allowed_tools.retain(|tool| tool == "Skill");
-        }
-        let runtime_tool_restrictions = ToolRuntimeRestrictions {
-            allowed_tool_names: allowed_tools.iter().cloned().collect(),
-            ..ToolRuntimeRestrictions::default()
-        };
-
-        DialogExecutionSettings {
-            tool_allowlist_override: Some(allowed_tools),
-            runtime_tool_restrictions,
-            surface_mode: SessionSurfaceMode::InternalBackground,
-            hidden_agent_access: HiddenAgentAccess::InternalRuntime,
-            tool_confirmation_policy: ToolConfirmationPolicy::UserConfigurable,
-        }
-    }
-
-    fn validate_ppt_live_backend_creator(created_by: &str) -> CoreResult<()> {
-        if created_by.starts_with(PPT_LIVE_BACKEND_CREATOR_PREFIX)
-            && created_by.contains(PPT_LIVE_BACKEND_CREATOR_MARKER)
-            && created_by.contains(":run:")
-        {
-            return Ok(());
-        }
-        Err(CoreError::Validation(
-            "PptLiveAgent rejected an unauthorized Product App backend owner".to_string(),
-        ))
-    }
-
     fn settings_agent_execution_settings() -> DialogExecutionSettings {
         let allowed_tools = vec![
             SettingsAgent::CATALOG_TOOL.to_string(),
@@ -411,10 +377,7 @@ impl ConversationCoordinator {
             || !matches!(session.kind, SessionKind::Internal)
             || session.agent_type != SettingsAgent::ID
             || session.created_by.as_deref() != Some(SETTINGS_FLOW_RUNTIME_SESSION_CREATOR)
-            || !matches!(
-                session.config.storage_scope,
-                Some(SessionStorageScope::AgenticOs)
-            )
+            || !matches!(session.config.domain, SessionDomain::Global)
             || session.config.model_id.as_deref() != Some(SETTINGS_AGENT_MODEL_ID)
         {
             return Err(CoreError::Validation(format!(
@@ -854,9 +817,9 @@ impl ConversationCoordinator {
         agent_type: String,
         config: SessionConfig,
     ) -> CoreResult<Session> {
-        let workspace_path = config.workspace_path.clone().ok_or_else(|| {
-            CoreError::Validation("workspace_path is required when creating a session".to_string())
-        })?;
+        let workspace_path = self
+            .session_manager
+            .resolve_session_execution_root(&config.domain, config.workspace_path.as_deref())?;
         self.create_session_with_workspace_and_creator(
             None,
             session_name,
@@ -876,9 +839,9 @@ impl ConversationCoordinator {
         agent_type: String,
         config: SessionConfig,
     ) -> CoreResult<Session> {
-        let workspace_path = config.workspace_path.clone().ok_or_else(|| {
-            CoreError::Validation("workspace_path is required when creating a session".to_string())
-        })?;
+        let workspace_path = self
+            .session_manager
+            .resolve_session_execution_root(&config.domain, config.workspace_path.as_deref())?;
         self.create_session_with_workspace_and_creator(
             session_id,
             session_name,
@@ -992,6 +955,9 @@ impl ConversationCoordinator {
             self.ensure_session_accepts_public_mutation(session_id)
                 .await?;
         }
+        let workspace_path = self
+            .session_manager
+            .resolve_session_execution_root(&config.domain, Some(&workspace_path))?;
         // Persist the workspace binding inside the session config so execution can
         // consistently restore the correct workspace regardless of the entry point.
         config.workspace_path = Some(workspace_path.clone());
@@ -1022,85 +988,18 @@ impl ConversationCoordinator {
             session_name: session.session_name.clone(),
             agent_type: session.agent_type.clone(),
             workspace_path: Some(workspace_path),
+            domain: match &session.config.domain {
+                SessionDomain::OsAgent => sparo_events::agentic::EventSessionDomain::OsAgent,
+                SessionDomain::Global => sparo_events::agentic::EventSessionDomain::Global,
+                SessionDomain::Workspace { workspace_id } => {
+                    sparo_events::agentic::EventSessionDomain::Workspace {
+                        workspace_id: workspace_id.clone(),
+                    }
+                }
+            },
         })
         .await;
         Ok(session)
-    }
-
-    /// Create one isolated internal session for a validated PPT Live backend action.
-    ///
-    /// This is intentionally narrower than the public session APIs: it fixes the
-    /// agent identity, hidden-agent access, session kind, and creator contract,
-    /// and it never emits a user-visible `SessionCreated` event.
-    pub async fn create_ppt_live_backend_session(
-        &self,
-        session_name: String,
-        mut config: SessionConfig,
-        workspace_path: String,
-        created_by: String,
-    ) -> CoreResult<Session> {
-        Self::validate_ppt_live_backend_creator(&created_by)?;
-        Self::ensure_agent_access(
-            PptLiveAgent::ID,
-            Some(&workspace_path),
-            HiddenAgentAccess::InternalRuntime,
-        )?;
-        config.workspace_path = Some(workspace_path);
-        config.storage_scope = Some(SessionStorageScope::AgenticOs);
-        self.session_manager
-            .create_session_with_id_and_details(
-                None,
-                session_name,
-                PptLiveAgent::ID.to_string(),
-                config,
-                Some(created_by),
-                SessionKind::Internal,
-            )
-            .await
-    }
-
-    /// Start a turn in an isolated PPT Live backend session with a fixed tool allowlist.
-    pub async fn start_ppt_live_backend_turn(
-        &self,
-        session_id: &str,
-        turn_id: &str,
-        prompt: String,
-        phase: Option<&str>,
-    ) -> CoreResult<()> {
-        let session = self
-            .session_manager
-            .get_session(session_id)
-            .ok_or_else(|| CoreError::NotFound(format!("Session not found: {session_id}")))?;
-        if !matches!(session.kind, SessionKind::Internal) || session.agent_type != PptLiveAgent::ID
-        {
-            return Err(CoreError::Validation(
-                "PptLiveAgent backend turn rejected an invalid internal session".to_string(),
-            ));
-        }
-        Self::validate_ppt_live_backend_creator(session.created_by.as_deref().unwrap_or_default())?;
-
-        self.start_dialog_turn_internal(
-            session.session_id.clone(),
-            prompt.clone(),
-            Some(prompt),
-            None,
-            Some(turn_id.to_string()),
-            PptLiveAgent::ID.to_string(),
-            None,
-            session.config.workspace_path.clone(),
-            DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi)
-                .with_persist_agent_type(false)
-                .with_skip_tool_confirmation(true),
-            Some(serde_json::json!({
-                "kind": "product_app_backend",
-                "backendId": "ppt",
-                "actionRunId": turn_id,
-                "phase": phase,
-            })),
-            Self::ppt_live_agent_execution_settings(phase),
-            true,
-        )
-        .await
     }
 
     /// Ensure the completed/failed/cancelled turn is persisted to the workspace
@@ -1114,16 +1013,13 @@ impl ConversationCoordinator {
     /// data, because the spawned task always runs before the frontend receives
     /// the DialogTurnCompleted event via the transport layer, and the existing
     /// disk data from debounced saves may have incomplete model rounds.
-    async fn finalize_turn_in_workspace(
+    async fn finalize_turn_in_domain(
         session_id: &str,
         turn_id: &str,
         turn_index: usize,
         user_input: &str,
         workspace_path: &str,
-        // Pre-resolved on-disk session storage path (mirror dir for remote workspaces).
-        // When present we use it directly so we never re-resolve without remote SSH info
-        // (which would derive a local workspace runtime id from a raw remote POSIX path).
-        resolved_session_storage_path: Option<&std::path::Path>,
+        domain: &SessionDomain,
         status: crate::service::session::TurnStatus,
         user_message_metadata: Option<serde_json::Value>,
     ) {
@@ -1138,17 +1034,13 @@ impl ConversationCoordinator {
             Err(_) => return,
         };
 
-        let workspace_path_buf = match resolved_session_storage_path {
-            Some(p) => p.to_path_buf(),
-            None => std::path::PathBuf::from(workspace_path),
-        };
         let persistence_manager = match PersistenceManager::new(path_manager) {
             Ok(manager) => manager,
             Err(_) => return,
         };
 
         if let Ok(Some(mut existing)) = persistence_manager
-            .load_dialog_turn(&workspace_path_buf, session_id, turn_index)
+            .load_dialog_turn(domain, session_id, turn_index)
             .await
         {
             let now_ms = std::time::SystemTime::now()
@@ -1162,7 +1054,7 @@ impl ConversationCoordinator {
                     .end_time
                     .map(|end_time| end_time.saturating_sub(existing.start_time));
                 if let Err(e) = persistence_manager
-                    .save_dialog_turn(&workspace_path_buf, &existing)
+                    .save_dialog_turn(domain, &existing)
                     .await
                 {
                     warn!(
@@ -1180,10 +1072,11 @@ impl ConversationCoordinator {
             .as_millis() as u64;
 
         if let Ok(None) = persistence_manager
-            .load_session_metadata(&workspace_path_buf, session_id)
+            .load_session_metadata(domain, session_id)
             .await
         {
             let metadata = SessionMetadata {
+                domain: domain.clone(),
                 session_id: session_id.to_string(),
                 session_name: "Recovered Session".to_string(),
                 agent_type: "Runno".to_string(),
@@ -1203,10 +1096,9 @@ impl ConversationCoordinator {
                 todos: None,
                 workspace_path: Some(workspace_path.to_string()),
                 workspace_hostname: None,
-                storage_scope: None,
             };
             if let Err(e) = persistence_manager
-                .save_session_metadata(&workspace_path_buf, &metadata)
+                .save_session_metadata(domain, &metadata)
                 .await
             {
                 warn!(
@@ -1234,7 +1126,7 @@ impl ConversationCoordinator {
         turn_data.duration_ms = Some(now_ms.saturating_sub(turn_data.start_time));
 
         if let Err(e) = persistence_manager
-            .save_dialog_turn(&workspace_path_buf, &turn_data)
+            .save_dialog_turn(domain, &turn_data)
             .await
         {
             warn!(
@@ -1276,24 +1168,25 @@ impl ConversationCoordinator {
             .await?;
 
         if context_messages.is_empty() && !session.dialog_turn_ids.is_empty() {
-            if let Some(workspace_path) = session.config.workspace_path.as_deref() {
-                match self
-                    .session_manager
-                    .restore_session(Path::new(workspace_path), session_id)
-                    .await
-                {
-                    Ok(_) => {
-                        context_messages = self
-                            .session_manager
-                            .get_context_messages(session_id)
-                            .await?;
-                    }
-                    Err(e) => {
-                        debug!(
-                            "Failed to restore parent session context for fork capture: session_id={}, error={}",
-                            session_id, e
-                        );
-                    }
+            match self
+                .session_manager
+                .restore_session(&SessionLocator {
+                    domain: session.config.domain.clone(),
+                    session_id: session_id.clone(),
+                })
+                .await
+            {
+                Ok(_) => {
+                    context_messages = self
+                        .session_manager
+                        .get_context_messages(session_id)
+                        .await?;
+                }
+                Err(e) => {
+                    debug!(
+                        "Failed to restore parent session context for fork capture: session_id={}, error={}",
+                        session_id, e
+                    );
                 }
             }
         }
@@ -1395,7 +1288,6 @@ impl ConversationCoordinator {
         turn_id: Option<String>,
         agent_type: String,
         system_reminder_override: Option<String>,
-        workspace_path: Option<String>,
         submission_policy: DialogSubmissionPolicy,
         extra_user_message_metadata: Option<serde_json::Value>,
     ) -> CoreResult<()> {
@@ -1409,7 +1301,6 @@ impl ConversationCoordinator {
             turn_id,
             agent_type,
             system_reminder_override,
-            workspace_path,
             submission_policy,
             extra_user_message_metadata,
             DialogExecutionSettings::default(),
@@ -1428,7 +1319,6 @@ impl ConversationCoordinator {
         turn_id: Option<String>,
         agent_type: String,
         system_reminder_override: Option<String>,
-        workspace_path: Option<String>,
         submission_policy: DialogSubmissionPolicy,
         extra_user_message_metadata: Option<serde_json::Value>,
     ) -> CoreResult<()> {
@@ -1442,7 +1332,6 @@ impl ConversationCoordinator {
             turn_id,
             agent_type,
             system_reminder_override,
-            workspace_path,
             submission_policy,
             extra_user_message_metadata,
             DialogExecutionSettings::default(),
@@ -1490,14 +1379,11 @@ impl ConversationCoordinator {
         };
 
         if needs_restore {
-            let workspace_path = session.config.workspace_path.as_deref().ok_or_else(|| {
-                CoreError::Validation(format!(
-                    "workspace_path is required when restoring session: {}",
-                    session_id
-                ))
-            })?;
             self.session_manager
-                .restore_session(Path::new(workspace_path), &session_id)
+                .restore_session(&SessionLocator {
+                    domain: session.config.domain.clone(),
+                    session_id: session_id.clone(),
+                })
                 .await?;
         }
 
@@ -1529,24 +1415,41 @@ impl ConversationCoordinator {
         .await;
 
         let current_tokens = Self::estimate_context_tokens(&context_messages);
-        let session_max_tokens = session.config.max_context_tokens;
-
-        // Unify context_window: min(model capability, session config)
-        let model_context_window =
-            match crate::infrastructure::ai::get_global_ai_client_factory().await {
-                Ok(factory) => {
-                    let model_id = session.config.model_id.as_deref().unwrap_or("default");
-                    match factory.get_client_resolved(model_id).await {
-                        Ok(client) => Some(client.config.context_window as usize),
-                        Err(_) => None,
-                    }
-                }
-                Err(_) => None,
-            };
-        let context_window = match model_context_window {
-            Some(mcw) => mcw.min(session_max_tokens),
-            None => session_max_tokens,
-        };
+        let ai_client_factory = crate::infrastructure::ai::get_global_ai_client_factory()
+            .await
+            .map_err(|error| {
+                CoreError::AiClient(format!(
+                    "Failed to resolve model context window for manual compaction: {error}"
+                ))
+            })?;
+        let model_workspace = session
+            .config
+            .workspace_path
+            .as_deref()
+            .map(|path| WorkspaceBinding::new(None, PathBuf::from(path)));
+        let model_id = self
+            .execution_engine
+            .resolve_model_id_for_turn(
+                &session,
+                &session.agent_type,
+                model_workspace.as_ref(),
+                MANUAL_COMPACTION_COMMAND,
+                turn_index,
+            )
+            .await?;
+        let ai_client = ai_client_factory
+            .get_client_resolved(&model_id)
+            .await
+            .map_err(|error| {
+                CoreError::AiClient(format!(
+                    "Failed to resolve model context window (model_id={model_id}): {error}"
+                ))
+            })?;
+        let context_window = session
+            .config
+            .context_policy
+            .resolve(ai_client.config.context_window as usize)?
+            .effective_context_window;
         let compression_threshold = session.config.compression_threshold;
 
         match self
@@ -1648,10 +1551,9 @@ impl ConversationCoordinator {
         turn_id: Option<String>,
         agent_type: String,
         system_reminder_override: Option<String>,
-        workspace_path: Option<String>,
         submission_policy: DialogSubmissionPolicy,
         extra_user_message_metadata: Option<serde_json::Value>,
-        execution_settings: DialogExecutionSettings,
+        mut execution_settings: DialogExecutionSettings,
         suppress_session_title_generation: bool,
     ) -> CoreResult<()> {
         let turn_surface_mode = execution_settings.surface_mode;
@@ -1660,19 +1562,10 @@ impl ConversationCoordinator {
         let session = match self.session_manager.get_session(&session_id) {
             Some(session) => session,
             None => {
-                debug!(
-                    "Session not found in memory, attempting restore before starting dialog: session_id={}",
+                return Err(CoreError::NotFound(format!(
+                    "Session must be restored with a SessionLocator before starting a dialog: {}",
                     session_id
-                );
-                let workspace_path = workspace_path.clone().ok_or_else(|| {
-                    CoreError::Validation(format!(
-                        "workspace_path is required when restoring session: {}",
-                        session_id
-                    ))
-                })?;
-                self.session_manager
-                    .restore_session(Path::new(&workspace_path), &session_id)
-                    .await?
+                )));
             }
         };
 
@@ -1705,6 +1598,41 @@ impl ConversationCoordinator {
             session.config.workspace_path.as_deref(),
             execution_settings.hidden_agent_access,
         )?;
+
+        let session_metadata = match self
+            .session_manager
+            .load_session_metadata(&session_id)
+            .await
+        {
+            Ok(metadata) => metadata,
+            Err(error) => {
+                warn!(
+                    "Failed to load Product App runtime metadata: session_id={}, error={}",
+                    session_id, error
+                );
+                None
+            }
+        };
+        let product_app_context = resolve_product_app_execution_context(
+            &session_id,
+            session.config.workspace_path.as_deref(),
+            session_metadata
+                .as_ref()
+                .and_then(|metadata| metadata.custom_metadata.as_ref()),
+        )
+        .await?;
+        if let Some(product_app_context) = product_app_context.as_ref() {
+            if let Some(product_app_restrictions) = build_product_app_runtime_restrictions(
+                product_app_context,
+                session_metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.custom_metadata.as_ref()),
+                &get_path_manager_arc().agentic_os_runtime_root(),
+            ) {
+                execution_settings.runtime_tool_restrictions.path_policy =
+                    product_app_restrictions.path_policy;
+            }
+        }
 
         Self::track_session_workspace_activity_best_effort(&session.config, "dialog_started").await;
 
@@ -1824,26 +1752,20 @@ impl ConversationCoordinator {
             );
             let restore_result = if matches!(session.kind, SessionKind::Internal) {
                 self.session_manager
-                    .restore_internal_agentic_os_session(&session_id)
+                    .restore_internal_session(
+                        &SessionLocator {
+                            domain: session.config.domain.clone(),
+                            session_id: session_id.clone(),
+                        },
+                        &session.config.domain,
+                    )
                     .await
             } else {
                 self.session_manager
-                    .restore_session(
-                        Path::new(
-                            session
-                                .config
-                                .workspace_path
-                                .as_deref()
-                                .or(workspace_path.as_deref())
-                                .ok_or_else(|| {
-                                    CoreError::Validation(format!(
-                                        "workspace_path is required when restoring session: {}",
-                                        session_id
-                                    ))
-                                })?,
-                        ),
-                        &session_id,
-                    )
+                    .restore_session(&SessionLocator {
+                        domain: session.config.domain.clone(),
+                        session_id: session_id.clone(),
+                    })
                     .await
             };
             match restore_result {
@@ -2015,10 +1937,6 @@ impl ConversationCoordinator {
         // Create execution context (pass full config and resource IDs)
         let mut context_vars = std::collections::HashMap::new();
         context_vars.insert(
-            "max_context_tokens".to_string(),
-            session.config.max_context_tokens.to_string(),
-        );
-        context_vars.insert(
             "enable_tools".to_string(),
             session.config.enable_tools.to_string(),
         );
@@ -2039,13 +1957,13 @@ impl ConversationCoordinator {
 
         // Pass turn_index (for operation history/rollback)
         context_vars.insert("turn_index".to_string(), turn_index.to_string());
+        if let Some(product_app_context) = product_app_context.as_ref() {
+            product_app_context.insert_context_vars(&mut context_vars);
+        }
         let session_workspace_path = session_workspace
             .as_ref()
             .map(|workspace| workspace.root_path_string());
-        // Pre-resolve the on-disk session storage path for the bound workspace root.
-        let session_storage_path = session_workspace
-            .as_ref()
-            .map(|workspace| workspace.session_storage_path().to_path_buf());
+        let session_domain = session.config.domain.clone();
 
         let (workspace_mount, agentic) = self.build_execution_handles(
             session
@@ -2064,6 +1982,7 @@ impl ConversationCoordinator {
 
         let execution_context = ExecutionContext {
             session_id: session_id.clone(),
+            session_domain: session_domain.clone(),
             dialog_turn_id: turn_id.clone(),
             turn_index,
             agent_type: effective_agent_type.clone(),
@@ -2075,6 +1994,7 @@ impl ConversationCoordinator {
             skip_tool_confirmation: submission_policy.skip_tool_confirmation,
             tool_confirmation_policy: execution_settings.tool_confirmation_policy,
             runtime_tool_restrictions: execution_settings.runtime_tool_restrictions,
+            product_app: product_app_context,
             app_builder,
             workspace_services,
             workspace_mount,
@@ -2139,13 +2059,13 @@ impl ConversationCoordinator {
         let session_id_clone = session_id.clone();
         let turn_id_clone = turn_id.clone();
         let user_input_for_workspace = wrapped_user_input.clone();
-        let session_storage_path_for_finalize = session_storage_path.clone();
+        let session_domain_for_finalize = session_domain;
         let is_settings_agent_turn = effective_agent_type == SettingsAgent::ID;
         let effective_agent_type_clone = effective_agent_type.clone();
         let user_message_metadata_clone = user_message_metadata;
         let scheduler_notify_tx = self.scheduler_notify_tx.get().cloned();
         let session_kind = session.kind;
-        let auto_memory_context = resolve_local_auto_memory_context(&session);
+        let auto_memory_context = resolve_local_auto_memory_context(&session)?;
         let coordinator_for_spawn = self.self_arc();
 
         tokio::spawn(async move {
@@ -2382,13 +2302,13 @@ impl ConversationCoordinator {
                 if let (Some(ref wp), Some(status)) =
                     (&session_workspace_path, workspace_turn_status)
                 {
-                    Self::finalize_turn_in_workspace(
+                    Self::finalize_turn_in_domain(
                         &session_id_clone,
                         &turn_id_clone,
                         turn_index,
                         &user_input_for_workspace,
                         wp,
-                        session_storage_path_for_finalize.as_deref(),
+                        &session_domain_for_finalize,
                         status,
                         user_message_metadata_clone,
                     )
@@ -2525,7 +2445,7 @@ impl ConversationCoordinator {
             return Ok(false);
         }
 
-        if resolve_local_auto_memory_context(&session).is_none() {
+        if resolve_local_auto_memory_context(&session)?.is_none() {
             return Ok(false);
         }
 
@@ -2602,7 +2522,7 @@ impl ConversationCoordinator {
                 MemoryScope::GlobalAgenticOs => MemoryStoreTarget::GlobalAgenticOs,
             };
             ensure_memory_store_for_target(memory_target).await?;
-            let memory_dir = memory_store_dir_path_for_target(memory_target);
+            let memory_dir = memory_store_dir_path_for_target(memory_target)?;
             let memory_dir_display = memory_dir.to_string_lossy().replace('\\', "/");
             let existing_memories = build_memory_manifest_for_target(memory_target).await?;
             let snapshot = self.capture_fork_agent_context_snapshot(session_id).await?;
@@ -2905,22 +2825,20 @@ impl ConversationCoordinator {
     /// Delete a session through the public ownership boundary.
     /// Application-lifecycle SettingsAgent state is owned by reset/shutdown and cannot be
     /// invalidated through the generic session API.
-    pub async fn delete_session(&self, workspace_path: &Path, session_id: &str) -> CoreResult<()> {
-        self.ensure_session_accepts_public_mutation(session_id)
+    pub async fn delete_session(&self, locator: &SessionLocator) -> CoreResult<()> {
+        self.ensure_session_accepts_public_mutation(&locator.session_id)
             .await?;
-        self.delete_session_internal(workspace_path, session_id)
-            .await
+        self.delete_session_internal(locator).await
     }
 
-    async fn delete_session_internal(
-        &self,
-        workspace_path: &Path,
-        session_id: &str,
-    ) -> CoreResult<()> {
+    async fn delete_session_internal(&self, locator: &SessionLocator) -> CoreResult<()> {
+        let session_id = locator.session_id.as_str();
+        let workspace_path = self
+            .session_manager
+            .get_session(session_id)
+            .and_then(|session| session.config.workspace_path);
         self.auto_memory_manager.cancel_session(session_id);
-        self.session_manager
-            .delete_session(workspace_path, session_id)
-            .await?;
+        self.session_manager.delete_session(locator).await?;
         self.emit_event(AgenticEvent::SessionDeleted {
             session_id: session_id.to_string(),
         })
@@ -2928,7 +2846,7 @@ impl ConversationCoordinator {
         self.session_hook_bus
             .publish(SessionHook::new(
                 session_id.to_string(),
-                Some(workspace_path.to_string_lossy().to_string()),
+                workspace_path,
                 SessionHookKind::SessionLifecycleChanged {
                     state: "deleted".to_string(),
                     reason: "session_deleted".to_string(),
@@ -2939,21 +2857,14 @@ impl ConversationCoordinator {
     }
 
     /// Restore session
-    pub async fn restore_session(
-        &self,
-        workspace_path: &Path,
-        session_id: &str,
-    ) -> CoreResult<Session> {
-        self.ensure_session_accepts_public_mutation(session_id)
+    pub async fn restore_session(&self, locator: &SessionLocator) -> CoreResult<Session> {
+        self.ensure_session_accepts_public_mutation(&locator.session_id)
             .await?;
-        let session = self
-            .session_manager
-            .restore_session(workspace_path, session_id)
-            .await?;
+        let session = self.session_manager.restore_session(locator).await?;
         self.session_hook_bus
             .publish(SessionHook::new(
-                session_id.to_string(),
-                Some(workspace_path.to_string_lossy().to_string()),
+                locator.session_id.clone(),
+                session.config.workspace_path.clone(),
                 SessionHookKind::SessionRestored {
                     reason: "session_restored".to_string(),
                 },
@@ -2963,8 +2874,8 @@ impl ConversationCoordinator {
     }
 
     /// List all sessions
-    pub async fn list_sessions(&self, workspace_path: &Path) -> CoreResult<Vec<SessionSummary>> {
-        self.session_manager.list_sessions(workspace_path).await
+    pub async fn list_sessions(&self, domain: &SessionDomain) -> CoreResult<Vec<SessionSummary>> {
+        self.session_manager.list_sessions(domain).await
     }
 
     /// Get a best-effort message view for a session.
@@ -3196,6 +3107,7 @@ impl ConversationCoordinator {
         }
         let execution_context = ExecutionContext {
             session_id: session.session_id.clone(),
+            session_domain: session.config.domain.clone(),
             dialog_turn_id: dialog_turn_id.clone(),
             turn_index: 0,
             agent_type: agent_type.clone(),
@@ -3210,6 +3122,7 @@ impl ConversationCoordinator {
             skip_tool_confirmation: true,
             tool_confirmation_policy: ToolConfirmationPolicy::UserConfigurable,
             runtime_tool_restrictions,
+            product_app: None,
             app_builder,
             workspace_services: subagent_services,
             workspace_mount: subagent_mount,
@@ -3322,10 +3235,9 @@ impl ConversationCoordinator {
     }
 
     async fn cleanup_stale_settings_agent_sessions(&self) -> CoreResult<usize> {
-        let workspace_path = get_path_manager_arc().agentic_os_runtime_root();
         self.session_manager
             .delete_internal_sessions_by_agent_and_prefix(
-                &workspace_path,
+                &SessionDomain::Global,
                 SettingsAgent::ID,
                 SETTINGS_AGENT_SESSION_ID_PREFIX,
             )
@@ -3346,9 +3258,8 @@ impl ConversationCoordinator {
                 SettingsAgent::ID.to_string(),
                 SessionConfig {
                     workspace_path: Some(workspace_path),
-                    storage_scope: Some(SessionStorageScope::AgenticOs),
                     model_id: Some(SETTINGS_AGENT_MODEL_ID.to_string()),
-                    ..SessionConfig::default()
+                    ..SessionConfig::new(SessionDomain::Global)
                 },
                 Some(SETTINGS_FLOW_RUNTIME_SESSION_CREATOR.to_string()),
                 SessionKind::Internal,
@@ -3412,19 +3323,23 @@ impl ConversationCoordinator {
             ));
         }
 
-        let workspace_path = get_path_manager_arc().agentic_os_runtime_root();
-        let rollback_workspace_path = workspace_path.clone();
         Self::replace_settings_agent_session_transaction(
             &mut lifecycle,
             session_id,
             || self.create_settings_agent_session(),
             |current_session_id| async move {
-                self.delete_session_internal(&workspace_path, &current_session_id)
-                    .await
+                self.delete_session_internal(&SessionLocator {
+                    domain: SessionDomain::Global,
+                    session_id: current_session_id,
+                })
+                .await
             },
             |replacement_session_id| async move {
-                self.delete_session_internal(&rollback_workspace_path, &replacement_session_id)
-                    .await
+                self.delete_session_internal(&SessionLocator {
+                    domain: SessionDomain::Global,
+                    session_id: replacement_session_id,
+                })
+                .await
             },
         )
         .await
@@ -3489,9 +3404,11 @@ impl ConversationCoordinator {
         let _ = self
             .cancel_active_turn_for_session(&session_id, Duration::from_secs(2))
             .await;
-        let workspace_path = get_path_manager_arc().agentic_os_runtime_root();
-        self.delete_session_internal(&workspace_path, &session_id)
-            .await
+        self.delete_session_internal(&SessionLocator {
+            domain: SessionDomain::Global,
+            session_id,
+        })
+        .await
     }
 
     /// Privileged standard-FlowChat entry point for the active settings session.
@@ -3570,7 +3487,6 @@ impl ConversationCoordinator {
                 Some(turn_id.clone()),
                 SettingsAgent::ID.to_string(),
                 None,
-                session.config.workspace_path.clone(),
                 DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopUi)
                     .with_skip_tool_confirmation(false)
                     .with_persist_agent_type(false),
@@ -3653,7 +3569,6 @@ impl ConversationCoordinator {
             Some(turn_id.clone()),
             child_session.agent_type.clone(),
             None,
-            child_session.config.workspace_path.clone(),
             DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi)
                 .with_skip_tool_confirmation(true),
             user_message_metadata,
@@ -3715,7 +3630,6 @@ impl ConversationCoordinator {
             Some(turn_id.clone()),
             child_session.agent_type.clone(),
             None,
-            child_session.config.workspace_path.clone(),
             submission_policy,
             user_message_metadata,
             Self::host_scan_execution_settings(),
@@ -3789,7 +3703,6 @@ impl ConversationCoordinator {
             Some(turn_id.clone()),
             child_session.agent_type.clone(),
             Some(system_reminder),
-            child_session.config.workspace_path.clone(),
             submission_policy,
             user_message_metadata,
             Self::workspace_overview_execution_settings(runtime_tool_restrictions),
@@ -3850,7 +3763,6 @@ impl ConversationCoordinator {
             Some(turn_id.clone()),
             child_session.agent_type.clone(),
             None,
-            child_session.config.workspace_path.clone(),
             DialogSubmissionPolicy::for_source(DialogTriggerSource::ScheduledJob)
                 .with_skip_tool_confirmation(true)
                 .with_persist_agent_type(false),
@@ -3911,7 +3823,6 @@ impl ConversationCoordinator {
             Some(turn_id.clone()),
             child_session.agent_type.clone(),
             None,
-            child_session.config.workspace_path.clone(),
             DialogSubmissionPolicy::for_source(DialogTriggerSource::ScheduledJob)
                 .with_skip_tool_confirmation(true)
                 .with_persist_agent_type(false),
@@ -3942,8 +3853,7 @@ impl ConversationCoordinator {
             agent_type,
             SessionConfig {
                 workspace_path: Some(workspace_path),
-                storage_scope: Some(SessionStorageScope::AgenticOs),
-                ..SessionConfig::default()
+                ..SessionConfig::new(SessionDomain::Global)
             },
             created_by,
         )
@@ -4044,6 +3954,7 @@ impl ConversationCoordinator {
                 "workspace_path is required when creating a subagent session".to_string(),
             )
         })?;
+        let workspace_id = get_path_manager_arc().workspace_id(Path::new(&workspace_path))?;
 
         self.execute_hidden_subagent_internal(
             HiddenSubagentExecutionRequest {
@@ -4051,7 +3962,7 @@ impl ConversationCoordinator {
                 agent_type,
                 session_config: SessionConfig {
                     workspace_path: Some(workspace_path),
-                    ..SessionConfig::default()
+                    ..SessionConfig::new(SessionDomain::Workspace { workspace_id })
                 },
                 initial_messages: vec![Message::user(task_description)],
                 created_by: Some(format!("session-{}", subagent_parent_info.session_id)),
@@ -4084,7 +3995,7 @@ impl ConversationCoordinator {
                     agent_type,
                     session_config: SessionConfig {
                         workspace_path: Some(workspace_path),
-                        ..SessionConfig::default()
+                        ..SessionConfig::new(SessionDomain::Global)
                     },
                     initial_messages: vec![Message::user(prompt)],
                     created_by,
@@ -4121,7 +4032,7 @@ impl ConversationCoordinator {
                     agent_type: DAILY_LETTER_WRITER_AGENT_TYPE.to_string(),
                     session_config: SessionConfig {
                         workspace_path: Some(workspace_path),
-                        ..SessionConfig::default()
+                        ..SessionConfig::new(SessionDomain::Global)
                     },
                     initial_messages: vec![Message::user(prompt)],
                     created_by: Some(format!("background-daily-letter-{}", request_id.trim())),
@@ -4183,17 +4094,16 @@ impl ConversationCoordinator {
         }
 
         // Delete the subagent session itself, including runtime context and persisted turn data.
-        let workspace_path = self
+        let locator = self
             .session_manager
             .get_session(session_id)
-            .and_then(|session| session.config.workspace_path.map(std::path::PathBuf::from));
+            .map(|session| SessionLocator {
+                domain: session.config.domain,
+                session_id: session_id.to_string(),
+            });
 
-        if let Some(workspace_path) = workspace_path {
-            if let Err(e) = self
-                .session_manager
-                .delete_session(&workspace_path, session_id)
-                .await
-            {
+        if let Some(locator) = locator {
+            if let Err(e) = self.session_manager.delete_session(&locator).await {
                 warn!(
                     "Failed to delete subagent session: session={}, error={}",
                     session_id, e
@@ -4203,7 +4113,7 @@ impl ConversationCoordinator {
             }
         } else {
             warn!(
-                "Failed to delete subagent session because workspace_path is missing: session={}",
+                "Failed to delete subagent session because domain is missing: session={}",
                 session_id
             );
         }
@@ -4372,7 +4282,6 @@ impl ConversationCoordinator {
     #[allow(clippy::too_many_arguments)]
     pub async fn persist_btw_turn(
         &self,
-        workspace_path: &Path,
         child_session_id: &str,
         request_id: &str,
         question: &str,
@@ -4385,7 +4294,6 @@ impl ConversationCoordinator {
             .await?;
         self.session_manager
             .persist_btw_turn(
-                workspace_path,
                 child_session_id,
                 request_id,
                 question,
@@ -4599,7 +4507,7 @@ mod tests {
             "replacement-session".to_string(),
             SETTINGS_AGENT_SESSION_NAME.to_string(),
             SettingsAgent::ID.to_string(),
-            SessionConfig::default(),
+            SessionConfig::new(SessionDomain::Global),
         );
 
         let result = ConversationCoordinator::replace_settings_agent_session_transaction(
@@ -4667,64 +4575,6 @@ mod tests {
             !DialogSubmissionPolicy::for_source(DialogTriggerSource::DesktopApi)
                 .skip_tool_confirmation
         );
-    }
-
-    #[test]
-    fn ppt_live_backend_boundary_uses_the_agent_allowlist() {
-        let settings = ConversationCoordinator::ppt_live_agent_execution_settings(Some("plan"));
-        let allowed_tools = settings
-            .tool_allowlist_override
-            .expect("PPT Live allowlist should be explicit");
-
-        assert_eq!(
-            allowed_tools,
-            vec![
-                "Skill".to_string(),
-                "WebSearch".to_string(),
-                "WebFetch".to_string(),
-            ]
-        );
-        assert_eq!(
-            settings.runtime_tool_restrictions.allowed_tool_names,
-            allowed_tools.into_iter().collect()
-        );
-        assert_eq!(
-            settings.surface_mode,
-            SessionSurfaceMode::InternalBackground
-        );
-        assert_eq!(
-            settings.hidden_agent_access,
-            HiddenAgentAccess::InternalRuntime
-        );
-    }
-
-    #[test]
-    fn ppt_live_render_phase_cannot_research() {
-        let settings = ConversationCoordinator::ppt_live_agent_execution_settings(Some("slides"));
-        assert_eq!(
-            settings.tool_allowlist_override,
-            Some(vec!["Skill".to_string()])
-        );
-        assert_eq!(
-            settings.runtime_tool_restrictions.allowed_tool_names,
-            ["Skill".to_string()].into_iter().collect()
-        );
-    }
-
-    #[test]
-    fn ppt_live_backend_creator_must_be_a_scoped_action_run() {
-        assert!(ConversationCoordinator::validate_ppt_live_backend_creator(
-            "product-app-runtime:work-1:runtime-1:backend:ppt:deck-1:run:run-1"
-        )
-        .is_ok());
-        assert!(ConversationCoordinator::validate_ppt_live_backend_creator(
-            "product-app-runtime:work-1:runtime-1:backend:ppt"
-        )
-        .is_err());
-        assert!(ConversationCoordinator::validate_ppt_live_backend_creator(
-            "product-app-runtime:work-1:runtime-1:backend:other:run:run-1"
-        )
-        .is_err());
     }
 
     #[test]

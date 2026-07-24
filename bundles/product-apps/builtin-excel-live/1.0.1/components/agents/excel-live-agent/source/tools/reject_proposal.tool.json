@@ -1,0 +1,73 @@
+{
+  "name": "reject_proposal",
+  "description": "Discard the active proposal without changing committed cells. Prefer calling this only when the user explicitly asks you to Reject from chat.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "workbookId",
+      "proposalId",
+      "expectedRevision"
+    ],
+    "properties": {
+      "workbookId": {
+        "type": "string"
+      },
+      "proposalId": {
+        "type": "string",
+        "description": "Exact active proposal id reviewed by the user."
+      },
+      "expectedRevision": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Exact workbook revision containing the proposal."
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/reject_proposal.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 60000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "excel-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "detailed",
+      "primaryColor": "var(--ds-tool-family-agent-component-fg)",
+      "displayName": "Reject Proposal",
+      "icon": "X",
+      "title": "Reject Proposal",
+      "summary": {
+        "preparing": "Preparing reject",
+        "running": "Rejecting proposal",
+        "completed": "Proposal rejected",
+        "failed": "Reject failed"
+      },
+      "fields": [
+        {
+          "label": "Workbook",
+          "inputPath": [
+            "workbookId"
+          ]
+        },
+        {
+          "label": "Proposal",
+          "inputPath": [
+            "proposalId"
+          ]
+        },
+        {
+          "label": "Status",
+          "resultPath": [
+            "bridge",
+            "status"
+          ]
+        }
+      ]
+    }
+  }
+}

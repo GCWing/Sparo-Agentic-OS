@@ -12,7 +12,7 @@ use sparo_events::{
     ConfigScope, ConfigStoredValue, ConfigValueChange, PublishedConfigValueChange,
     SettingsSectionRef,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::OnceLock;
 
 pub(crate) const PLAN_TTL_MILLIS: i64 = 5 * 60 * 1_000;
@@ -411,13 +411,47 @@ impl ConfigTransactionState {
             ));
         }
 
+        // A field removed from the current persistence schema can still appear
+        // in the bounded undo journal. The current snapshot remains
+        // authoritative, so discard only commits that can no longer be safely
+        // replayed instead of rejecting the entire configuration.
+        let stale_commit_ids = journal
+            .commits
+            .iter()
+            .filter_map(|(commit_id, stored)| {
+                stored
+                    .raw_changes
+                    .iter()
+                    .any(|change| {
+                        catalog
+                            .find(&change.setting_id)
+                            .map(|descriptor| descriptor.storage.path.as_str())
+                            != Some(change.path.as_str())
+                    })
+                    .then(|| commit_id.clone())
+            })
+            .collect::<HashSet<_>>();
+        let mut commits = journal.commits;
+        commits.retain(|commit_id, _| !stale_commit_ids.contains(commit_id));
+        let mut idempotency = journal.idempotency;
+        let idempotency_count_before = idempotency.len();
+        idempotency.retain(|_, record| !stale_commit_ids.contains(&record.commit.commit_id));
+        if !stale_commit_ids.is_empty() {
+            log::warn!(
+                "Discarded stale config transaction history: revision={}, commits={}, idempotency_records={}",
+                revision,
+                stale_commit_ids.len(),
+                idempotency_count_before.saturating_sub(idempotency.len())
+            );
+        }
+
         let mut state = Self {
             revision,
             catalog,
             pending_plans: HashMap::new(),
             plan_idempotency: HashMap::new(),
-            commits: journal.commits,
-            idempotency: journal.idempotency,
+            commits,
+            idempotency,
         };
         state.prune_transaction_history(chrono::Utc::now().timestamp_millis());
         Ok(state)
@@ -914,6 +948,57 @@ mod tests {
         assert!(!state
             .commits
             .contains_key(&format!("retained-{:03}", MAX_TRANSACTION_HISTORY_ENTRIES)));
+    }
+
+    #[test]
+    fn restore_discards_only_history_for_removed_settings() {
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        let config = serde_json::to_value(GlobalConfig::default()).expect("serialize config");
+        let catalog = ConfigCatalog::build(&config, &config).expect("build current catalog");
+
+        let mut current = stored_commit("current", now_ms);
+        current.commit.revision = 6;
+        current.raw_changes[0].setting_id = "core.themes.current".to_string();
+        current.raw_changes[0].path = "themes.current".to_string();
+
+        let mut stale = stored_commit("stale", now_ms);
+        stale.commit.revision = 7;
+        stale.raw_changes[0].setting_id = "core.themes.pointer.scale".to_string();
+        stale.raw_changes[0].path = "themes.pointer.scale".to_string();
+
+        let journal = DurableConfigTransactionJournal {
+            format_version: TRANSACTION_JOURNAL_FORMAT_VERSION,
+            revision: 7,
+            commits: HashMap::from([
+                ("current".to_string(), current.clone()),
+                ("stale".to_string(), stale.clone()),
+            ]),
+            idempotency: HashMap::from([
+                (
+                    "current-key".to_string(),
+                    IdempotencyRecord {
+                        fingerprint: "current-fingerprint".to_string(),
+                        commit: current.commit,
+                    },
+                ),
+                (
+                    "stale-key".to_string(),
+                    IdempotencyRecord {
+                        fingerprint: "stale-fingerprint".to_string(),
+                        commit: stale.commit,
+                    },
+                ),
+            ]),
+        };
+
+        let restored =
+            ConfigTransactionState::restore(catalog, journal).expect("restore tolerant journal");
+
+        assert_eq!(restored.revision, 7);
+        assert!(restored.commits.contains_key("current"));
+        assert!(!restored.commits.contains_key("stale"));
+        assert!(restored.idempotency.contains_key("current-key"));
+        assert!(!restored.idempotency.contains_key("stale-key"));
     }
 
     #[test]

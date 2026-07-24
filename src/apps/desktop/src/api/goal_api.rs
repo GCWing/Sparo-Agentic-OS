@@ -2,7 +2,7 @@ use sparo_core::agentic::goal::{
     GoalControlRequest, GoalEditRequest, GoalResponse, GoalService, GoalStatusRequest,
     GoalUserRequest,
 };
-use sparo_core::agentic::{coordination::DialogScheduler, core::SessionStorageScope};
+use sparo_core::agentic::{coordination::DialogScheduler, core::SessionDomain};
 use std::sync::Arc;
 use tauri::State;
 
@@ -108,10 +108,8 @@ fn is_agentic_os_goal_unsupported(
         .session_manager()
         .get_session(session_id)
         .is_some_and(|session| {
-            matches!(
-                session.config.storage_scope,
-                Some(SessionStorageScope::AgenticOs)
-            ) || is_agentic_os_agent_type(&session.agent_type)
+            matches!(session.config.domain, SessionDomain::OsAgent)
+                || is_agentic_os_agent_type(&session.agent_type)
         })
 }
 

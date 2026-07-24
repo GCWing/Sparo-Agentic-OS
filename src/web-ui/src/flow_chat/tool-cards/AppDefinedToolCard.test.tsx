@@ -15,6 +15,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
+    i18n: { language: 'zh-CN' },
   }),
 }));
 
@@ -115,6 +116,78 @@ describe('AppDefinedToolCard', () => {
     expect(html).not.toContain('lucide-info');
     expect(html).toContain('Workbook Meta:');
     expect(html).toContain('Workbook meta loaded');
+  });
+
+  it('localizes manifest titles, summaries, and field labels for the active locale', () => {
+    const toolConfig = config([{ label: 'Workbook', inputPath: ['workbookId'] }]);
+    toolConfig.extensionCard!.locales = {
+      'zh-CN': {
+        title: '工作簿信息',
+        displayName: '工作簿信息',
+        summary: { completed: '工作簿信息已加载' },
+        fields: [{ label: '工作簿' }],
+      },
+    };
+    const localizedTool = tool({
+      status: 'completed',
+      runtime: {
+        lifecycle: 'completed',
+        inputPhase: 'parsed',
+        confirmation: 'none',
+        input: { workbookId: 'book-1' },
+      },
+      toolResult: {
+        success: true,
+        result: { bridge: { status: 'completed', output: { revision: 3 } } },
+      },
+    });
+
+    const html = renderToStaticMarkup(
+      <AppDefinedToolCard
+        config={toolConfig}
+        toolItem={localizedTool}
+      />,
+    );
+
+    expect(html).toContain('工作簿信息:');
+    expect(html).toContain('工作簿信息已加载');
+    expect(html).not.toContain('Workbook Meta');
+
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    act(() => {
+      root.render(<AppDefinedToolCard config={toolConfig} toolItem={localizedTool} />);
+    });
+    act(() => {
+      host.querySelector<HTMLButtonElement>('[aria-label="toolCards.common.expand"]')?.click();
+    });
+    expect(host.textContent).toContain('工作簿:');
+
+    act(() => root.unmount());
+    host.remove();
+  });
+
+  it.each([
+    ['Presentation', 'lucide-presentation'],
+    ['Palette', 'lucide-palette'],
+    ['RefreshCw', 'lucide-refresh-cw'],
+    ['Download', 'lucide-download'],
+  ])('renders the declared generic Lucide icon %s in detail cards', (icon, className) => {
+    const toolConfig = config();
+    toolConfig.displayMode = 'detailed';
+    toolConfig.extensionCard = {
+      ...toolConfig.extensionCard!,
+      family: 'generic-extension',
+      template: 'detail',
+      icon,
+    };
+
+    const html = renderToStaticMarkup(
+      <AppDefinedToolCard config={toolConfig} toolItem={tool()} />,
+    );
+
+    expect(html).toContain(className);
   });
 
   it('keeps confirm and cancel actions visible for mutating extension tools', () => {

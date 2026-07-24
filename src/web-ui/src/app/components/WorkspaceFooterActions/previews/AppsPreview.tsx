@@ -10,7 +10,7 @@ import {
 } from '@/app/agentic-os/work/domain/productAppLaunchPolicy';
 import { openWork } from '@/app/agentic-os/work/navigation/openWork';
 import { productAppWorkChoice } from '@/app/components/WorkDock/NewWorkDialog';
-import { AppIcon } from '@/app/scenes/apps/AppIcon';
+import { AppIcon } from '@/app/components/AppIcon';
 import { useAppsStore } from '@/app/scenes/apps/appsStore';
 import { createAndOpenAppBuilder } from '@/app/scenes/apps/app-builder/openAppBuilderSession';
 import { launchActiveIntelligentApp } from '@/app/scenes/apps/intelligentAppLaunchService';

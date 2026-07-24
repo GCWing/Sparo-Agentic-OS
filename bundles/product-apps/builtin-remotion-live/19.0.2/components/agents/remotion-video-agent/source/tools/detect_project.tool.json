@@ -1,0 +1,18 @@
+{
+  "name": "detect_project",
+  "description": "Detect whether the current workspace is a Remotion project and locate the entry point, package manager, renderer, and project diagnostics.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "workspacePath": { "type": "string" },
+      "entryPoint": { "type": "string" }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/detect_project.js",
+  "readonly": true,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 12000
+}

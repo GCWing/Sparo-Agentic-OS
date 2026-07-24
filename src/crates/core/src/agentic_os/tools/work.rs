@@ -4,8 +4,8 @@ use serde_json::{json, Value};
 use crate::agentic_os::work::{
     AdvanceWorkRequest, ControlWorkAction, ControlWorkRequest, PrimarySurfacePolicy,
     ReclassifyWorkRequest, StartWorkRequest, UpdateWorkRequest, WorkAssignmentKind,
-    WorkAssignmentRef, WorkId, WorkKind, WorkOwnerRef, WorkProjection, WorkRecord, WorkScope,
-    WorkService, WorkStatus, WorkSubject, WorkVisibility,
+    WorkAssignmentRef, WorkId, WorkKind, WorkLocator, WorkOwnerRef, WorkProjection, WorkRecord,
+    WorkScope, WorkService, WorkStatus, WorkSubject, WorkVisibility,
 };
 use crate::error::{CoreError, CoreResult};
 
@@ -49,6 +49,8 @@ pub struct WorkInput {
     #[serde(default)]
     pub scope: Option<WorkScope>,
     #[serde(default)]
+    pub workspace_path: Option<String>,
+    #[serde(default)]
     pub executor: Option<WorkExecutorInput>,
     #[serde(default)]
     pub control_action: Option<ControlWorkAction>,
@@ -88,6 +90,7 @@ async fn start_work(service: &WorkService, input: WorkInput) -> CoreResult<Value
             scope: input
                 .scope
                 .ok_or_else(|| CoreError::validation("scope is required for action=start"))?,
+            workspace_path: input.workspace_path,
             visibility: WorkVisibility::Primary,
             primary_surface_policy: PrimarySurfacePolicy::WorkSession,
             assignment: Some(assignment.unwrap_or_else(|| WorkAssignmentRef::agent("Runno"))),
@@ -100,7 +103,7 @@ async fn start_work(service: &WorkService, input: WorkInput) -> CoreResult<Value
     if input.topic_work_id.is_some() || input.clear_topic_work_id.unwrap_or(false) {
         work = service
             .update(
-                &work.id,
+                &work.locator(),
                 UpdateWorkRequest {
                     topic_work_id: input.topic_work_id,
                     clear_topic_work_id: input.clear_topic_work_id.unwrap_or(false),
@@ -128,7 +131,7 @@ async fn start_work(service: &WorkService, input: WorkInput) -> CoreResult<Value
 async fn continue_work(service: &WorkService, input: WorkInput) -> CoreResult<Value> {
     let response = service
         .advance(AdvanceWorkRequest {
-            work_id: required_work_id(input.work_id, "continue")?,
+            locator: required_work_locator(input.work_id, input.scope, "continue")?,
             instructions: required_string(input.instructions, "instructions")?,
             advance_policy: Some("start_if_idle".to_string()),
         })
@@ -151,7 +154,13 @@ async fn continue_work(service: &WorkService, input: WorkInput) -> CoreResult<Va
 
 async fn status_work(service: &WorkService, input: WorkInput) -> CoreResult<Value> {
     if let Some(work_id) = input.work_id {
-        let work = service.get(&work_id).await?;
+        let work = service
+            .get(&required_work_locator(
+                Some(work_id),
+                input.scope,
+                "status",
+            )?)
+            .await?;
         return Ok(json!({
             "action": "status",
             "work_id": work.id,
@@ -179,7 +188,7 @@ async fn status_work(service: &WorkService, input: WorkInput) -> CoreResult<Valu
 async fn control_work(service: &WorkService, input: WorkInput) -> CoreResult<Value> {
     let response = service
         .control(ControlWorkRequest {
-            work_id: required_work_id(input.work_id, "control")?,
+            locator: required_work_locator(input.work_id, input.scope, "control")?,
             action: input.control_action.ok_or_else(|| {
                 CoreError::validation("control_action is required for action=control")
             })?,
@@ -197,7 +206,7 @@ async fn control_work(service: &WorkService, input: WorkInput) -> CoreResult<Val
 async fn reclassify_work(service: &WorkService, input: WorkInput) -> CoreResult<Value> {
     let work = service
         .reclassify(ReclassifyWorkRequest {
-            work_id: required_work_id(input.work_id, "reclassify")?,
+            locator: required_work_locator(input.work_id, input.scope, "reclassify")?,
             kind: input
                 .kind
                 .ok_or_else(|| CoreError::validation("kind is required for action=reclassify"))?,
@@ -244,6 +253,19 @@ fn required_string(value: Option<String>, field: &str) -> CoreResult<String> {
         )));
     }
     Ok(value)
+}
+
+fn required_work_locator(
+    work_id: Option<WorkId>,
+    scope: Option<WorkScope>,
+    action: &str,
+) -> CoreResult<WorkLocator> {
+    Ok(WorkLocator {
+        work_id: required_work_id(work_id, action)?,
+        scope: scope.ok_or_else(|| {
+            CoreError::validation(format!("scope is required for action={action}"))
+        })?,
+    })
 }
 
 fn required_work_id(work_id: Option<WorkId>, action: &str) -> CoreResult<WorkId> {

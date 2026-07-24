@@ -1,0 +1,46 @@
+{
+  "name": "generate_slide_visual",
+  "description": "Commit exactly one complete AI-authored VisualDocument page based on the current Manuscript and approved Design Case. The AI may restructure and rewrite visual copy while preserving meaning and evidence; Runtime does not inject or string-match Manuscript fields.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["expectedDeckRevision", "expectedSlideRevision", "expectedSystemRevision", "expectedManuscriptRevision", "expectedDesignCaseRevision", "slide", "intent"],
+    "properties": {
+      "expectedDeckRevision": { "type": "integer", "minimum": 0 },
+      "expectedSlideRevision": { "type": "integer", "minimum": 0 },
+      "expectedSystemRevision": { "type": "integer", "minimum": 0 },
+      "expectedManuscriptRevision": { "type": "integer", "minimum": 1 },
+      "expectedDesignCaseRevision": { "type": "integer", "minimum": 1 },
+      "intent": { "type": "string", "minLength": 1, "maxLength": 500 },
+      "slide": { "$ref": "#/$defs/slide" }
+    },
+    "$defs": {
+      "slide": {
+        "type": "object",
+        "required": ["id", "title", "claim", "pageRole", "recipeId", "layoutMode", "visualMode", "visualPlan", "evidenceObject", "exportStrategy", "composition"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^p[0-9]{2,3}$" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "claim": { "type": "string", "minLength": 1, "maxLength": 600 },
+          "pageRole": { "type": "string", "enum": ["cover", "section", "statement", "evidence", "comparison", "process", "architecture", "media", "closing"] },
+          "recipeId": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "layoutMode": { "const": "recipe" },
+          "visualMode": { "type": "string", "enum": ["native", "diagram", "chart", "media", "custom-vector"] },
+          "visualPlan": { "type": "string", "minLength": 1, "maxLength": 1200 },
+          "evidenceObject": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "exportStrategy": { "type": "string", "enum": ["native", "native-shapes", "native-chart", "svg", "image"] },
+          "sourceNote": { "type": "string", "maxLength": 500 },
+          "notes": { "type": "string", "maxLength": 8000 },
+          "composition": { "type": "object", "required": ["slots"], "properties": { "slots": { "type": "array", "minItems": 1, "maxItems": 40, "items": { "type": "object" } } } }
+        }
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/generate_slide_visual.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 90000,
+  "maxOutputBytes": 400000,
+  "ui": { "card": { "kind": "appDefined", "family": "ppt-live", "template": "compact", "displayMode": "compact", "resultDisplayType": "detailed", "displayName": "Generate page visual", "icon": "Presentation", "title": "Generate page visual", "summary": { "preparing": "Preparing {{input.slide.id}}", "running": "Generating {{input.slide.title}}", "completed": "Page visual ready", "failed": "Page generation failed" }, "locales": { "zh-CN": { "displayName": "生成页面视觉稿", "title": "生成页面视觉稿", "summary": { "preparing": "正在准备 {{input.slide.id}}", "running": "正在生成《{{input.slide.title}}》", "completed": "页面视觉稿已就绪", "failed": "页面生成失败" }, "fields": [ { "label": "页面" }, { "label": "版式配方" }, { "label": "修订" }, { "label": "规则违规" } ] } }, "fields": [ { "label": "Page", "inputPath": ["slide", "id"] }, { "label": "Recipe", "inputPath": ["slide", "recipeId"] }, { "label": "Revision", "resultPath": ["bridge", "output", "slide", "revision"] }, { "label": "Rule violations", "resultPath": ["bridge", "output", "ruleViolations"], "format": "json" } ] } }
+}

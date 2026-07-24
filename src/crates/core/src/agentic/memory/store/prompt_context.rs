@@ -15,7 +15,7 @@ pub(crate) async fn build_memory_prompt_for_target(
     target: MemoryStoreTarget<'_>,
 ) -> CoreResult<String> {
     ensure_memory_store_for_target(target).await?;
-    let memory_dir = memory_store_dir_path_for_target(target);
+    let memory_dir = memory_store_dir_path_for_target(target)?;
     let memory_dir_display = format_path_for_prompt(&memory_dir);
     Ok(render_memory_prompt(
         target.scope(),
@@ -33,7 +33,7 @@ pub(crate) async fn build_memory_files_context_for_target(
     target: MemoryStoreTarget<'_>,
 ) -> CoreResult<Option<String>> {
     ensure_memory_store_for_target(target).await?;
-    let memory_dir = memory_store_dir_path_for_target(target);
+    let memory_dir = memory_store_dir_path_for_target(target)?;
     let sections = build_memory_space_sections(target.scope(), &memory_dir).await?;
     if sections.trim().is_empty() {
         Ok(None)

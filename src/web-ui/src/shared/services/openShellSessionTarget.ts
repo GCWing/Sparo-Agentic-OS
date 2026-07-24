@@ -43,6 +43,6 @@ export function openShellSessionTarget(options: OpenShellSessionTargetOptions): 
 
   openStandaloneShellSession(
     sessionId,
-    activeSurface.kind === 'scene' ? activeSurface.scope : systemRuntimeScope(),
+    activeSurface.kind === 'scene' ? activeSurface.scope : systemRuntimeScope('os_agent'),
   );
 }

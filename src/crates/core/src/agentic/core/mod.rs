@@ -22,6 +22,8 @@ pub use prompt_markup::{
     strip_prompt_markup, PromptBlock, PromptBlockKind, PromptEnvelope,
 };
 pub use session::{
-    CompressionState, Session, SessionConfig, SessionKind, SessionStorageScope, SessionSummary,
+    CompressionState, ProductAppSessionChannel, ProductAppSessionRole, ResolvedContextWindow,
+    Session, SessionConfig, SessionContextPolicy, SessionDomain, SessionKind, SessionLocator,
+    SessionOwner, SessionSummary,
 };
 pub use state::{ProcessingPhase, SessionState, ToolExecutionState};

@@ -3,8 +3,8 @@ import { agenticOsWorkApi } from '@/app/agentic-os/work/data/workApi';
 import { productAppWorkRef } from '@/app/agentic-os/work/domain/productAppRefs';
 import type {
   WorkAppRef,
+  WorkLocator,
   WorkRecord,
-  WorkScope,
   WorkSurfaceRef,
 } from '@/app/agentic-os/work/domain/workTypes';
 import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
@@ -15,33 +15,28 @@ import {
   normalizeAppScope,
   systemAppScope,
   type AppScope,
+  workScopeFromAppScope,
   workspacePathFromAppScope,
 } from '@/shared/types/app-scope';
+import { createLogger } from '@/shared/utils/logger';
 import { openProductAppRuntimeHost } from './productAppRuntimeHostService';
 import type {
   OpenProductAppRuntimeOptions,
   ProductAppRuntimeHostTarget,
 } from './productAppRuntimeOpenTypes';
 
+const log = createLogger('ProductAppRuntimeService');
+
 export interface OpenProductAppRuntimeForWorkSurfaceRequest {
-  workId: string;
+  workLocator: WorkLocator;
   slotId: string;
   appId: string;
-  releaseId: string;
-  configRevision: string;
-  runtimeInstanceId?: string | null;
   productAppSurfaceId?: string | null;
   surfaceId?: string | null;
 }
 
 function runtimeScopeFromOptions(options: OpenProductAppRuntimeOptions): AppScope {
   return normalizeAppScope(options.scope ?? systemAppScope());
-}
-
-function workScopeFromAppScope(scope: AppScope): WorkScope {
-  return scope.kind === 'workspace'
-    ? { kind: 'workspace', workspacePath: scope.workspacePath }
-    : { kind: 'system' };
 }
 
 function navigationIsCurrent(options: OpenProductAppRuntimeOptions): boolean {
@@ -80,18 +75,14 @@ async function resolveRuntimeTarget(
   options: OpenProductAppRuntimeOptions,
   requestOverrides: Pick<
     OpenProductAppRuntimeForWorkSurfaceRequest,
-    'runtimeInstanceId' | 'productAppSurfaceId' | 'surfaceId'
+    'productAppSurfaceId' | 'surfaceId'
   > = {},
 ): Promise<ProductAppRuntimeHostTarget> {
   const surface = applicationSurfaceForWork(work, appRef.appId);
   const resolved = await productAppRuntimeAPI.resolveProductAppRuntimeInstance({
-    workId: work.id,
+    locator: { scope: work.scope, workId: work.id },
     slotId: appRef.slotId,
     appId: appRef.appId,
-    releaseId: appRef.releaseId,
-    configRevision: appRef.configRevision,
-    dataSchemaVersion: appRef.dataSchemaVersion,
-    runtimeInstanceId: requestOverrides.runtimeInstanceId,
     productAppSurfaceId: requestOverrides.productAppSurfaceId ?? surface.productAppSurfaceId,
     surfaceId: requestOverrides.surfaceId ?? surface.surfaceId,
   });
@@ -106,9 +97,10 @@ async function resolveRuntimeTarget(
   );
   return {
     intelligentApp: {
-      appId: appRef.appId,
-      displayName: options.title?.trim() || work.title || appRef.appId,
-      releaseId: appRef.releaseId,
+      appId: resolved.appId,
+      displayName: resolved.appName,
+      releaseId: resolved.releaseId,
+      workMultiplicity: resolved.workMultiplicity,
     },
     hostSurface,
     runtimeContext: resolved.runtimeContext,
@@ -117,21 +109,68 @@ async function resolveRuntimeTarget(
   };
 }
 
+async function initializeCreatedProductAppWork(
+  target: ProductAppRuntimeHostTarget,
+  work: WorkRecord,
+): Promise<void> {
+  const initializers = (target.hostSurface.backends ?? [])
+    .filter(backend => backend.actions.some(action => action.name === 'initializeWork'));
+  for (const backend of initializers) {
+    const backendAlias = backend.role?.trim() || backend.id;
+    const result = await productAppRuntimeHostAPI.backendCall(
+      target.hostSurface.id,
+      `${backendAlias}.initializeWork`,
+      { title: work.title },
+      {
+        runtimeContext: target.runtimeContext,
+        workspacePath: workspacePathFromAppScope(target.scope),
+        idempotencyKey: `initialize-work-${work.id}-${backend.id}`,
+      },
+    );
+    const bridgeResult = result.bridgeResult as { status?: string; stderr?: string } | undefined;
+    if (result.status === 'failed' || bridgeResult?.status === 'failed') {
+      throw new Error(bridgeResult?.stderr || `Failed to initialize Product App Work ${work.id}`);
+    }
+  }
+}
+
+async function rollbackCreatedProductAppWork(
+  work: WorkRecord,
+  creationError: unknown,
+): Promise<void> {
+  const locator: WorkLocator = { scope: work.scope, workId: work.id };
+  try {
+    const result = await useWorkStore.getState().deleteWork(locator, {
+      deleteLinkedSessions: true,
+    });
+    if (!result.deleted) {
+      throw new Error(`Work ${work.id} was not deleted`);
+    }
+  } catch (rollbackError) {
+    log.error('Failed to roll back incomplete Product App Work', {
+      workId: work.id,
+      creationError,
+      rollbackError,
+    });
+    const creationMessage =
+      creationError instanceof Error ? creationError.message : String(creationError);
+    const rollbackMessage =
+      rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+    throw new Error(
+      `Product App creation failed: ${creationMessage}; rollback failed: ${rollbackMessage}`,
+    );
+  }
+}
+
 export async function openProductAppRuntimeForWorkSurface(
   request: OpenProductAppRuntimeForWorkSurfaceRequest,
   options: OpenProductAppRuntimeOptions = {},
 ): Promise<void> {
   if (!navigationIsCurrent(options)) return;
   const scope = runtimeScopeFromOptions(options);
-  const work = await agenticOsWorkApi.getWork(request.workId);
+  const work = await agenticOsWorkApi.getWork(request.workLocator);
   if (!navigationIsCurrent(options)) return;
   const appRef = immutableAppRefForWork(work, request.appId, request.slotId);
-  if (
-    appRef.releaseId !== request.releaseId
-    || appRef.configRevision !== request.configRevision
-  ) {
-    throw new Error(`Work ${work.id} immutable App binding does not match the requested Release`);
-  }
   const target = await resolveRuntimeTarget(work, appRef, scope, options, request);
   if (!navigationIsCurrent(options)) return;
   await openProductAppRuntimeHost(target, {
@@ -159,6 +198,7 @@ export async function openProductAppRuntime(
     title,
     objective,
     scope: workScopeFromAppScope(scope),
+    workspacePath: scope.kind === 'workspace' ? scope.workspacePath : undefined,
     visibility: 'primary' as const,
     primarySurfacePolicy: 'application_surface' as const,
     primarySurface: {
@@ -172,26 +212,43 @@ export async function openProductAppRuntime(
       applicationId: app.appId,
     },
   };
-  const work = app.runtime.workMultiplicity === 'singleton'
-    ? (await useWorkStore.getState().resolveAppWork(request)).work
-    : await useWorkStore.getState().createWork({
+  const createExplicitMultipleWork = app.runtime.workMultiplicity === 'multiple'
+    && options.workMode === 'create';
+  let created = createExplicitMultipleWork;
+  const work = createExplicitMultipleWork
+    ? await useWorkStore.getState().createWork({
         kind: 'app_workflow',
         title,
         objective,
         subject: { kind: 'app', app: appRef, intent: 'use' },
         appRefs: [{ app: appRef, role: 'executor' }],
         scope: request.scope,
+        workspacePath: request.workspacePath,
         visibility: request.visibility,
         primarySurfacePolicy: request.primarySurfacePolicy,
         primarySurface: request.primarySurface,
         assignment: request.assignment,
+      })
+    : await useWorkStore.getState().resolveAppWork(request).then((resolved) => {
+        created = resolved.created;
+        return resolved.work;
       });
-  const target = await resolveRuntimeTarget(work, appRef, scope, options);
-  const context: WorkspaceSurfaceContext = options.context ?? { kind: 'work', workId: work.id };
-  await openProductAppRuntimeHost(target, {
-    ...options,
-    scope,
-    context,
-    runtimeContext: target.runtimeContext,
-  });
+  try {
+    const target = await resolveRuntimeTarget(work, appRef, scope, options);
+    if (created) {
+      await initializeCreatedProductAppWork(target, work);
+    }
+    const context: WorkspaceSurfaceContext = options.context ?? { kind: 'work', workId: work.id };
+    await openProductAppRuntimeHost(target, {
+      ...options,
+      scope,
+      context,
+      runtimeContext: target.runtimeContext,
+    });
+  } catch (error) {
+    if (created) {
+      await rollbackCreatedProductAppWork(work, error);
+    }
+    throw error;
+  }
 }

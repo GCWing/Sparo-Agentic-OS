@@ -1,0 +1,49 @@
+{
+  "name": "@sparo/icons",
+  "version": "0.1.0",
+  "description": "SVG system icons for Sparo OS",
+  "license": "MIT",
+  "keywords": ["sparo", "icons", "svg", "react", "design-system"],
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "src/svg",
+    "README.md",
+    "SPEC.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./svg/base/*": "./src/svg/base/*",
+    "./svg/emphasis/*": "./src/svg/emphasis/*",
+    "./sprite.svg": "./src/svg/sparo-system-icons.svg",
+    "./manifest": "./src/icons.json"
+  },
+  "scripts": {
+    "generate": "node scripts/generate-svg-variants.mjs",
+    "check": "node scripts/generate-svg-variants.mjs --check && tsc --noEmit",
+    "dev": "vite --config vite.config.ts --open /preview.html",
+    "build": "pnpm run generate && vite build --config vite.config.ts && vite build --config vite.config.lib.ts && tsc -p tsconfig.build.json",
+    "prepack": "pnpm run check && pnpm run build"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/node": "^20.10.0",
+    "@vitejs/plugin-react": "^4.6.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

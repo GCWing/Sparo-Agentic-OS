@@ -1,0 +1,86 @@
+const IGNORED_DIRS = new Set([".git", "node_modules", "out", "dist", "build", ".next", ".sparo_os", "coverage"]);
+const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
+const PROJECT_REVISION_EXTENSIONS = new Set([
+  ...SOURCE_EXTENSIONS,
+  ".json",
+  ".css",
+  ".scss",
+  ".sass",
+  ".less",
+  ".html",
+  ".md",
+  ".yml",
+  ".yaml",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".avif",
+  ".gif",
+  ".svg",
+  ".bmp",
+  ".ico",
+  ".mp4",
+  ".mov",
+  ".webm",
+  ".m4v",
+  ".mp3",
+  ".wav",
+  ".m4a",
+  ".ogg",
+  ".oga",
+  ".opus",
+  ".aac",
+  ".flac",
+  ".ttf",
+  ".otf",
+  ".woff",
+  ".woff2",
+  ".srt",
+  ".vtt",
+]);
+const DEFAULT_STILL_SCALE = 1;
+const REMOTION_RENDER_TIMEOUT_MS = 240_000;
+const ARTIFACT_CACHE_MAX_BYTES = 512 * 1024 * 1024;
+const PROJECT_BUNDLE_CACHE_LIMIT = 3;
+const PLAYER_HOST_BOOT_WAIT_MS = 45_000;
+const PLAYER_HOST_RUNTIME_VERSION = 14;
+const PLAYER_CONTROL_PROTOCOL_VERSION = 3;
+const ASSET_EXTENSIONS = new Map([
+  [".png", "image"],
+  [".jpg", "image"],
+  [".jpeg", "image"],
+  [".webp", "image"],
+  [".gif", "image"],
+  [".svg", "image"],
+  [".mp4", "video"],
+  [".mov", "video"],
+  [".webm", "video"],
+  [".m4v", "video"],
+  [".mp3", "audio"],
+  [".wav", "audio"],
+  [".m4a", "audio"],
+  [".ogg", "audio"],
+  [".aac", "audio"],
+  [".ttf", "font"],
+  [".otf", "font"],
+  [".woff", "font"],
+  [".woff2", "font"],
+  [".srt", "caption"],
+  [".vtt", "caption"],
+  [".json", "data"],
+]);
+
+module.exports = {
+  IGNORED_DIRS,
+  SOURCE_EXTENSIONS,
+  PROJECT_REVISION_EXTENSIONS,
+  DEFAULT_STILL_SCALE,
+  REMOTION_RENDER_TIMEOUT_MS,
+  ARTIFACT_CACHE_MAX_BYTES,
+  PROJECT_BUNDLE_CACHE_LIMIT,
+  PLAYER_HOST_BOOT_WAIT_MS,
+  PLAYER_HOST_RUNTIME_VERSION,
+  PLAYER_CONTROL_PROTOCOL_VERSION,
+  ASSET_EXTENSIONS,
+};

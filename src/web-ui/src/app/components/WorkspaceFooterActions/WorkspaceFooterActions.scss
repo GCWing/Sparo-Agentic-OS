@@ -321,19 +321,9 @@
 }
 
 .sparo-workspace-hub__preview-tracks {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.sparo-workspace-hub__preview-track {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
-  min-width: 0;
-  padding: 3px;
-  background: var(--ds-color-element-subtle);
-  border-radius: var(--ds-radius-lg);
+  gap: 7px;
 }
 
 .sparo-workspace-hub__preview-item,
@@ -357,7 +347,8 @@
 .sparo-workspace-hub__preview-item-shell {
   position: relative;
   min-width: 0;
-  border-radius: calc(var(--ds-radius-lg) - 2px);
+  background: var(--ds-color-element-subtle);
+  border-radius: var(--ds-radius-lg);
   transition: background var(--ds-motion-fast) var(--ds-easing-standard);
 
   &:hover,
@@ -388,7 +379,7 @@
   min-height: 41px;
   padding: 6px 26px 6px 5px;
   background: transparent;
-  border-radius: calc(var(--ds-radius-lg) - 2px);
+  border-radius: var(--ds-radius-lg);
   text-align: left;
 
   &:hover:not(:disabled),
@@ -459,8 +450,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 17px;
-  height: 17px;
+  width: 22px;
+  height: 22px;
   flex: 0 0 auto;
 }
 
@@ -499,7 +490,7 @@
 .sparo-workspace-hub__direct-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: 48px minmax(38px, 1fr);
+  grid-template-rows: 56px minmax(38px, 1fr);
   gap: 7px;
   min-height: 0;
   flex: 1 1 auto;
@@ -513,7 +504,7 @@
   gap: 3px;
   width: 100%;
   min-width: 0;
-  min-height: 48px;
+  min-height: 56px;
   padding: 6px 4px;
   color: var(--ds-color-text-secondary);
   background: var(--ds-color-element-subtle);
@@ -523,7 +514,7 @@
   > .sparo-workspace-hub__item-label {
     width: 100%;
     flex: 0 1 auto;
-    font-size: var(--ds-font-size-2xs);
+    font-size: var(--ds-font-size-xs);
   }
 
   &.is-wide {

@@ -1,0 +1,58 @@
+{
+  "name": "get_focus",
+  "description": "Return the current ambient focus (sheet, A1, kind) for the open workbook session.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "workbookId"
+    ],
+    "properties": {
+      "workbookId": {
+        "type": "string"
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/get_focus.js",
+  "readonly": true,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 20000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "excel-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "detailed",
+      "primaryColor": "var(--ds-tool-family-agent-component-fg)",
+      "displayName": "Get Focus",
+      "icon": "Crosshair",
+      "title": "Get Focus",
+      "summary": {
+        "preparing": "Reading focus",
+        "running": "Fetching ambient focus",
+        "completed": "Focus loaded",
+        "failed": "Focus lookup failed"
+      },
+      "fields": [
+        {
+          "label": "Workbook",
+          "inputPath": [
+            "workbookId"
+          ]
+        },
+        {
+          "label": "Focus",
+          "resultPath": [
+            "bridge",
+            "output",
+            "focus"
+          ],
+          "format": "json"
+        }
+      ]
+    }
+  }
+}

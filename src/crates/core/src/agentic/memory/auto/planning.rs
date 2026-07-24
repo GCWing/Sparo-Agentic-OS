@@ -85,10 +85,10 @@ pub fn auto_memory_throttle_policy(
     )
 }
 
-fn build_auto_memory_store_key(target: MemoryStoreTarget<'_>) -> String {
-    memory_store_dir_path_for_target(target)
+fn build_auto_memory_store_key(target: MemoryStoreTarget<'_>) -> CoreResult<String> {
+    Ok(memory_store_dir_path_for_target(target)?
         .to_string_lossy()
-        .replace('\\', "/")
+        .replace('\\', "/"))
 }
 
 pub fn session_can_consider_auto_memory(session: &Session) -> bool {
@@ -96,18 +96,24 @@ pub fn session_can_consider_auto_memory(session: &Session) -> bool {
         && !matches!(session.state, SessionState::Processing { .. })
 }
 
-pub fn resolve_local_auto_memory_context(session: &Session) -> Option<ResolvedAutoMemoryContext> {
-    let scope = resolve_session_auto_memory_scope(session)?;
-    let workspace_path = Path::new(session.config.workspace_path.as_deref()?);
+pub fn resolve_local_auto_memory_context(
+    session: &Session,
+) -> CoreResult<Option<ResolvedAutoMemoryContext>> {
+    let Some(scope) = resolve_session_auto_memory_scope(session) else {
+        return Ok(None);
+    };
+    let Some(workspace_path) = session.config.workspace_path.as_deref().map(Path::new) else {
+        return Ok(None);
+    };
     let target = match scope {
         MemoryScope::WorkspaceProject => MemoryStoreTarget::WorkspaceProject(workspace_path),
         MemoryScope::GlobalAgenticOs => MemoryStoreTarget::GlobalAgenticOs,
     };
 
-    Some(ResolvedAutoMemoryContext {
+    Ok(Some(ResolvedAutoMemoryContext {
         scope,
-        store_key: build_auto_memory_store_key(target),
-    })
+        store_key: build_auto_memory_store_key(target)?,
+    }))
 }
 
 pub fn queue_action_from_schedule_decision(
@@ -142,7 +148,7 @@ pub async fn auto_memory_scope_runtime_config(
 pub async fn resolve_auto_memory_runtime_context(
     session: &Session,
 ) -> CoreResult<Option<ResolvedAutoMemoryRuntimeContext>> {
-    let Some(resolved_context) = resolve_local_auto_memory_context(session) else {
+    let Some(resolved_context) = resolve_local_auto_memory_context(session)? else {
         return Ok(None);
     };
     let scope_config = auto_memory_scope_runtime_config(resolved_context.scope).await?;
@@ -184,14 +190,9 @@ mod tests {
 
     #[test]
     fn internal_session_never_resolves_or_schedules_auto_memory() {
-        let mut session = Session::new(
-            "Settings".to_string(),
-            "SettingsAgent".to_string(),
-            SessionConfig {
-                workspace_path: Some("agentic-os".to_string()),
-                ..SessionConfig::default()
-            },
-        );
+        let mut config = SessionConfig::new(crate::agentic::core::SessionDomain::Global);
+        config.workspace_path = Some("agentic-os".to_string());
+        let mut session = Session::new("Settings".to_string(), "SettingsAgent".to_string(), config);
         session.kind = SessionKind::Internal;
 
         assert!(resolve_session_auto_memory_scope(&session).is_none());

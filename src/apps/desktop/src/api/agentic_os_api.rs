@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sparo_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
 use sparo_core::agentic_os::work::{
     default_work_store, AgenticWorkRuntimeBridge, WorkCleanupAction, WorkCleanupItem,
-    WorkCleanupItemReport, WorkCleanupItemStatus, WorkExecutionGraph, WorkId, WorkLifecycleHookBus,
+    WorkCleanupItemReport, WorkCleanupItemStatus, WorkExecutionGraph, WorkLifecycleHookBus,
     WorkLifecycleHookContext, WorkLifecycleHookHandler, WorkLifecycleHookKind,
     WorkLifecycleHookOutcome, WorkLifecycleHookPhase, WorkResourceOwnership, WorkResourceRef,
     WorkService,
@@ -185,7 +185,7 @@ pub async fn agentic_os_delete_work(
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgenticOsGetWorkExecutionGraphRequest {
-    pub work_id: WorkId,
+    pub locator: sparo_core::agentic_os::work::WorkLocator,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -200,7 +200,7 @@ pub async fn agentic_os_get_work_execution_graph(
 ) -> Result<AgenticOsGetWorkExecutionGraphResponse, String> {
     let service = WorkService::new(default_work_store().map_err(|error| error.to_string())?);
     let graph = service
-        .execution_graph(&request.work_id)
+        .execution_graph(&request.locator)
         .await
         .map_err(|error| error.to_string())?;
     Ok(AgenticOsGetWorkExecutionGraphResponse { graph })

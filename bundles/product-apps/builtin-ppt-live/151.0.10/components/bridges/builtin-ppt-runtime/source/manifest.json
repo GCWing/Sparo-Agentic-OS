@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "id": "builtin-ppt-runtime",
+  "name": "Sparo PPT Production Engine",
+  "description": "Atomic Manuscript, AI-authored Design Case and VisualDocument pages, capability-aware semantic and visual review, history, and validated PowerPoint export.",
+  "kind": "daemon",
+  "runtime": { "language": "javascript", "entry": "worker.js" },
+  "surfaces": {
+    "launchableApp": false,
+    "agent": true,
+    "tool": true,
+    "productAppRuntimeBackend": true
+  },
+  "permissions": {
+    "fs": ["{workspace}", "{app}"],
+    "net": [],
+    "shell": ["node"],
+    "gui": [],
+    "secrets": []
+  },
+  "capabilities": [
+    {
+      "id": "sparo.pptDeck",
+      "title": "Sparo PPT Production Engine",
+      "description": "Create and validate the current PPT Live presentation through the non-compatible manuscript-first protocol.",
+      "category": "presentationEngine",
+      "actions": ["initializeWork", "inspect", "getDocument", "commitPresentationDocument", "commitPresentationManuscript", "commitSpeakerScript", "reviewPresentationManuscript", "setPresentationSystem", "getAsset", "renderDesignCase", "decideDesignCase", "prepareVisualAssets", "generateSlideVisual", "editVisual", "reviewDeck", "undo", "export"],
+      "streaming": false,
+      "cancelable": true,
+      "resumable": true,
+      "usableBy": ["agentComponent", "productAppRuntime", "management"],
+      "inputSchema": { "type": "object" },
+      "outputSchema": { "type": "object" }
+    }
+  ],
+  "actions": [
+    { "name": "initializeWork", "description": "Create one human-visible PPT folder for a newly created workspace Work.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": false, "resumable": true },
+    { "name": "inspect", "description": "Return the current parsed Manuscript, revisions, Design Case, visual state, ReviewCoverage, and deterministic RuleViolations.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": false, "resumable": true },
+    { "name": "getDocument", "description": "Read the managed manuscript or speaker script for the Surface editor.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": false, "resumable": true },
+    { "name": "commitPresentationDocument", "description": "Validate a structured ManuscriptContract payload, serialize canonical Markdown, and atomically reset visual pages bound to the previous Manuscript.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": true, "resumable": true },
+    { "name": "commitPresentationManuscript", "description": "Validate and atomically commit complete user-edited canonical Markdown, then reset visual pages bound to the previous Manuscript.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": true, "resumable": true },
+    { "name": "commitSpeakerScript", "description": "CAS-save a speaker-only Markdown revision without changing visual production state.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": false, "resumable": true },
+    { "name": "reviewPresentationManuscript", "description": "Prepare or commit one whole-manuscript AI review while keeping RuleViolations separate from ReviewFindings.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": true, "resumable": true },
+    { "name": "setPresentationSystem", "description": "Atomically replace the complete PresentationSystem and invalidate Design Case approval.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": true, "resumable": true },
+    { "name": "getAsset", "description": "Return one committed visual asset for the Surface.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": false, "resumable": true },
+    { "name": "renderDesignCase", "description": "Render exactly three complete AI-authored visual pages based on the current Manuscript and PresentationSystem.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": true, "resumable": true },
+    { "name": "decideDesignCase", "description": "Record explicit user or capability-eligible multimodal AI approval or revision feedback.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": false, "resumable": true },
+    { "name": "prepareVisualAssets", "description": "Prepare the approved case's grounded workspace or semantic SVG assets in one manifest-bound operation.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": true, "resumable": true },
+    { "name": "generateSlideVisual", "description": "Compile and commit one complete AI-authored VisualDocument page in current Manuscript order without injecting or string-matching content.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": true, "resumable": true },
+    { "name": "editVisual", "description": "Apply a direct user node, order, or selection edit to current visual state.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": true, "resumable": true },
+    { "name": "reviewDeck", "description": "Prepare a multimodal/text inspection bundle or commit deck-wide ReviewFindings and ReviewCoverage.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": true, "resumable": true },
+    { "name": "undo", "description": "Restore the previous atomic design or visual state.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": false, "resumable": true },
+    { "name": "export", "description": "Export the exact passed current review as a validated PPTX package.", "inputSchema": { "type": "object" }, "outputSchema": { "type": "object" }, "streaming": false, "cancelable": true, "resumable": true }
+  ],
+  "tools": [
+    {
+      "name": "SparoPptDeck",
+      "description": "Produce a manuscript-first PPT Live deck and export its reviewed VisualDocument.",
+      "capabilityId": "sparo.pptDeck",
+      "action": "inspect",
+      "actions": ["initializeWork", "inspect", "getDocument", "commitPresentationDocument", "commitPresentationManuscript", "commitSpeakerScript", "reviewPresentationManuscript", "setPresentationSystem", "getAsset", "renderDesignCase", "decideDesignCase", "prepareVisualAssets", "generateSlideVisual", "editVisual", "reviewDeck", "undo", "export"],
+      "readonly": false,
+      "needsPermissions": true,
+      "inputSchema": { "type": "object" },
+      "ui": { "card": { "kind": "appDefined", "displayName": "PPT Production Engine", "icon": "Presentation", "resultDisplayType": "detailed", "displayMode": "compact", "family": "bridge-component", "title": "PPT Production Engine" } }
+    }
+  ]
+}

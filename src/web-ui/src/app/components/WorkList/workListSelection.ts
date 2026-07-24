@@ -1,4 +1,3 @@
-import { AppWindow, Brush, Clock3, Code2, ListChecks, ListTodo, MessageSquare, Sparkles } from 'lucide-react';
 import { filterWorkProjections } from '@/app/agentic-os/work/data/workSelectors';
 import {
   isDockEligibleWork,
@@ -24,28 +23,6 @@ export function isFocusStatus(status: WorkStatus): boolean {
 
 export function statusKey(status: WorkStatus): string {
   return status.replace(/_/g, '-');
-}
-
-function hasSessionLikeSurface(work: WorkProjection): boolean {
-  return work.primarySurface.kind === 'work_session'
-    || work.primarySurface.kind === 'agent_session'
-    || work.surfaces?.some((surface) => (
-      surface.kind === 'work_session' || surface.kind === 'agent_session'
-    )) === true;
-}
-
-export function getWorkModeIcon(work: WorkProjection) {
-  if (work.kind === 'app_workflow') {
-    if (hasSessionLikeSurface(work)) return MessageSquare;
-    if (work.primarySurface.kind === 'application_surface') return AppWindow;
-    return Sparkles;
-  }
-  const { kind } = work;
-  if (kind === 'tracking' || kind === 'recurring') return ListTodo;
-  if (kind === 'topic') return Brush;
-  if (kind === 'long_running_session') return Clock3;
-  if (kind === 'one_shot' || kind === 'multi_step' || kind === 'delegated_work') return ListChecks;
-  return Code2;
 }
 
 export function getWorkToneValue(status: WorkStatus): string {

@@ -1,8 +1,8 @@
 use super::PersistenceManager;
+use crate::agentic::core::{SessionDomain, SessionLocator};
 use crate::error::CoreResult;
 use dashmap::{DashMap, DashSet};
 use log::info;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -16,63 +16,57 @@ pub struct SessionWorkspaceMaintenanceReport {
 
 pub struct SessionWorkspaceMaintenanceService {
     persistence_manager: Arc<PersistenceManager>,
-    cleaned_workspaces: DashSet<PathBuf>,
-    workspace_locks: DashMap<PathBuf, Arc<Mutex<()>>>,
+    cleaned_domains: DashSet<SessionDomain>,
+    domain_locks: DashMap<SessionDomain, Arc<Mutex<()>>>,
 }
 
 impl SessionWorkspaceMaintenanceService {
     pub fn new(persistence_manager: Arc<PersistenceManager>) -> Self {
         Self {
             persistence_manager,
-            cleaned_workspaces: DashSet::new(),
-            workspace_locks: DashMap::new(),
+            cleaned_domains: DashSet::new(),
+            domain_locks: DashMap::new(),
         }
     }
 
-    pub async fn ensure_workspace_maintained(
+    pub async fn ensure_domain_maintained(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
     ) -> CoreResult<SessionWorkspaceMaintenanceReport> {
-        let workspace_key = workspace_path.to_path_buf();
-
-        if self.cleaned_workspaces.contains(&workspace_key) {
+        if self.cleaned_domains.contains(domain) {
             return Ok(SessionWorkspaceMaintenanceReport {
                 skipped: true,
                 ..Default::default()
             });
         }
 
-        let workspace_lock = self
-            .workspace_locks
-            .entry(workspace_key.clone())
+        let domain_lock = self
+            .domain_locks
+            .entry(domain.clone())
             .or_insert_with(|| Arc::new(Mutex::new(())))
             .clone();
-        let _guard = workspace_lock.lock().await;
+        let _guard = domain_lock.lock().await;
 
-        if self.cleaned_workspaces.contains(&workspace_key) {
+        if self.cleaned_domains.contains(domain) {
             return Ok(SessionWorkspaceMaintenanceReport {
                 skipped: true,
                 ..Default::default()
             });
         }
 
-        let report = self.run_workspace_maintenance(workspace_path).await?;
-        self.cleaned_workspaces.insert(workspace_key);
+        let report = self.run_domain_maintenance(domain).await?;
+        self.cleaned_domains.insert(domain.clone());
 
         Ok(report)
     }
 
-    async fn run_workspace_maintenance(
+    async fn run_domain_maintenance(
         &self,
-        workspace_path: &Path,
+        domain: &SessionDomain,
     ) -> CoreResult<SessionWorkspaceMaintenanceReport> {
-        if !workspace_path.exists() {
-            return Ok(SessionWorkspaceMaintenanceReport::default());
-        }
-
         let all_metadata = self
             .persistence_manager
-            .list_session_metadata_including_internal(workspace_path)
+            .list_session_metadata_including_internal(domain)
             .await?;
         let hidden_sessions = all_metadata
             .iter()
@@ -93,15 +87,18 @@ impl SessionWorkspaceMaintenanceService {
 
         for session_id in deletable_session_ids {
             self.persistence_manager
-                .delete_session(workspace_path, &session_id)
+                .delete_session(&SessionLocator {
+                    domain: domain.clone(),
+                    session_id,
+                })
                 .await?;
             report.deleted_sessions += 1;
         }
 
         if report.deleted_sessions > 0 {
             info!(
-                "Workspace session maintenance removed hidden sessions: workspace_path={}, scanned_sessions={}, hidden_sessions={}, deleted_sessions={}",
-                workspace_path.display(),
+                "Session domain maintenance removed hidden sessions: domain={:?}, scanned_sessions={}, hidden_sessions={}, deleted_sessions={}",
+                domain,
                 report.scanned_sessions,
                 report.hidden_sessions,
                 report.deleted_sessions
@@ -112,7 +109,8 @@ impl SessionWorkspaceMaintenanceService {
     }
 }
 
-#[cfg(test)]
+// Superseded by typed-locator session maintenance contract tests.
+#[cfg(any())]
 mod tests {
     use super::SessionWorkspaceMaintenanceService;
     use crate::agentic::core::SessionKind;

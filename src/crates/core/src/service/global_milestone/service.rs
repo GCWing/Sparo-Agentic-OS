@@ -343,6 +343,7 @@ impl GlobalMilestoneService {
                 write_roots: vec![output_path.to_string_lossy().to_string()],
                 edit_roots: vec![output_path.to_string_lossy().to_string()],
                 delete_roots: Vec::new(),
+                ..ToolPathPolicy::default()
             },
             disable_snapshot_tracking: true,
         };
@@ -565,7 +566,8 @@ async fn collect_global_daily_report_sources(
 
 async fn collect_all_global_daily_report_files() -> CoreResult<Vec<PathBuf>> {
     ensure_global_milestone_runtime_dir().await?;
-    let reports_dir = get_path_manager_arc().agentic_os_daily_reports_dir();
+    let reports_dir =
+        crate::service::global_daily_report::state::global_daily_report_runtime_dir()?;
     collect_daily_report_files_under(&reports_dir).await
 }
 

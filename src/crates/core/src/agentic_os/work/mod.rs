@@ -6,6 +6,7 @@ pub mod ids;
 pub mod lifecycle;
 pub mod projection;
 pub mod record;
+mod run_store;
 pub mod runtime_bridge;
 pub mod service;
 pub mod store;
@@ -62,4 +63,4 @@ pub use subject::{
 pub use subscriber::WorkEventSubscriber;
 pub use surface::WorkSurfaceRef;
 pub use title::{WorkTitleSource, WorkTitleState};
-pub use types::{WorkKind, WorkScope, WorkStatus, WorkVisibility};
+pub use types::{WorkKind, WorkLocator, WorkScope, WorkStatus, WorkVisibility};

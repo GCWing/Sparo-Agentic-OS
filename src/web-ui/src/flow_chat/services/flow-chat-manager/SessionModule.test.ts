@@ -8,7 +8,6 @@ import type { FlowChatContext } from './types';
 import {
   createChatSession,
   ensureBackendSession,
-  getModelMaxTokens,
   isLocalBackendSessionCreationPending,
   retryCreateBackendSession,
   retargetEmptyChatSessionWorkspace,
@@ -16,39 +15,22 @@ import {
 
 const agentApiMock = vi.hoisted(() => ({
   createSession: vi.fn(),
+  deleteSession: vi.fn(),
   ensureCoordinatorSession: vi.fn(),
-  updateSessionWorkspace: vi.fn(),
 }));
 
 const sessionApiMock = vi.hoisted(() => ({
-  deleteSession: vi.fn(),
   loadSessionMetadata: vi.fn(),
   saveSessionMetadata: vi.fn(),
 }));
 
 const openSessionMock = vi.hoisted(() => vi.fn(async () => {}));
-const configManagerMock = vi.hoisted(() => ({
-  getSetting: vi.fn(async (key: string) => {
-    if (key === 'core.ai.models') {
-      return [{ id: 'primary-model', enabled: true, context_window: 128_128 }];
-    }
-    if (key === 'core.ai.default_models') {
-      return { primary: 'primary-model' };
-    }
-    throw new Error(`Unexpected config key: ${key}`);
-  }),
-}));
-
 vi.mock('@/infrastructure/api/service-api/AgentAPI', () => ({
   agentAPI: agentApiMock,
 }));
 
 vi.mock('@/infrastructure/api/service-api/SessionAPI', () => ({
   sessionAPI: sessionApiMock,
-}));
-
-vi.mock('@/infrastructure/config/services/ConfigManager', () => ({
-  configManager: configManagerMock,
 }));
 
 vi.mock('@/infrastructure/services/business/workspaceManager', () => ({
@@ -95,21 +77,11 @@ describe('createChatSession workspace scope', () => {
 
   beforeEach(() => {
     agentApiMock.createSession.mockReset();
+    agentApiMock.deleteSession.mockReset();
     agentApiMock.ensureCoordinatorSession.mockReset();
-    agentApiMock.updateSessionWorkspace.mockReset();
-    sessionApiMock.deleteSession.mockReset();
     sessionApiMock.loadSessionMetadata.mockReset();
     sessionApiMock.saveSessionMetadata.mockReset();
     openSessionMock.mockReset();
-    configManagerMock.getSetting.mockImplementation(async (key: string) => {
-      if (key === 'core.ai.models') {
-        return [{ id: 'primary-model', enabled: true, context_window: 128_128 }];
-      }
-      if (key === 'core.ai.default_models') {
-        return { primary: 'primary-model' };
-      }
-      throw new Error(`Unexpected config key: ${key}`);
-    });
     vi.stubGlobal('window', {
       dispatchEvent: vi.fn(),
     });
@@ -124,33 +96,11 @@ describe('createChatSession workspace scope', () => {
     });
   });
 
-  it('resolves context windows only from enabled stable model ids', async () => {
-    configManagerMock.getSetting.mockImplementation(async (key: string) => {
-      if (key === 'core.ai.models') {
-        return [
-          { id: 'primary-model', name: 'Display Name', enabled: true, context_window: 96_000 },
-          { id: 'disabled-model', enabled: false, context_window: 64_000 },
-        ];
-      }
-      return { primary: 'primary-model' };
-    });
-
-    await expect(getModelMaxTokens('primary')).resolves.toBe(96_000);
-    await expect(getModelMaxTokens('primary-model')).resolves.toBe(96_000);
-    await expect(getModelMaxTokens('Display Name')).rejects.toThrow('missing or disabled');
-    await expect(getModelMaxTokens('disabled-model')).rejects.toThrow('missing or disabled');
-  });
-
-  it('creates a session with the canonical context window when no model is configured', async () => {
+  it('creates a session with a follow-model policy and no derived frontend cap', async () => {
     const store = FlowChatStore.getInstance();
     const context = createTestContext(store);
     const sessionId = `zero-model-session-${Date.now()}`;
     sessionIds.push(sessionId);
-    configManagerMock.getSetting.mockImplementation(async (key: string) => {
-      if (key === 'core.ai.models') return [];
-      if (key === 'core.ai.default_models') return {};
-      throw new Error(`Unexpected config key: ${key}`);
-    });
     agentApiMock.createSession.mockResolvedValue({
       sessionId,
       sessionName: 'Zero model session',
@@ -160,7 +110,9 @@ describe('createChatSession workspace scope', () => {
     await createChatSession(
       context,
       {
-        storageScope: 'agentic_os',
+        storageScope: 'workspace',
+        workspaceId: 'ws_zero_model',
+        workspacePath: 'D:/workspace/zero-model',
         sessionName: 'Zero model session',
         navigate: false,
       },
@@ -168,48 +120,16 @@ describe('createChatSession workspace scope', () => {
 
     expect(agentApiMock.createSession).toHaveBeenCalledWith(
       expect.objectContaining({
-        config: expect.objectContaining({ maxContextTokens: 128_128 }),
+        config: expect.objectContaining({ contextPolicy: { mode: 'followModel' } }),
       }),
     );
-    expect(store.getState().sessions.get(sessionId)?.maxContextTokens).toBe(128_128);
+    expect(store.getState().sessions.get(sessionId)?.maxContextTokens).toBeUndefined();
   });
 
   afterEach(() => {
     const store = FlowChatStore.getInstance();
     sessionIds.splice(0).forEach(sessionId => store.removeSession(sessionId));
     vi.unstubAllGlobals();
-  });
-
-  it('keeps an explicit workspace path for agentic_os Product App runtime sessions', async () => {
-    const store = FlowChatStore.getInstance();
-    const context = createTestContext(store);
-    const sessionId = `harmony-runtime-${Date.now()}`;
-    const workspacePath = 'D:/workspace/sparo_harmony';
-    sessionIds.push(sessionId);
-
-    agentApiMock.createSession.mockResolvedValue({
-      sessionId,
-      sessionName: 'HarmonyOS Dev',
-      agentType: 'harmonyos-dev-agent',
-    });
-
-    await createChatSession(
-      context,
-      {
-        storageScope: 'agentic_os',
-        workspacePath,
-        sessionName: 'HarmonyOS Dev',
-      },
-      getProductAppRuntimeSessionDescriptor('harmonyos-dev-agent'),
-    );
-
-    expect(agentApiMock.createSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        workspacePath,
-        storageScope: 'agentic_os',
-      }),
-    );
-    expect(store.getState().sessions.get(sessionId)?.workspacePath).toBe(workspacePath);
   });
 
   it('honors a caller-reserved session id for an optimistic shell', async () => {
@@ -226,7 +146,9 @@ describe('createChatSession workspace scope', () => {
     await createChatSession(
       context,
       {
-        storageScope: 'agentic_os',
+        storageScope: 'workspace',
+        workspaceId: 'ws_optimistic',
+        workspacePath: 'D:/workspace/optimistic',
         sessionName: 'Optimistic Product App',
         navigate: false,
       },
@@ -253,7 +175,9 @@ describe('createChatSession workspace scope', () => {
     const creation = createChatSession(
       context,
       {
-        storageScope: 'agentic_os',
+        storageScope: 'workspace',
+        workspaceId: 'ws_pending_product_app',
+        workspacePath: 'D:/workspace/pending-product-app',
         sessionName: 'Pending Product App',
         navigate: false,
       },
@@ -295,7 +219,6 @@ describe('createChatSession workspace scope', () => {
       'workspace',
     );
 
-    agentApiMock.updateSessionWorkspace.mockResolvedValue(undefined);
     agentApiMock.ensureCoordinatorSession.mockResolvedValue(undefined);
     sessionApiMock.loadSessionMetadata.mockResolvedValue(null);
 
@@ -312,15 +235,16 @@ describe('createChatSession workspace scope', () => {
     expect(session?.workspaceId).toBe(newWorkspace.id);
     expect(session?.config.workspacePath).toBe(newWorkspace.rootPath);
     expect(session?.config.workspaceId).toBe(newWorkspace.id);
-    expect(agentApiMock.updateSessionWorkspace).toHaveBeenCalledWith({
-      sessionId,
-      workspacePath: newWorkspace.rootPath,
+    expect(agentApiMock.deleteSession).toHaveBeenCalledWith({
+      session_id: sessionId,
+      domain: { kind: 'workspace', workspace_id: oldWorkspace.id },
     });
-    expect(agentApiMock.createSession).not.toHaveBeenCalled();
-    expect(sessionApiMock.deleteSession).toHaveBeenCalledWith(
-      sessionId,
-      oldWorkspace.rootPath,
-      'workspace',
+    expect(agentApiMock.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId,
+        workspacePath: newWorkspace.rootPath,
+        domain: { kind: 'workspace', workspace_id: newWorkspace.id },
+      }),
     );
     expect(openSessionMock).toHaveBeenCalledWith(sessionId);
   });
@@ -332,7 +256,11 @@ describe('createChatSession workspace scope', () => {
     sessionIds.push(sessionId);
     store.createSession(
       sessionId,
-      { workspacePath: 'D:/workspace/current', storageScope: 'workspace' },
+      {
+        workspacePath: 'D:/workspace/current',
+        workspaceId: 'ws_current',
+        storageScope: 'workspace',
+      },
       undefined,
       'Readiness',
       128128,
@@ -363,7 +291,11 @@ describe('createChatSession workspace scope', () => {
     sessionIds.push(sessionId);
     store.createSession(
       sessionId,
-      { workspacePath: 'D:/workspace/current', storageScope: 'workspace' },
+      {
+        workspacePath: 'D:/workspace/current',
+        workspaceId: 'ws_current',
+        storageScope: 'workspace',
+      },
       undefined,
       'History priority',
       128128,
@@ -395,7 +327,11 @@ describe('createChatSession workspace scope', () => {
     sessionIds.push(sessionId);
     store.createSession(
       sessionId,
-      { workspacePath: 'D:/workspace/current', storageScope: 'workspace' },
+      {
+        workspacePath: 'D:/workspace/current',
+        workspaceId: 'ws_current',
+        storageScope: 'workspace',
+      },
       undefined,
       'Readiness reverse',
       128128,
@@ -440,7 +376,11 @@ describe('createChatSession workspace scope', () => {
     sessionIds.push(sessionId);
     store.createSession(
       sessionId,
-      { workspacePath: 'D:/workspace/current', storageScope: 'workspace' },
+      {
+        workspacePath: 'D:/workspace/current',
+        workspaceId: 'ws_current',
+        storageScope: 'workspace',
+      },
       undefined,
       'Retry create',
       128128,

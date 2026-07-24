@@ -5,6 +5,9 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ToolPathOperation {
+    Read,
+    List,
+    Search,
     Write,
     Edit,
     Delete,
@@ -13,6 +16,9 @@ pub enum ToolPathOperation {
 impl ToolPathOperation {
     pub fn verb(self) -> &'static str {
         match self {
+            Self::Read => "read",
+            Self::List => "list",
+            Self::Search => "search",
             Self::Write => "write",
             Self::Edit => "edit",
             Self::Delete => "delete",
@@ -23,16 +29,27 @@ impl ToolPathOperation {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ToolPathPolicy {
     #[serde(default)]
+    pub read_roots: Vec<String>,
+    #[serde(default)]
+    pub list_roots: Vec<String>,
+    #[serde(default)]
+    pub search_roots: Vec<String>,
+    #[serde(default)]
     pub write_roots: Vec<String>,
     #[serde(default)]
     pub edit_roots: Vec<String>,
     #[serde(default)]
     pub delete_roots: Vec<String>,
+    #[serde(default)]
+    pub denied_roots: Vec<String>,
 }
 
 impl ToolPathPolicy {
     pub fn roots_for(&self, operation: ToolPathOperation) -> &[String] {
         match operation {
+            ToolPathOperation::Read => &self.read_roots,
+            ToolPathOperation::List => &self.list_roots,
+            ToolPathOperation::Search => &self.search_roots,
             ToolPathOperation::Write => &self.write_roots,
             ToolPathOperation::Edit => &self.edit_roots,
             ToolPathOperation::Delete => &self.delete_roots,
@@ -40,7 +57,7 @@ impl ToolPathPolicy {
     }
 
     pub fn is_restricted(&self, operation: ToolPathOperation) -> bool {
-        !self.roots_for(operation).is_empty()
+        !self.roots_for(operation).is_empty() || !self.denied_roots.is_empty()
     }
 }
 

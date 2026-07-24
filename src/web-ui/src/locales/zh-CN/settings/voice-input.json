@@ -3,13 +3,21 @@
   "subtitle": "管理本地语音输入与 SenseVoice Small INT8 模型。",
   "loading": "正在加载语音输入设置...",
   "sections": {
-    "composer": "Composer",
+    "composer": "消息输入",
     "model": "本地模型"
+  },
+  "languages": {
+    "auto": "自动检测",
+    "zh": "普通话",
+    "yue": "粤语",
+    "en": "英语",
+    "ja": "日语",
+    "ko": "韩语"
   },
   "composer": {
     "enabled": {
       "label": "显示语音输入",
-      "description": "在 composer 中显示麦克风操作。"
+      "description": "在消息输入框中显示麦克风操作。"
     },
     "language": {
       "label": "识别语言",

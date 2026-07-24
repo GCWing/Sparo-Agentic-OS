@@ -7,6 +7,7 @@ pub mod app_builder_context;
 pub mod core;
 pub mod events;
 pub mod persistence;
+pub mod product_app_context;
 
 // Session management module
 pub mod session;
@@ -54,6 +55,7 @@ pub use fork_agent::*;
 pub use goal::*;
 pub use image_analysis::{ImageAnalyzer, MessageEnhancer};
 pub use persistence::PersistenceManager;
+pub use product_app_context::ProductAppExecutionContext;
 pub use round_preempt::{
     DialogRoundPreemptSource, NoopDialogRoundPreemptSource, SessionRoundYieldFlags,
 };

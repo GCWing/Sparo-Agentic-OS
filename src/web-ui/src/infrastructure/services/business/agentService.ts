@@ -26,6 +26,7 @@ export interface AgentExecutionRequest {
   prompt: string;
   model_name?: string;
   workspace_path?: string;
+  workspace_id: string;
   context?: Record<string, string>;
   verbose?: boolean;
 }
@@ -59,7 +60,12 @@ export class AgentService {
   private static sessionManager = new SessionManager();
 
    
-  static async getOrCreateSession(agentType: string, workspacePath: string, modelName?: string): Promise<string> {
+  static async getOrCreateSession(
+    agentType: string,
+    workspacePath: string,
+    workspaceId: string,
+    modelName?: string,
+  ): Promise<string> {
     
     const existingSessionId = this.sessionManager.getSession(agentType, workspacePath);
     if (existingSessionId) {
@@ -75,6 +81,7 @@ export class AgentService {
         sessionName: `${agentType}-session-${Date.now()}`,
         agentType,
         workspacePath,
+        domain: { kind: 'workspace', workspace_id: workspaceId },
         config: {
           modelName,
           enableTools: true,
@@ -117,7 +124,12 @@ export class AgentService {
       if (!workspacePath) {
         throw new Error('Workspace path is required to start an agent task');
       }
-      const sessionId = await this.getOrCreateSession(request.agent_type, workspacePath, request.model_name);
+      const sessionId = await this.getOrCreateSession(
+        request.agent_type,
+        workspacePath,
+        request.workspace_id,
+        request.model_name,
+      );
 
       
       const unlistenFunctions: Array<() => void> = [];

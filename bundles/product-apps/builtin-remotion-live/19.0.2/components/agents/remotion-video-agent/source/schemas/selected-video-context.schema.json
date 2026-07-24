@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Remotion Selected Video Context",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["workspacePath", "projectRevision", "descriptorRevision", "compositionId", "frame", "frameState"],
+  "properties": {
+    "workspacePath": { "type": "string" },
+    "projectRevision": { "type": "string" },
+    "descriptorRevision": { "type": "string" },
+    "entryPoint": { "type": "string" },
+    "compositionId": { "type": "string" },
+    "frame": { "type": "integer", "minimum": 0 },
+    "frameState": { "type": "string", "const": "committed" },
+    "playbackState": { "type": "string", "enum": ["paused", "playing", "buffering", "seeking", "ended", "error"] },
+    "timeSeconds": { "type": "number" },
+    "fps": { "type": "number" },
+    "durationInFrames": { "type": "integer" },
+    "selection": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": { "type": "string", "enum": ["point", "region", "element", "timeRange"] },
+        "element": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "id": { "type": "string" },
+            "type": { "type": "string" },
+            "label": { "type": "string" },
+            "sourceHint": { "type": "string" },
+            "bboxPercent": {
+              "type": "object",
+              "properties": {
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "width": { "type": "number" },
+                "height": { "type": "number" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

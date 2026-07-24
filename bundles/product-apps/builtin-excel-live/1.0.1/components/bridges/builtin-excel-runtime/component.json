@@ -1,0 +1,81 @@
+{
+  "id": "builtin-excel-runtime",
+  "kind": "bridge",
+  "name": "Sparo Excel Engine",
+  "description": "Revisioned workbook creation with formulas, semantic styles, number formats, worksheet layout, reviewable edits, static formula lint, and source-safe XLSX export.",
+  "packageSource": "appPrivate",
+  "ownerApp": {
+    "appId": "builtin-excel-live",
+    "appVersion": "1.0.1"
+  },
+  "capabilities": [
+    {
+      "id": "sparo.excelEngine",
+      "title": "Sparo Excel Engine",
+      "description": "Read values, formulas, basic RGB styles, and layout; create reviewable content/style/layout proposals; statically lint but do not calculate formulas; undo; and export source-safe CSV/XLSX copies.",
+      "actions": [
+        "openWorkbook",
+        "createWorkbook",
+        "getMeta",
+        "getFocus",
+        "setFocus",
+        "readRange",
+        "summarizeRange",
+        "proposePatch",
+        "getProposal",
+        "acceptProposal",
+        "rejectProposal",
+        "applyLocalEdit",
+        "applyLocalPatch",
+        "applyLayout",
+        "clearRange",
+        "undo",
+        "redo",
+        "getHistory",
+        "saveWorkbook",
+        "exportCsv",
+        "listSheets",
+        "listWorkbooks",
+        "switchSheet",
+        "insertRows",
+        "insertColumns",
+        "deleteRows",
+        "deleteColumns",
+        "renameSheet",
+        "addSheet",
+        "reloadWorkbook"
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "kind": "fs",
+      "summary": "Reads spreadsheet files and writes workbook store plus CSV/XLSX exports under the workspace.",
+      "scopes": [
+        "{workspace}",
+        "{app}"
+      ]
+    },
+    {
+      "kind": "shell",
+      "summary": "Starts the Node.js bridge worker that hosts the Sparo Excel Engine.",
+      "scopes": [
+        "node"
+      ]
+    }
+  ],
+  "usedByApps": [
+    "builtin-excel-live"
+  ],
+  "visibility": "appDependency",
+  "dependencies": [],
+  "implementationRef": "app://builtin-excel-live@1.0.1/bridges/builtin-excel-runtime",
+  "usesCapabilities": [
+    "filesystem.read",
+    "filesystem.write",
+    "terminal.run",
+    "process.spawn",
+    "workspace.inspect",
+    "component.run"
+  ]
+}

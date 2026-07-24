@@ -56,6 +56,7 @@ impl TransportAdapter for TauriTransportAdapter {
                 session_name,
                 agent_type,
                 workspace_path,
+                domain,
             } => {
                 self.app_handle.emit(
                     "agentic://session-created",
@@ -64,6 +65,7 @@ impl TransportAdapter for TauriTransportAdapter {
                         "sessionName": session_name,
                         "agentType": agent_type,
                         "workspacePath": workspace_path,
+                        "domain": domain,
                     }),
                 )?;
             }

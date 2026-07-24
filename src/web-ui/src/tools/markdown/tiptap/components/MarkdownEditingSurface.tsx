@@ -83,6 +83,7 @@ export const MarkdownEditingSurface = forwardRef<EditorInstance, MarkdownEditing
 
   const tiptapEditorRef = useRef<TiptapEditorHandle>(null)
   const effectiveMode = mode
+  const setControlledValue = editorInstance.setValue
 
   useEffect(() => {
     currentValueRef.current = value
@@ -122,10 +123,10 @@ export const MarkdownEditingSurface = forwardRef<EditorInstance, MarkdownEditing
   useEffect(() => {
     if (controlledValue !== undefined && controlledValue !== value) {
       currentValueRef.current = controlledValue
-      editorInstance.setValue(controlledValue)
+      setControlledValue(controlledValue)
       onDirtyChange?.(controlledValue !== savedValueRef.current)
     }
-  }, [controlledValue, editorInstance, onDirtyChange, value])
+  }, [controlledValue, onDirtyChange, setControlledValue, value])
 
   useEffect(() => {
     if (initialMode) {

@@ -8,7 +8,7 @@ use super::util::normalize_path;
 use crate::agentic::coordination::{
     get_global_scheduler, SessionControlActor, TurnCancellationReason,
 };
-use crate::agentic::core::SessionConfig;
+use crate::agentic::core::{SessionConfig, SessionDomain, SessionLocator};
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
@@ -194,7 +194,11 @@ impl SessionControlTool {
         workspace: &str,
         session_id: &str,
     ) -> CoreResult<()> {
-        let existing_sessions = coordinator.list_sessions(workspace_path).await?;
+        let domain = crate::agentic::core::SessionDomain::Workspace {
+            workspace_id: crate::infrastructure::try_get_path_manager_arc()?
+                .workspace_id(workspace_path)?,
+        };
+        let existing_sessions = coordinator.list_sessions(&domain).await?;
         if existing_sessions
             .iter()
             .any(|session| session.session_id == session_id)
@@ -529,6 +533,10 @@ Optional inputs:
             .map_err(|e| CoreError::tool(format!("Invalid input: {}", e)))?;
         let workspace = self.resolve_workspace(&params.workspace)?;
         let workspace_path = Path::new(&workspace);
+        let domain = SessionDomain::Workspace {
+            workspace_id: crate::infrastructure::try_get_path_manager_arc()?
+                .workspace_id(workspace_path)?,
+        };
         let coordinator = context
             .agentic()
             .map(|h| h.coordinator.clone())
@@ -555,7 +563,7 @@ Optional inputs:
                         agent_type,
                         SessionConfig {
                             workspace_path: Some(workspace.clone()),
-                            ..Default::default()
+                            ..SessionConfig::new(domain.clone())
                         },
                         workspace.clone(),
                         Some(created_by.clone()),
@@ -692,7 +700,10 @@ Optional inputs:
                     .await?;
 
                 coordinator
-                    .delete_session(workspace_path, session_id)
+                    .delete_session(&SessionLocator {
+                        domain: domain.clone(),
+                        session_id: session_id.to_string(),
+                    })
                     .await?;
 
                 Ok(vec![ToolResult::Result {
@@ -710,7 +721,7 @@ Optional inputs:
                 }])
             }
             SessionControlAction::List => {
-                let sessions = coordinator.list_sessions(workspace_path).await?;
+                let sessions = coordinator.list_sessions(&domain).await?;
                 let current_session_id = self.workspace_context_session(context, &workspace);
                 let result_for_assistant =
                     self.build_list_result_for_assistant(&workspace, &sessions, current_session_id);
@@ -746,6 +757,7 @@ mod tests {
             tool_call_id: None,
             agent_type: None,
             session_id: None,
+            session_domain: None,
             dialog_turn_id: None,
             workspace: None,
             custom_data: HashMap::new(),

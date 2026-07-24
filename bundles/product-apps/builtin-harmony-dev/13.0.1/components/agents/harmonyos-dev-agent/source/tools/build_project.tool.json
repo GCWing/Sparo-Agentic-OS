@@ -1,0 +1,19 @@
+{
+  "name": "build_project",
+  "description": "Run the HarmonyOS HVigor build pipeline and return structured, redacted build diagnostics and artifact state.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "workspacePath": { "type": "string" },
+      "includeTests": { "type": "boolean" },
+      "timeoutMs": { "type": "number" }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/build_project.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 24000
+}

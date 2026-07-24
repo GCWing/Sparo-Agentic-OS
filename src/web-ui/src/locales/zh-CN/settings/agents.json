@@ -69,7 +69,7 @@
     },
     "item": {
       "builtin": "内置",
-      "subAgent": "Sub-Agent",
+      "subAgent": "子智能体",
       "mode": "模式",
       "toolsCount": "{{count}} 工具",
       "editTooltip": "编辑",

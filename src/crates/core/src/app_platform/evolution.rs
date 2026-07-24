@@ -97,16 +97,12 @@ pub enum EvolutionProposalStatus {
     Active,
     Rejected,
     Failed,
-    RolledBack,
     Archived,
 }
 
 impl EvolutionProposalStatus {
     fn is_terminal(self) -> bool {
-        matches!(
-            self,
-            Self::Rejected | Self::Failed | Self::RolledBack | Self::Archived
-        )
+        matches!(self, Self::Rejected | Self::Failed | Self::Archived)
     }
 }
 
@@ -152,7 +148,7 @@ pub enum EvolutionRiskLevel {
 pub struct EvolutionEvaluation {
     pub passed: bool,
     pub non_inferior: bool,
-    pub rollback_verified: bool,
+    pub forward_recovery_verified: bool,
     pub isolated_data_verified: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub checks: Vec<String>,
@@ -465,23 +461,6 @@ impl ProductAppEvolutionStore {
         Ok(updated)
     }
 
-    pub async fn rollback_proposal(&self, proposal_id: &str) -> CoreResult<EvolutionProposal> {
-        let _guard = EVOLUTION_STATE_LOCK.lock().await;
-        let now_ms = trusted_now_ms();
-        let mut state = self.load().await?;
-        prune_expired_signals(&mut state, now_ms);
-        let proposal = state.proposals.get_mut(proposal_id).ok_or_else(|| {
-            CoreError::validation(format!("Evolution proposal not found: {proposal_id}"))
-        })?;
-        validate_transition(proposal.status, EvolutionProposalStatus::RolledBack)?;
-        proposal.status = EvolutionProposalStatus::RolledBack;
-        proposal.status_detail = Some("User requested rollback.".to_string());
-        proposal.updated_at_ms = now_ms;
-        let updated = proposal.clone();
-        self.save(&state).await?;
-        Ok(updated)
-    }
-
     pub async fn record_candidate_release(
         &self,
         draft_id: &str,
@@ -630,9 +609,9 @@ fn validate_transition(
             )
         }
         Status::Shadowing => matches!(next, Status::Canary | Status::Failed | Status::Rejected),
-        Status::Canary => matches!(next, Status::Active | Status::RolledBack | Status::Failed),
-        Status::Active => matches!(next, Status::RolledBack | Status::Archived),
-        Status::Rejected | Status::Failed | Status::RolledBack | Status::Archived => false,
+        Status::Canary => matches!(next, Status::Active | Status::Failed),
+        Status::Active => matches!(next, Status::Archived),
+        Status::Rejected | Status::Failed | Status::Archived => false,
     };
     if allowed {
         Ok(())
@@ -683,11 +662,11 @@ fn validate_activation_gate(
     }
     if !evaluation.passed
         || !evaluation.non_inferior
-        || !evaluation.rollback_verified
+        || !evaluation.forward_recovery_verified
         || !evaluation.isolated_data_verified
     {
         return Err(CoreError::validation(
-            "Evolution evaluation must pass correctness, non-inferiority, rollback, and isolated-data gates.",
+            "Evolution evaluation must pass correctness, non-inferiority, forward-recovery, and isolated-data gates.",
         ));
     }
     Ok(())
@@ -926,7 +905,7 @@ mod tests {
         let passed = EvolutionEvaluation {
             passed: true,
             non_inferior: true,
-            rollback_verified: true,
+            forward_recovery_verified: true,
             isolated_data_verified: true,
             checks: Vec::new(),
         };

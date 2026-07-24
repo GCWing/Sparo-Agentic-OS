@@ -32,6 +32,8 @@ import {
   StatusDot,
   StatusPill,
   SparoLogoMark,
+  SparoSystemIcon,
+  systemIconNames,
   type DateRangeValue,
 } from '@/design-system';
 import { ChevronDown, Copy, Grid3X3, List, Plus, RefreshCw, Search, Settings2, Sparkles, Trash2 } from 'lucide-react';
@@ -274,6 +276,32 @@ export const primitivePreviewCategories: PreviewCategory[] = [
           useWhen: ['A first-party Sparo OS surface needs the official brand mark'],
           composeWith: ['IconButton', 'Toolbar', 'DialogHeader', 'EmptyState'],
           avoid: ['Generic actions or objects that already have a Lucide icon', 'Raster copies of the brand mark'],
+          states: ['default', 'theme', 'narrow'],
+        },
+      },
+      {
+        id: 'ds-sparo-system-icons',
+        name: 'Sparo semantic icon families',
+        description: 'First-party system, work-type, navigation, search/filter, file-transfer, and edit/manage icons sourced from the standalone @sparo/icons package.',
+        category: 'ds-primitives',
+        render: () => (
+          <div className="recipe-preview-inline" style={{ flexWrap: 'wrap' }}>
+            {systemIconNames.map((name) => (
+              <SparoSystemIcon
+                key={name}
+                name={name}
+                size={28}
+                strokeWidth={1.8}
+                absoluteStrokeWidth
+                title={name}
+              />
+            ))}
+          </div>
+        ),
+        ai: {
+          useWhen: ['A first-party Sparo OS destination, work type, navigation surface, or large-format semantic action needs a recognizable icon'],
+          composeWith: ['Button', 'IconButton', 'DataList', 'Navigation'],
+          avoid: ['Generic actions that already have a Lucide icon', 'Feature-local copies of the SVG geometry'],
           states: ['default', 'theme', 'narrow'],
         },
       },

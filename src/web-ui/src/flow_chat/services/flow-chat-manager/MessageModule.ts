@@ -127,8 +127,8 @@ function scheduleSubmittedTurnProjectionCheck(
       await context.flowChatStore.loadSessionHistory(
         sessionId,
         workspacePath,
+        session.domain,
         undefined,
-        session.storageScope,
       );
       log.info('Recovered submitted dialog turn from persisted history', {
         sessionId,
@@ -205,13 +205,11 @@ async function syncSessionModelSelection(
     return;
   }
 
-  if (currentModelId !== desiredModelId) {
-    context.flowChatStore.updateSessionModelName(sessionId, desiredModelId);
-  }
   await agentAPI.updateSessionModel({
     sessionId,
     modelName: desiredModelId,
   });
+  context.flowChatStore.updateSessionModelName(sessionId, desiredModelId);
 
   log.info('Session model synchronized before send', {
     sessionId,

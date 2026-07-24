@@ -1,7 +1,7 @@
 //! Tool pipeline type definitions
 
 use crate::agentic::app_builder_context::AppBuilderExecutionContext;
-use crate::agentic::core::{ToolCall, ToolExecutionState};
+use crate::agentic::core::{SessionDomain, ToolCall, ToolExecutionState};
 use crate::agentic::events::{SessionSurfaceMode, SubagentParentInfo as EventSubagentParentInfo};
 use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::agentic::workspace::WorkspaceServices;
@@ -55,6 +55,7 @@ impl From<SubagentParentInfo> for EventSubagentParentInfo {
 #[derive(Debug, Clone)]
 pub struct ToolExecutionContext {
     pub session_id: String,
+    pub session_domain: SessionDomain,
     pub dialog_turn_id: String,
     pub surface_mode: SessionSurfaceMode,
     pub agent_type: String,

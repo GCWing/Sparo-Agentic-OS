@@ -5,7 +5,7 @@
 //! its own rounds, tools, cancellation, and cleanup lifecycle.
 
 use crate::agentic::app_builder_context::AppBuilderExecutionContext;
-use crate::agentic::core::{Message, Session, SessionConfig};
+use crate::agentic::core::{Message, Session, SessionConfig, SessionDomain};
 use crate::agentic::tools::ToolRuntimeRestrictions;
 use crate::error::{CoreError, CoreResult};
 use std::collections::HashMap;
@@ -16,7 +16,7 @@ pub struct ForkAgentContextSnapshot {
     pub parent_session_id: String,
     pub parent_agent_type: String,
     pub workspace_path: String,
-    pub storage_scope: Option<crate::agentic::core::SessionStorageScope>,
+    pub domain: SessionDomain,
     pub session_model_id: Option<String>,
     pub session_config: SessionConfig,
     pub messages: Vec<Message>,
@@ -42,7 +42,7 @@ impl ForkAgentContextSnapshot {
             parent_session_id: parent_session.session_id.clone(),
             parent_agent_type: parent_session.agent_type.clone(),
             workspace_path,
-            storage_scope: parent_session.config.storage_scope,
+            domain: parent_session.config.domain.clone(),
             session_model_id: parent_session.config.model_id.clone(),
             session_config: parent_session.config.clone(),
             messages,
@@ -56,7 +56,7 @@ impl ForkAgentContextSnapshot {
     pub fn build_child_session_config(&self, max_turns_override: Option<usize>) -> SessionConfig {
         let mut config = self.session_config.clone();
         config.workspace_path = Some(self.workspace_path.clone());
-        config.storage_scope = self.storage_scope;
+        config.domain = self.domain.clone();
         config.model_id = self.session_model_id.clone();
         if let Some(max_turns) = max_turns_override {
             config.max_turns = max_turns;
@@ -108,15 +108,14 @@ pub struct ForkAgentExecutionResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::core::{Message, Session, SessionConfig, SessionStorageScope};
+    use crate::agentic::core::{Message, Session, SessionConfig, SessionDomain};
 
     fn parent_session() -> Session {
         let config = SessionConfig {
             workspace_path: Some("/workspace/project".to_string()),
-            storage_scope: Some(SessionStorageScope::AgenticOs),
             model_id: Some("primary".to_string()),
             max_turns: 42,
-            ..SessionConfig::default()
+            ..SessionConfig::new(SessionDomain::OsAgent)
         };
         Session::new("Parent".to_string(), "Runno".to_string(), config)
     }
@@ -152,10 +151,7 @@ mod tests {
             child_config.workspace_path.as_deref(),
             Some("/workspace/project")
         );
-        assert_eq!(
-            child_config.storage_scope,
-            Some(SessionStorageScope::AgenticOs)
-        );
+        assert_eq!(child_config.domain, SessionDomain::OsAgent);
         assert_eq!(child_config.model_id.as_deref(), Some("primary"));
         assert_eq!(child_config.max_turns, 7);
     }

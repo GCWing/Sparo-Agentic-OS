@@ -18,12 +18,51 @@ pub enum AppInteractionModel {
 /// App-owned additions to the host-derived Product App runtime interaction.
 ///
 /// The host remains authoritative for the profile, chat binding, primary tab,
-/// and backend routing. Apps may only declare additional runtime tabs.
+/// and backend routing. Apps may declare additional tabs and UI-only FlowChat
+/// card manifests. FlowChat cards affect presentation only and never become
+/// model-callable tools.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppRuntimeInteraction {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_workspace: Option<AppRuntimeAgentWorkspace>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tabs: Vec<AppRuntimeInteractionTab>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub flow_chat_cards: Vec<AppRuntimeFlowChatCard>,
+}
+
+/// Declarative file boundary for the Agent session paired with a Product App.
+/// All paths are relative to the trusted workspace root (or the OS-managed
+/// Agentic runtime root when the app is launched without a workspace).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppRuntimeAgentWorkspace {
+    pub managed_root: String,
+    #[serde(default)]
+    pub workspace_access: AppRuntimeWorkspaceAccess,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub document_roots: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub private_roots: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AppRuntimeWorkspaceAccess {
+    None,
+    ReadOnly,
+    #[default]
+    ReadWrite,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppRuntimeFlowChatCard {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub ui: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -184,7 +184,6 @@
       "inspect": "检查",
       "customize": "派生并定制",
       "edit": "编辑草稿",
-      "rollback": "回滚激活版本",
       "syncUpstream": "审查上游更新"
     },
     "capabilities": {
@@ -245,7 +244,6 @@
       }
     },
     "messages": {
-      "rolledBack": "{{name}} 已切回上一个 Release。",
       "installBeforeLaunch": "请先安装 {{name}}，再启动它。",
       "noLaunch": "{{name}} 没有启动目标。",
       "launchFailed": "启动 {{name}} 失败：{{error}}",

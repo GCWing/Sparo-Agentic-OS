@@ -13,7 +13,8 @@ import { useI18n } from '@/infrastructure/i18n';
 import { buildProductAppRuntimeThemeVars } from './productAppRuntimeThemeVars';
 import { api } from '@/infrastructure/api/service-api/ApiClient';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
-import { descriptorFromAgentType } from '@/flow_chat/domain/sessionDescriptor';
+import { FlowChatManager } from '@/flow_chat/services/FlowChatManager';
+import { getProductAppRuntimeSessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
 import { useProductAppRuntimeStore } from './productAppRuntimeStore';
 import type {
   ProductAppHostSurface,
@@ -30,6 +31,7 @@ import {
   useExcelLiveFocusStore,
 } from '@/app/agentic-os/excel-live/excelLiveFocusStore';
 import { useContextStore } from '@/shared/stores/contextStore';
+import type { ProductAppRuntimeHostedViewBridge } from './productAppRuntimeHostedViews';
 
 interface JSONRPC {
   jsonrpc?: string;
@@ -73,11 +75,12 @@ interface RuntimeLogPayload {
   timestampMs?: number;
 }
 
-interface ProductAppRuntimeBridgeOptions {
+export interface ProductAppRuntimeBridgeOptions {
   scope?: AppScope | null;
   runtimeContext?: ProductAppRuntimeContext | null;
   sessionId?: string;
   spreadsheetFocusEnabled?: boolean;
+  hostedViews?: ProductAppRuntimeHostedViewBridge;
 }
 
 const NOOP_BRIDGE_METHODS = new Set([
@@ -105,7 +108,7 @@ function errorMessage(error: unknown): string {
 }
 
 function productAppRuntimeOwnerId(context: ProductAppRuntimeContext): string {
-  return `product-app-runtime:${context.workId}:${context.runtimeInstanceId}`;
+  return `product-app-runtime:${context.workLocator.workId}:${context.runtimeInstanceId}`;
 }
 
 function isTerminalAgenticEvent(eventName: string): boolean {
@@ -133,6 +136,8 @@ export function useProductAppRuntimeBridge(
   trustedSessionIdRef.current = options.sessionId;
   const spreadsheetFocusEnabledRef = useRef(options.spreadsheetFocusEnabled === true);
   spreadsheetFocusEnabledRef.current = options.spreadsheetFocusEnabled === true;
+  const hostedViewsRef = useRef(options.hostedViews);
+  hostedViewsRef.current = options.hostedViews;
   const agenticSessionIdsRef = useRef<Set<string>>(new Set());
   const pendingAgenticRunIdsRef = useRef<Set<string>>(new Set());
   const earlyAgenticEventsRef = useRef<Map<string, Array<{
@@ -262,16 +267,6 @@ export function useProductAppRuntimeBridge(
           reply(result);
           return;
         }
-        if (method === 'sparo.deck.renderPage') {
-          const result = await productAppRuntimeHostAPI.renderSlidePage({
-            html: String((params as { html?: string }).html ?? ''),
-            format: String((params as { format?: string }).format ?? 'png'),
-            width: (params as { width?: number }).width,
-            height: (params as { height?: number }).height,
-          });
-          reply(result);
-          return;
-        }
         if (method === 'worker.call') {
           useProductAppRuntimeStore.getState().markWorkerRunning(appId);
           const result = await productAppRuntimeHostAPI.workerCall(
@@ -357,6 +352,7 @@ export function useProductAppRuntimeBridge(
                 entityId: params.entityId as string | undefined,
                 idempotencyKey: actionRunId || undefined,
                 workspacePath: workspacePathRef.current || undefined,
+                sessionId: trustedSessionIdRef.current,
               },
             );
           } catch (error) {
@@ -378,20 +374,22 @@ export function useProductAppRuntimeBridge(
             }
             return;
           }
-          const isPrivatePptLiveRun = requestRuntimeContext.appId === 'builtin-ppt-live'
-            && result.backendId === 'ppt';
           if (result.backendKind === 'agentComponent' && result.sessionId) {
-            // Private PPT Live runs must still receive agentic stream events in the iframe,
-            // but should not appear as external Flow Chat sessions.
             agenticSessionIdsRef.current.add(result.sessionId);
-            if (!isPrivatePptLiveRun) {
-              flowChatStore.addExternalSession(
-                result.sessionId,
-                `${result.backendId}.${result.action}`,
-                descriptorFromAgentType(result.agentType),
-                undefined,
-              );
-            }
+            const sessionDomain = requestRuntimeContext.workLocator.scope.kind === 'workspace'
+              ? {
+                  kind: 'workspace' as const,
+                  workspace_id: requestRuntimeContext.workLocator.scope.workspaceId,
+                }
+              : { kind: 'global' as const };
+            flowChatStore.addExternalSession(
+              result.sessionId,
+              `${result.backendId}.${result.action}`,
+              getProductAppRuntimeSessionDescriptor(result.agentType),
+              undefined,
+              undefined,
+              sessionDomain,
+            );
           }
           if (actionRunId) {
             const buffered = earlyAgenticEventsRef.current.get(actionRunId) || [];
@@ -461,46 +459,6 @@ export function useProductAppRuntimeBridge(
           reply(result);
           return;
         }
-        if (method === 'backend.cancelStaleRuns') {
-          const requestRuntimeContext = requireRuntimeContext();
-          if (requestRuntimeContext.appId !== 'builtin-ppt-live') {
-            replyError('backend.cancelStaleRuns is only available to PPT Live');
-            return;
-          }
-          const result = await productAppRuntimeHostAPI.cancelStalePptRuns(
-            appId,
-            requestRuntimeContext,
-            workspacePathRef.current || undefined,
-          );
-          agenticSessionIdsRef.current.clear();
-          pendingAgenticRunIdsRef.current.clear();
-          earlyAgenticEventsRef.current.clear();
-          reply(result);
-          return;
-        }
-        if (method === 'backend.turnText') {
-          const requestRuntimeContext = requireRuntimeContext();
-          if (requestRuntimeContext.appId !== 'builtin-ppt-live') {
-            replyError('backend.turnText is only available to PPT Live');
-            return;
-          }
-          const sessionId = typeof params.sessionId === 'string' ? params.sessionId : '';
-          const turnId = typeof params.turnId === 'string' ? params.turnId : '';
-          if (!sessionId || !turnId) {
-            replyError('backend.turnText requires sessionId and turnId');
-            return;
-          }
-          const result = await productAppRuntimeHostAPI.getPptTurnAssistantText(
-            appId,
-            requestRuntimeContext,
-            sessionId,
-            turnId,
-            workspacePathRef.current || undefined,
-          );
-          reply(result);
-          return;
-        }
-
         if (method === 'clipboard.writeText') {
           await navigator.clipboard.writeText((params.text as string) ?? '');
           reply(null);
@@ -512,9 +470,52 @@ export function useProductAppRuntimeBridge(
           return;
         }
 
+        if (method === 'host.mountView') {
+          const hostedViews = hostedViewsRef.current;
+          if (!hostedViews) throw new Error('Hosted views are unavailable for this surface');
+          reply(hostedViews.mount(params.view));
+          return;
+        }
+
+        if (method === 'host.updateView') {
+          const hostedViews = hostedViewsRef.current;
+          if (!hostedViews) throw new Error('Hosted views are unavailable for this surface');
+          reply(hostedViews.update(params.view));
+          return;
+        }
+
+        if (method === 'host.unmountView') {
+          const hostedViews = hostedViewsRef.current;
+          if (!hostedViews) throw new Error('Hosted views are unavailable for this surface');
+          hostedViews.unmount(params.viewId);
+          reply(null);
+          return;
+        }
+
         if (method === 'host.fillChatInput') {
           const text = typeof params.text === 'string' ? params.text : '';
           window.dispatchEvent(new CustomEvent('fill-chat-input', { detail: { message: text } }));
+          reply(null);
+          return;
+        }
+
+        if (method === 'host.submitChatIntent') {
+          const trustedSessionId = trustedSessionIdRef.current;
+          if (!trustedSessionId) {
+            throw new Error('host.submitChatIntent requires a session-bound Product App surface');
+          }
+          const intent = typeof params.intent === 'string' ? params.intent.trim() : '';
+          if (!intent) {
+            throw new Error('host.submitChatIntent requires a non-empty intent');
+          }
+          await FlowChatManager.getInstance().sendMessage(
+            intent,
+            trustedSessionId,
+            undefined,
+            undefined,
+            undefined,
+            { triggerSource: 'desktop_ui' },
+          );
           reply(null);
           return;
         }
@@ -615,38 +616,6 @@ export function useProductAppRuntimeBridge(
             type: payload.type,
             data: payload.data,
           },
-        },
-        '*',
-      );
-    });
-
-    return () => {
-      unlisten();
-    };
-  }, [app.id, iframeRef, options.runtimeContext]);
-
-  useEffect(() => {
-    const currentAppId = app.id;
-    const currentRuntimeContext = runtimeContextRef.current;
-    const currentRuntimeOwnerId = currentRuntimeContext
-      ? productAppRuntimeOwnerId(currentRuntimeContext)
-      : null;
-    const unlisten = api.listen<{
-      appId: string;
-      runtimeOwnerId: string;
-      workId: string;
-      runtimeInstanceId: string;
-      document: unknown;
-      replayed: boolean;
-    }>('product-app-runtime-manuscript-committed', (payload) => {
-      if (payload.appId !== currentAppId) return;
-      if (!currentRuntimeOwnerId || payload.runtimeOwnerId !== currentRuntimeOwnerId) return;
-      if (!iframeRef.current?.contentWindow) return;
-      iframeRef.current.contentWindow.postMessage(
-        {
-          type: 'sparo:event',
-          event: 'ppt.manuscript.committed',
-          payload,
         },
         '*',
       );

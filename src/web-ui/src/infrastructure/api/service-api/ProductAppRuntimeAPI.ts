@@ -1,17 +1,35 @@
 import { api } from './ApiClient';
 import { createTauriCommandError } from '../errors/TauriCommandError';
+import type { ProductAppWorkMultiplicity } from '@/shared/types/app-manifest';
 import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
+import type { WorkLocator } from '@/shared/types/work-locator';
 
 export interface ResolveProductAppRuntimeInstanceRequest {
-  workId: string;
+  locator: WorkLocator;
   slotId: string;
   appId: string;
-  releaseId: string;
-  configRevision: string;
-  dataSchemaVersion: string;
-  runtimeInstanceId?: string | null;
   productAppSurfaceId?: string | null;
   surfaceId?: string | null;
+}
+
+export type ProductAppWorkCompatibilityStatus =
+  | 'compatible'
+  | 'appUnavailable'
+  | 'appDisabled'
+  | 'appSelectionChanged'
+  | 'versionIncompatible';
+
+export interface ProductAppWorkCompatibility {
+  status: ProductAppWorkCompatibilityStatus;
+  slotId: string;
+  appId: string;
+  createdWithReleaseId: string;
+  createdWithVersion?: string | null;
+  workDataSchemaVersion: string;
+  installedAppId?: string | null;
+  installedReleaseId?: string | null;
+  installedVersion?: string | null;
+  installedDataSchemaVersion?: string | null;
 }
 
 export interface ProductAppRuntimeHost {
@@ -20,10 +38,12 @@ export interface ProductAppRuntimeHost {
 }
 
 export interface ResolvedProductAppRuntimeInstance {
-  workId: string;
+  workLocator: WorkLocator;
   runtimeInstanceId: string;
   slotId: string;
   appId: string;
+  appName: string;
+  workMultiplicity: ProductAppWorkMultiplicity;
   releaseId: string;
   configRevision: string;
   dataSchemaVersion: string;
@@ -44,13 +64,9 @@ export class ProductAppRuntimeAPI {
 
   private resolutionKey(request: ResolveProductAppRuntimeInstanceRequest): string {
     return JSON.stringify([
-      request.workId,
+      request.locator,
       request.slotId,
       request.appId,
-      request.releaseId,
-      request.configRevision,
-      request.dataSchemaVersion,
-      request.runtimeInstanceId ?? null,
       request.productAppSurfaceId ?? null,
       request.surfaceId ?? null,
     ]);
@@ -70,12 +86,9 @@ export class ProductAppRuntimeAPI {
       { request },
     ).catch((error) => {
       throw createTauriCommandError('resolve_product_app_runtime_instance', error, {
-        workId: request.workId,
+        locator: request.locator,
         slotId: request.slotId,
         appId: request.appId,
-        releaseId: request.releaseId,
-        configRevision: request.configRevision,
-        runtimeInstanceId: request.runtimeInstanceId,
       });
     });
     this.pendingResolutions.set(key, pending);
@@ -86,6 +99,16 @@ export class ProductAppRuntimeAPI {
       if (this.pendingResolutions.get(key) === pending) {
         this.pendingResolutions.delete(key);
       }
+    }
+  }
+
+  async prepareProductAppWork(locator: WorkLocator): Promise<ProductAppWorkCompatibility> {
+    try {
+      return await api.invoke<ProductAppWorkCompatibility>('prepare_product_app_work', {
+        request: { locator },
+      });
+    } catch (error) {
+      throw createTauriCommandError('prepare_product_app_work', error, { locator });
     }
   }
 }

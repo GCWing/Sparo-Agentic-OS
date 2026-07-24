@@ -2,7 +2,9 @@
 
 use sparo_core::agentic::side_question::SideQuestionRuntime;
 use sparo_core::agentic::{agents, tools};
-use sparo_core::app_platform::{seed_system_app_releases, AppRevisionStore};
+use sparo_core::app_platform::{
+    seed_system_app_releases, AppRevisionStore, SystemAppSeedIssue, SystemAppSeedResult,
+};
 use sparo_core::error::*;
 use sparo_core::infrastructure::ai::{AIClient, AIClientFactory};
 use sparo_core::product_app_runtime_host::{
@@ -22,7 +24,38 @@ pub struct HealthStatus {
     pub status: String,
     pub message: String,
     pub services: HashMap<String, bool>,
+    pub system_apps: SystemAppSyncStatus,
     pub uptime_seconds: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SystemAppSyncPhase {
+    Pending,
+    Syncing,
+    Ready,
+    Degraded,
+    Failed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemAppSyncStatus {
+    pub phase: SystemAppSyncPhase,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<SystemAppSeedResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+impl Default for SystemAppSyncStatus {
+    fn default() -> Self {
+        Self {
+            phase: SystemAppSyncPhase::Pending,
+            result: None,
+            error: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,6 +82,7 @@ pub struct AppState {
     pub token_usage_service: Arc<token_usage::TokenUsageService>,
     pub product_app_runtime_host_manager: Arc<ProductAppRuntimeHostManager>,
     pub app_revision_store: Arc<AppRevisionStore>,
+    pub system_app_sync_status: Arc<RwLock<SystemAppSyncStatus>>,
     pub js_worker_pool: Option<Arc<ProductAppRuntimeHostWorkerPool>>,
     pub statistics: Arc<RwLock<AppStatistics>>,
     pub macos_edit_menu_mode: Arc<RwLock<crate::macos_menubar::EditMenuMode>>,
@@ -107,22 +141,7 @@ impl AppState {
                     ))
                 })?,
         );
-        let seed_result = seed_system_app_releases(&path_manager, &app_revision_store)
-            .await
-            .map_err(|error| {
-                CoreError::service(format!(
-                    "Failed to initialize system Intelligent App releases: {error}"
-                ))
-            })?;
-        log::info!(
-            "Initialized system Intelligent App releases: components_added={}, components_reused={}, releases_added={}, releases_reused={}, activations_created={}, activations_preserved={}",
-            seed_result.components_added,
-            seed_result.components_reused,
-            seed_result.releases_added,
-            seed_result.releases_reused,
-            seed_result.activations_created,
-            seed_result.activations_preserved,
-        );
+        let system_app_sync_status = Arc::new(RwLock::new(SystemAppSyncStatus::default()));
         let speech_service = Arc::new(speech::SpeechService::new(path_manager.as_ref().clone()));
 
         let announcement_scheduler = Arc::new(
@@ -204,6 +223,7 @@ impl AppState {
             token_usage_service,
             product_app_runtime_host_manager,
             app_revision_store,
+            system_app_sync_status,
             js_worker_pool,
             statistics,
             macos_edit_menu_mode: Arc::new(RwLock::new(crate::macos_menubar::EditMenuMode::System)),
@@ -226,6 +246,83 @@ impl AppState {
         Ok(app_state)
     }
 
+    /// Starts non-blocking reconciliation for System-owned Product Apps.
+    /// Package and runtime-host failures are reported through health state and
+    /// never participate in the desktop boot success decision.
+    pub fn start_system_app_sync(self: &Arc<Self>) {
+        let state = self.clone();
+        tauri::async_runtime::spawn(async move {
+            {
+                let mut status = state.system_app_sync_status.write().await;
+                if status.phase != SystemAppSyncPhase::Pending {
+                    return;
+                }
+                status.phase = SystemAppSyncPhase::Syncing;
+                status.result = None;
+                status.error = None;
+            }
+
+            let path_manager = state.workspace_service.path_manager().clone();
+            match seed_system_app_releases(&path_manager, &state.app_revision_store).await {
+                Ok(mut result) => {
+                    if let Err(error) = crate::api::product_app_runtime_api::cleanup_orphan_product_app_runtime_hosts(&state).await {
+                        log::warn!(
+                            "Failed to remove orphaned Intelligent App runtime hosts after system App synchronization: error={}",
+                            error
+                        );
+                        result.issues.push(SystemAppSeedIssue {
+                            source: "runtime-host-cleanup".to_string(),
+                            app_id: None,
+                            version: None,
+                            message: error,
+                        });
+                    }
+                    for issue in &result.issues {
+                        log::warn!(
+                            "System Intelligent App synchronization issue: source={}, app_id={}, version={}, error={}",
+                            issue.source,
+                            issue.app_id.as_deref().unwrap_or("unknown"),
+                            issue.version.as_deref().unwrap_or("unknown"),
+                            issue.message
+                        );
+                    }
+                    log::info!(
+                        "Synchronized system Intelligent Apps: components_added={}, components_reused={}, releases_added={}, releases_reused={}, releases_replaced={}, activations_created={}, activations_preserved={}, issues={}",
+                        result.components_added,
+                        result.components_reused,
+                        result.releases_added,
+                        result.releases_reused,
+                        result.releases_replaced,
+                        result.activations_created,
+                        result.activations_preserved,
+                        result.issues.len(),
+                    );
+                    let phase = if result.is_degraded() {
+                        SystemAppSyncPhase::Degraded
+                    } else {
+                        SystemAppSyncPhase::Ready
+                    };
+                    *state.system_app_sync_status.write().await = SystemAppSyncStatus {
+                        phase,
+                        result: Some(result),
+                        error: None,
+                    };
+                }
+                Err(error) => {
+                    log::warn!(
+                        "System Intelligent App synchronization is unavailable; desktop startup continues: error={}",
+                        error
+                    );
+                    *state.system_app_sync_status.write().await = SystemAppSyncStatus {
+                        phase: SystemAppSyncPhase::Failed,
+                        result: None,
+                        error: Some(error.to_string()),
+                    };
+                }
+            }
+        });
+    }
+
     pub async fn get_health_status(&self) -> HealthStatus {
         let mut services = HashMap::new();
         services.insert(
@@ -235,6 +332,11 @@ impl AppState {
         services.insert("workspace_service".to_string(), true);
         services.insert("config_service".to_string(), true);
         services.insert("filesystem_service".to_string(), true);
+        let system_apps = self.system_app_sync_status.read().await.clone();
+        services.insert(
+            "system_apps".to_string(),
+            system_apps.phase == SystemAppSyncPhase::Ready,
+        );
 
         let all_healthy = services.values().all(|&status| status);
 
@@ -250,6 +352,7 @@ impl AppState {
                 "Some services are unavailable".to_string()
             },
             services,
+            system_apps,
             uptime_seconds: self.start_time.elapsed().as_secs(),
         }
     }

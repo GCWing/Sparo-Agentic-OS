@@ -1,0 +1,41 @@
+{
+  "name": "redo_workbook",
+  "description": "Redo the latest undone Excel Live operation. Use only when the user explicitly asks to reapply it.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["workbookId", "expectedRevision"],
+    "properties": {
+      "workbookId": { "type": "string" },
+      "expectedRevision": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Current workbook revision from spreadsheet focus or get_workbook_meta."
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/redo_workbook.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 60000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "excel-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "detailed",
+      "displayName": "Redo Workbook Change",
+      "icon": "Redo2",
+      "title": "Redo Workbook Change",
+      "summary": {
+        "preparing": "Checking workbook history",
+        "running": "Redoing the latest change",
+        "completed": "Workbook change redone",
+        "failed": "Redo failed"
+      }
+    }
+  }
+}

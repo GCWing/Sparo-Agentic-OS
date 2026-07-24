@@ -4,7 +4,7 @@ use super::catalog::{SettingOptionsProvider, BUILTIN_THEME_OPTIONS};
 use super::types::{
     AppConfig, AutoMemoryScopeConfig, ConfigValidationError, ConfigValidationResult,
     ConfigValidationWarning, EditorConfig, FlowChatFontMode, FontPreferenceSnapshot, GlobalConfig,
-    MarkdownEditorFontMode, UiFontSizeLevel, WorkspaceConfig,
+    MarkdownEditorFontMode, UiFontSizeLevel,
 };
 use crate::error::{CoreError, CoreResult};
 use crate::service::speech::LOCAL_SENSEVOICE_SMALL_INT8_MODEL_REF;
@@ -47,13 +47,6 @@ pub(crate) fn validate_config(config: &GlobalConfig) -> ConfigValidationResult {
         &mut errors,
         &mut warnings,
     );
-    append_section_result(
-        "workspace",
-        validate_workspace_config(&config.workspace),
-        &mut errors,
-        &mut warnings,
-    );
-
     ConfigValidationResult {
         valid: errors.is_empty(),
         errors,
@@ -362,20 +355,11 @@ fn validate_auto_memory_scope_config(
 }
 
 fn validate_app_config(config: &AppConfig) -> CoreResult<Vec<String>> {
-    let mut warnings = Vec::new();
-
     if !matches!(config.language.as_str(), "zh-CN" | "en-US") {
         return Err(CoreError::validation(format!(
             "Invalid app.language '{}': expected zh-CN or en-US",
             config.language
         )));
-    }
-
-    if config.zoom_level < 0.5 || config.zoom_level > 3.0 {
-        warnings.push("Zoom level should be between 0.5 and 3.0".to_string());
-    }
-    if config.sidebar.width < 200 || config.sidebar.width > 800 {
-        warnings.push("Sidebar width should be between 200 and 800 pixels".to_string());
     }
 
     if !matches!(
@@ -393,7 +377,7 @@ fn validate_app_config(config: &AppConfig) -> CoreResult<Vec<String>> {
         ));
     }
 
-    Ok(warnings)
+    Ok(Vec::new())
 }
 
 fn validate_editor_config(config: &EditorConfig) -> CoreResult<Vec<String>> {
@@ -436,19 +420,6 @@ fn validate_terminal_config(global: &GlobalConfig) -> CoreResult<Vec<String>> {
     if config.scrollback > 100_000 {
         warnings.push("Large scrollback buffer may impact performance".to_string());
     }
-    Ok(warnings)
-}
-
-fn validate_workspace_config(config: &WorkspaceConfig) -> CoreResult<Vec<String>> {
-    let mut warnings = Vec::new();
-
-    if config.max_file_size > 1024 * 1024 * 1024 {
-        warnings.push("Very large max file size may impact performance".to_string());
-    }
-    if config.exclude_patterns.is_empty() {
-        warnings.push("No exclude patterns defined, may scan unnecessary files".to_string());
-    }
-
     Ok(warnings)
 }
 

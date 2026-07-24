@@ -388,12 +388,15 @@ impl ExecutionEngine {
             .as_ref()
             .map(|workspace| workspace.root_path_string())?;
 
-        Some(
+        let mut prompt_context =
             PromptBuilderContext::new(workspace_path.clone(), Some(model_name.to_string()))
                 .with_session_id(context.session_id.clone())
                 .with_memory_scope(memory_scope)
-                .with_supports_image_understanding(supports_image_understanding),
-        )
+                .with_supports_image_understanding(supports_image_understanding);
+        if let Some(product_app) = context.product_app.clone() {
+            prompt_context = prompt_context.with_product_app_context(product_app);
+        }
+        Some(prompt_context)
     }
 
     pub(crate) async fn resolve_model_id_for_turn(
@@ -1132,15 +1135,17 @@ impl ExecutionEngine {
             (resolved_id, supports)
         };
 
-        let model_context_window = ai_client.config.context_window as usize;
-        let session_max_tokens = session.config.max_context_tokens;
-        let context_window = model_context_window.min(session_max_tokens);
-        if model_context_window != session_max_tokens {
-            debug!(
-                "Context window: model={}, session_config={}, effective={}",
-                model_context_window, session_max_tokens, context_window
-            );
-        }
+        let resolved_context_window = session
+            .config
+            .context_policy
+            .resolve(ai_client.config.context_window as usize)?;
+        let context_window = resolved_context_window.effective_context_window;
+        debug!(
+            "Resolved context window: model_capability={}, session_policy={:?}, effective={}",
+            resolved_context_window.model_context_window,
+            resolved_context_window.policy,
+            context_window
+        );
 
         // 3. Get System Prompt from current Agent
         debug!(
@@ -1461,6 +1466,7 @@ impl ExecutionEngine {
             }
             let mut round_context = RoundContext {
                 session_id: context.session_id.clone(),
+                session_domain: context.session_domain.clone(),
                 subagent_parent_info: context.subagent_parent_info.clone(),
                 dialog_turn_id: context.dialog_turn_id.clone(),
                 round_id: round_id.clone(),
@@ -1892,6 +1898,7 @@ impl ExecutionEngine {
             tool_call_id: None,
             agent_type: Some(agent_type.to_string()),
             session_id: None,
+            session_domain: None,
             dialog_turn_id: None,
             workspace: workspace.cloned(),
             custom_data: tool_opts_custom,

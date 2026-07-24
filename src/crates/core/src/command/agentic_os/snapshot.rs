@@ -218,13 +218,16 @@ async fn load_sessions_for_snapshot(
 
     let mut rows = Vec::new();
     for workspace in workspaces {
-        let storage_path = workspace
-            .path
-            .as_ref()
-            .map(PathBuf::from)
-            .unwrap_or_else(|| path_manager.agentic_os_runtime_root());
+        let domain = match workspace.path.as_ref() {
+            Some(path) => crate::agentic::core::SessionDomain::Workspace {
+                workspace_id: path_manager
+                    .workspace_id(PathBuf::from(path).as_path())
+                    .map_err(CommandError::session)?,
+            },
+            None => crate::agentic::core::SessionDomain::OsAgent,
+        };
         let metadata = manager
-            .list_session_metadata(&storage_path)
+            .list_session_metadata(&domain)
             .await
             .map_err(CommandError::session)?;
         for session in metadata
@@ -281,7 +284,7 @@ async fn load_works() -> CommandResult<Vec<AgenticOsWorkRow>> {
             kind: format!("{:?}", projection.kind),
             status: format!("{:?}", projection.status),
             objective: projection.objective,
-            workspace: projection.scope.workspace_path().map(str::to_string),
+            workspace: projection.workspace_path.clone(),
             updated_at: projection.updated_at,
             primary_surface: serde_json::to_value(projection.primary_surface)
                 .unwrap_or_else(|_| serde_json::json!({})),
@@ -377,13 +380,9 @@ async fn load_memories(workspace: Option<&str>) -> Vec<AgenticOsMemoryRow> {
     };
     let mut rows = collect_memory_dir("GLOBAL", path_manager.agentic_os_memory_dir()).await;
     if let Some(workspace) = workspace {
-        rows.extend(
-            collect_memory_dir(
-                "PROJECT",
-                path_manager.workspace_memory_dir(Path::new(workspace)),
-            )
-            .await,
-        );
+        if let Ok(memory_dir) = path_manager.workspace_memory_dir(Path::new(workspace)) {
+            rows.extend(collect_memory_dir("PROJECT", memory_dir).await);
+        }
     }
     rows
 }

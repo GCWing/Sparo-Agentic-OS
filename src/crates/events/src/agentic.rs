@@ -43,6 +43,14 @@ impl Default for SessionSurfaceMode {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum EventSessionDomain {
+    OsAgent,
+    Global,
+    Workspace { workspace_id: String },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum AgenticEvent {
@@ -53,6 +61,7 @@ pub enum AgenticEvent {
         /// Workspace path this session belongs to. None for locally-created sessions.
         #[serde(skip_serializing_if = "Option::is_none")]
         workspace_path: Option<String>,
+        domain: EventSessionDomain,
     },
 
     SessionStateChanged {

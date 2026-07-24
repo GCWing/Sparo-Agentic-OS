@@ -68,7 +68,9 @@ impl TokenUsageService {
 
     /// Get base directory for token usage data
     fn get_base_dir(&self) -> PathBuf {
-        self.path_manager.user_data_dir().join(TOKEN_USAGE_DIR)
+        self.path_manager
+            .global_services_root()
+            .join(TOKEN_USAGE_DIR)
     }
 
     /// Get model stats file path

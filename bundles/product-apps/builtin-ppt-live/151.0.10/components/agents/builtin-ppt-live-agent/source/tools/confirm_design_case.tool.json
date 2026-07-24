@@ -1,0 +1,75 @@
+{
+  "name": "confirm_design_case",
+  "description": "Wait for the user to inspect the three rendered Design Case pages and either approve the direction or request one systemic revision. This is the only required design confirmation before full production.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["caseId", "density", "colorDirection", "sampleSlides"],
+    "properties": {
+      "caseId": { "type": "string", "minLength": 1, "maxLength": 200 },
+      "density": { "type": "string", "minLength": 1, "maxLength": 80 },
+      "colorDirection": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "keywords": { "type": "array", "items": { "type": "string" } },
+          "tone": { "type": "string" },
+          "audienceFit": { "type": "string" }
+        }
+      },
+      "sampleSlides": {
+        "type": "array",
+        "minItems": 3,
+        "maxItems": 3,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["slideId", "title", "pageRole", "previewRef"],
+          "properties": {
+            "slideId": { "type": "string" },
+            "title": { "type": "string" },
+            "pageRole": { "type": "string" },
+            "recipeId": { "type": "string" },
+            "previewRef": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/confirm_design_case.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 660000,
+  "maxOutputBytes": 400000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "ppt-design-case-confirmation",
+      "template": "custom",
+      "displayMode": "detailed",
+      "resultDisplayType": "detailed",
+      "displayName": "Confirm Design Case",
+      "icon": "GalleryHorizontal",
+      "title": "Review the design direction",
+      "summary": {
+        "preparing": "Preparing the Design Case",
+        "running": "Waiting for your design decision",
+        "completed": "Design direction decided",
+        "failed": "Design decision failed"
+      },
+      "locales": {
+        "zh-CN": {
+          "displayName": "确认设计样稿",
+          "title": "评审设计方向",
+          "summary": {
+            "preparing": "正在准备设计样稿",
+            "running": "正在等待你的设计判断",
+            "completed": "设计方向已确定",
+            "failed": "设计判断失败"
+          }
+        }
+      }
+    }
+  }
+}

@@ -7,7 +7,6 @@ import { MODEL_CONFIGURATION_REQUIRED_CODE, sendMessage } from './MessageModule'
 import { retryCreateBackendSession } from './SessionModule';
 import {
   getAgenticOsSessionDescriptor,
-  getDefaultSessionDescriptor,
   SESSION_DESCRIPTORS,
 } from '../../domain/sessionDescriptor';
 import { i18nService } from '@/infrastructure/i18n';
@@ -23,7 +22,6 @@ const notificationServiceMock = vi.hoisted(() => ({
   error: vi.fn(),
   warning: vi.fn(),
 }));
-
 vi.mock('@/infrastructure/api/service-api/AgentAPI', () => ({
   agentAPI: agentApiMock,
 }));
@@ -35,6 +33,14 @@ vi.mock('@/infrastructure/config/services/ConfigManager', () => ({
 vi.mock('../../../shared/notification-system', () => ({
   notificationService: notificationServiceMock,
 }));
+
+vi.mock('./PersistenceModule', async () => {
+  const actual = await vi.importActual<typeof import('./PersistenceModule')>('./PersistenceModule');
+  return {
+    ...actual,
+    saveDialogTurnToDisk: vi.fn(async () => undefined),
+  };
+});
 
 vi.mock('./SessionModule', async () => {
   const actual = await vi.importActual<typeof import('./SessionModule')>('./SessionModule');
@@ -79,6 +85,14 @@ function createTestContext(store: FlowChatStore): FlowChatContext {
   };
 }
 
+function createWorkspaceSession(store: FlowChatStore, sessionId: string): void {
+  store.createSession(sessionId, {
+    workspacePath: 'D:/workspace/test',
+    workspaceId: 'ws_test',
+    storageScope: 'workspace',
+  });
+}
+
 describe('sendMessage scheduler projection', () => {
   const sessionIds: string[] = [];
 
@@ -110,7 +124,7 @@ describe('sendMessage scheduler projection', () => {
     const runningTurnId = 'running-turn';
     sessionIds.push(sessionId);
 
-    store.createSession(sessionId, { workspacePath: 'D:/workspace/test' });
+    createWorkspaceSession(store, sessionId);
     await stateMachineManager.transition(sessionId, SessionExecutionEvent.START, {
       taskId: sessionId,
       dialogTurnId: runningTurnId,
@@ -140,7 +154,7 @@ describe('sendMessage scheduler projection', () => {
     const sessionId = `started-submit-${Date.now()}`;
     sessionIds.push(sessionId);
 
-    store.createSession(sessionId, { workspacePath: 'D:/workspace/test' });
+    createWorkspaceSession(store, sessionId);
     agentApiMock.startDialogTurn.mockImplementation(async (request: any) => ({
       success: true,
       message: 'Dialog turn started',
@@ -164,7 +178,7 @@ describe('sendMessage scheduler projection', () => {
     const store = FlowChatStore.getInstance();
     const sessionId = `zero-model-submit-${Date.now()}`;
     sessionIds.push(sessionId);
-    store.createSession(sessionId, { workspacePath: 'D:/workspace/test' });
+    createWorkspaceSession(store, sessionId);
     configManagerMock.getSetting.mockImplementation(async (key: string) => {
       if (key === 'core.ai.agent_models') return {};
       if (key === 'core.ai.models') return [];
@@ -229,7 +243,11 @@ describe('sendMessage scheduler projection', () => {
 
     store.createSession(
       sessionId,
-      { workspacePath: 'D:/workspace/test' },
+      {
+        workspacePath: 'D:/workspace/test',
+        workspaceId: 'ws_test',
+        storageScope: 'workspace',
+      },
       undefined,
       'Plan task',
       undefined,
@@ -331,7 +349,7 @@ describe('sendMessage scheduler projection', () => {
     const store = FlowChatStore.getInstance();
     const sessionId = `ordinary-error-${Date.now()}`;
     sessionIds.push(sessionId);
-    store.createSession(sessionId, { workspacePath: 'D:/workspace/test' });
+    createWorkspaceSession(store, sessionId);
     agentApiMock.startDialogTurn.mockRejectedValueOnce(new Error('ordinary provider failure'));
 
     const context = createTestContext(store);
@@ -351,7 +369,7 @@ describe('sendMessage scheduler projection', () => {
     const store = FlowChatStore.getInstance();
     const sessionId = `agent-not-found-${Date.now()}`;
     sessionIds.push(sessionId);
-    store.createSession(sessionId, { workspacePath: 'D:/workspace/test' });
+    createWorkspaceSession(store, sessionId);
     agentApiMock.startDialogTurn.mockRejectedValue(
       new Error('Failed to start dialog turn: Not found: Agent not found: missing-agent'),
     );
@@ -368,7 +386,7 @@ describe('sendMessage scheduler projection', () => {
     const store = FlowChatStore.getInstance();
     const sessionId = `session-not-found-${Date.now()}`;
     sessionIds.push(sessionId);
-    store.createSession(sessionId, { workspacePath: 'D:/workspace/test' });
+    createWorkspaceSession(store, sessionId);
     agentApiMock.startDialogTurn
       .mockRejectedValueOnce(new Error(`Not found: Session not found: ${sessionId}`))
       .mockImplementationOnce(async (request: any) => ({

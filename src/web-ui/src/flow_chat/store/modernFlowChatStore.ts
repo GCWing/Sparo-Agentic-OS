@@ -52,7 +52,7 @@ export interface ActiveSessionMeta {
   descriptor?: SessionDescriptor;
   workspaceId?: string;
   workspacePath?: string;
-  storageScope?: Session['storageScope'];
+  domain?: Session['domain'];
   createdAt?: number;
   lastFinishedAt?: number;
   loadPhase?: Session['loadPhase'];
@@ -68,7 +68,7 @@ export function sessionToActiveSessionMeta(session: Session | null | undefined):
     descriptor: session.descriptor,
     workspaceId: session.workspaceId,
     workspacePath: session.workspacePath,
-    storageScope: session.storageScope,
+    domain: session.domain,
     createdAt: session.createdAt,
     lastFinishedAt: session.lastFinishedAt,
     loadPhase: session.loadPhase,

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "primary-behavior",
+      "title": "Spark Board responds from its declared app context",
+      "description": "Proves that the immutable Release can invoke its intelligent behavior.",
+      "input": {
+        "message": "Reply with SPARO_APP_READY, then briefly confirm you can help with Spark Board."
+      },
+      "expectations": [
+        {
+          "kind": "text-contains",
+          "value": "SPARO_APP_READY"
+        }
+      ],
+      "evidenceKind": "behavior",
+      "tags": [
+        "release-gate"
+      ],
+      "required": true
+    }
+  ]
+}

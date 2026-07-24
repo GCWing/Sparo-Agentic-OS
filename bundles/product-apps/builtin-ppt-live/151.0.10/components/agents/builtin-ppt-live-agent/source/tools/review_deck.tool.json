@@ -1,0 +1,68 @@
+{
+  "name": "review_deck",
+  "description": "Prepare the whole-deck Manuscript-to-VisualDocument evidence, contact sheet, and VisualInspectionBundle, then commit explicit semantic AlignmentCoverage, AI ReviewFindings, and honest ReviewCoverage. Use prepare first and commit second.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["mode"],
+    "properties": {
+      "mode": { "type": "string", "enum": ["prepare", "commit"] },
+      "expectedDeckRevision": { "type": "integer", "minimum": 0 },
+      "expectedSystemRevision": { "type": "integer", "minimum": 0 },
+      "expectedManuscriptRevision": { "type": "integer", "minimum": 1 },
+      "reviewId": { "type": "string", "maxLength": 200 },
+      "decision": { "type": "string", "enum": ["passed", "needs_revision"] },
+      "reviewCoverage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mode", "evidenceMode", "inspectedSlideIds"],
+        "properties": {
+          "mode": { "type": "string", "enum": ["multimodal", "text-only"] },
+          "evidenceMode": { "type": "string", "enum": ["rendered-pixels", "visual-inspection-bundle"] },
+          "inspectedSlideIds": { "type": "array", "minItems": 1, "maxItems": 60, "items": { "type": "string", "pattern": "^p[0-9]{2,3}$" } },
+          "limitations": { "type": "string", "maxLength": 1000 }
+        }
+      },
+      "alignmentCoverage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["inspectedManuscriptSlideIds", "checks", "summary"],
+        "properties": {
+          "inspectedManuscriptSlideIds": { "type": "array", "minItems": 1, "maxItems": 60, "uniqueItems": true, "items": { "type": "string", "pattern": "^p[0-9]{2,3}$" } },
+          "checks": {
+            "type": "array",
+            "minItems": 6,
+            "maxItems": 6,
+            "uniqueItems": true,
+            "items": { "type": "string", "enum": ["core-claim-preservation", "evidence-and-source-fidelity", "appropriate-content-restructuring", "narrative-continuity", "speaker-script-alignment", "unsupported-claim-detection"] }
+          },
+          "summary": { "type": "string", "minLength": 1, "maxLength": 2000 }
+        }
+      },
+      "findings": { "type": "array", "maxItems": 200, "items": { "$ref": "#/$defs/finding" } }
+    },
+    "$defs": {
+      "finding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "scope", "evidence", "judgment", "rootCauseLayer", "revisionStrategy"],
+        "properties": {
+          "id": { "type": "string", "maxLength": 128 },
+          "severity": { "type": "string", "enum": ["critical", "major", "minor", "note"] },
+          "scope": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "evidence": { "type": "string", "minLength": 1, "maxLength": 1200 },
+          "judgment": { "type": "string", "minLength": 1, "maxLength": 1200 },
+          "rootCauseLayer": { "type": "string", "enum": ["manuscript", "presentation-system", "asset-strategy", "recipe-family", "page"] },
+          "revisionStrategy": { "type": "string", "minLength": 1, "maxLength": 1200 }
+        }
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/review_deck.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 150000,
+  "maxOutputBytes": 5000000,
+  "ui": { "card": { "kind": "appDefined", "family": "ppt-live", "template": "compact", "displayMode": "compact", "resultDisplayType": "detailed", "displayName": "Review complete presentation", "icon": "ScanSearch", "title": "Whole-deck content and visual review", "summary": { "preparing": "Preparing complete review evidence", "running": "Reviewing all pages", "completed": "Whole-deck review recorded", "failed": "Deck review failed" }, "locales": { "zh-CN": { "displayName": "评审完整演示文稿", "title": "整套内容与视觉评审", "summary": { "preparing": "正在准备完整评审证据", "running": "正在评审全部页面", "completed": "整套评审已记录", "failed": "演示文稿评审失败" }, "fields": [ { "label": "模式" }, { "label": "状态" }, { "label": "覆盖范围" }, { "label": "发现" }, { "label": "总览图" } ] } }, "fields": [ { "label": "Mode", "inputPath": ["mode"] }, { "label": "Status", "resultPath": ["bridge", "output", "status"] }, { "label": "Coverage", "resultPath": ["bridge", "output", "reviewCoverage"], "format": "json" }, { "label": "Findings", "resultPath": ["bridge", "output", "findings"], "format": "json" }, { "label": "Contact sheet", "resultPath": ["bridge", "output", "contactSheetRef"] } ] } }
+}

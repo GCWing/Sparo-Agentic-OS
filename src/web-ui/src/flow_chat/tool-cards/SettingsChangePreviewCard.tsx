@@ -713,7 +713,7 @@ export const SettingsChangePreviewCard: React.FC<ToolCardProps> = ({
     }));
   };
 
-  const sectionGroups = useMemo<SettingsChangeSectionGroup[]>(() => {
+  const sectionGroups: SettingsChangeSectionGroup[] = (() => {
     const groups = new Map<string, SettingsChangeSectionGroup>();
     for (const change of payload.changes) {
       const descriptor = configCatalogStore.getDescriptor(change.settingId);
@@ -731,7 +731,7 @@ export const SettingsChangePreviewCard: React.FC<ToolCardProps> = ({
       groups.set(key, group);
     }
     return [...groups.values()];
-  }, [catalogState.catalog, payload.changes]);
+  })();
 
   const isConfirmation = viewState.phase === 'confirming';
   const canConfirmSafely = isConfirmation && payload.hasAuthoritativeConfirmationPreview;

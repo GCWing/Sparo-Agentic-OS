@@ -11,6 +11,7 @@ import type {
   UpdateWorkRequest,
   WorkDeleteOptions,
   WorkDeleteResult,
+  WorkLocator,
   WorkRecord,
 } from '../domain/workTypes';
 
@@ -25,7 +26,7 @@ interface WorkStoreState {
   loading: boolean;
   error: string | null;
   refreshWorks: () => Promise<void>;
-  getWork: (workId: string) => Promise<WorkRecord>;
+  getWork: (locator: WorkLocator) => Promise<WorkRecord>;
   createWork: (request: CreateWorkRequest) => Promise<WorkRecord>;
   resolveAppWork: (request: ResolveAppWorkRequest) => Promise<{ work: WorkRecord; created: boolean }>;
   resolveComponentWork: (request: ResolveComponentWorkRequest) => Promise<{ work: WorkRecord; created: boolean }>;
@@ -33,11 +34,17 @@ interface WorkStoreState {
   updateWork: (request: UpdateWorkRequest) => Promise<WorkRecord>;
   advanceWork: (request: AdvanceWorkRequest) => Promise<WorkRecord>;
   controlWork: (request: ControlWorkRequest) => Promise<WorkRecord>;
-  deleteWork: (workId: string, options?: WorkDeleteOptions) => Promise<WorkDeleteResult>;
+  deleteWork: (locator: WorkLocator, options?: WorkDeleteOptions) => Promise<WorkDeleteResult>;
+}
+
+function sameLocator(work: WorkRecord, locator: WorkLocator): boolean {
+  if (work.id !== locator.workId || work.scope.kind !== locator.scope.kind) return false;
+  return work.scope.kind === 'global'
+    || (locator.scope.kind === 'workspace' && work.scope.workspaceId === locator.scope.workspaceId);
 }
 
 function upsertWork(works: WorkRecord[], next: WorkRecord): WorkRecord[] {
-  const index = works.findIndex((work) => work.id === next.id);
+  const index = works.findIndex((work) => sameLocator(work, { scope: next.scope, workId: next.id }));
   if (index < 0) return [next, ...works];
   const copy = works.slice();
   copy[index] = next;
@@ -83,8 +90,8 @@ export const useWorkStore = create<WorkStoreState>((set, get) => ({
     return response;
   },
 
-  getWork: async (workId) => {
-    const work = await agenticOsWorkApi.getWork(workId);
+  getWork: async (locator) => {
+    const work = await agenticOsWorkApi.getWork(locator);
     set({ works: upsertWork(get().works, work), loaded: true, loading: false, error: null });
     return work;
   },
@@ -113,11 +120,11 @@ export const useWorkStore = create<WorkStoreState>((set, get) => ({
     return work;
   },
 
-  deleteWork: async (workId, options) => {
-    const result = await agenticOsWorkApi.deleteWork(workId, options);
+  deleteWork: async (locator, options) => {
+    const result = await agenticOsWorkApi.deleteWork(locator, options);
     if (result.deleted) {
       set({
-        works: get().works.filter((work) => work.id !== workId),
+        works: get().works.filter((work) => !sameLocator(work, locator)),
         loaded: true,
         loading: false,
         error: null,

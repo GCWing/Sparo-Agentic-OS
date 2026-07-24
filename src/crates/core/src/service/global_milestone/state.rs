@@ -3,6 +3,8 @@ use crate::infrastructure::get_path_manager_arc;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
+pub(crate) const GLOBAL_MILESTONE_SERVICE_ID: &str = "global_milestone";
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum GlobalMilestoneAttemptStatus {
@@ -36,12 +38,16 @@ pub struct GlobalMilestoneState {
     pub next_auto_run_not_before_ms: Option<i64>,
 }
 
-pub(crate) fn global_milestone_state_file_path() -> std::path::PathBuf {
-    get_path_manager_arc().agentic_os_global_milestone_state_path()
+pub(crate) fn global_milestone_runtime_dir() -> CoreResult<std::path::PathBuf> {
+    get_path_manager_arc().global_service_dir(GLOBAL_MILESTONE_SERVICE_ID)
+}
+
+pub(crate) fn global_milestone_state_file_path() -> CoreResult<std::path::PathBuf> {
+    Ok(global_milestone_runtime_dir()?.join("state.json"))
 }
 
 pub(crate) async fn ensure_global_milestone_runtime_dir() -> CoreResult<()> {
-    let dir = get_path_manager_arc().agentic_os_global_milestone_dir();
+    let dir = global_milestone_runtime_dir()?;
     fs::create_dir_all(&dir).await.map_err(|error| {
         CoreError::service(format!(
             "Failed to create global milestone runtime directory {}: {}",
@@ -55,7 +61,7 @@ pub(crate) async fn ensure_global_milestone_runtime_dir() -> CoreResult<()> {
 pub(crate) async fn load_global_milestone_state() -> CoreResult<GlobalMilestoneState> {
     ensure_global_milestone_runtime_dir().await?;
 
-    let path = global_milestone_state_file_path();
+    let path = global_milestone_state_file_path()?;
     if !path.exists() {
         return Ok(GlobalMilestoneState::default());
     }
@@ -84,7 +90,7 @@ pub(crate) async fn load_global_milestone_state() -> CoreResult<GlobalMilestoneS
 pub(crate) async fn save_global_milestone_state(state: &GlobalMilestoneState) -> CoreResult<()> {
     ensure_global_milestone_runtime_dir().await?;
 
-    let path = global_milestone_state_file_path();
+    let path = global_milestone_state_file_path()?;
     let content = serde_json::to_string_pretty(state).map_err(|error| {
         CoreError::service(format!(
             "Failed to serialize global milestone state for {}: {}",

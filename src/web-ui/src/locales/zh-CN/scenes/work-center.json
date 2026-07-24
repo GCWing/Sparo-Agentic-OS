@@ -527,19 +527,27 @@
     "archived": "已归档"
   },
   "kind": {
-    "one-shot": "一次性",
-    "multi-step": "多步骤",
-    "long-running-session": "长期运行",
-    "recurring": "周期性",
-    "tracking": "追踪",
-    "topic": "主题",
-    "app-workflow": "应用流程",
-    "delegated-work": "委派工作"
+    "one-shot": "普通工作",
+    "multi-step": "多步骤工作",
+    "long-running-session": "长期工作",
+    "recurring": "周期工作",
+    "tracking": "追踪工作",
+    "topic": "主题工作",
+    "app-workflow": "智能应用工作",
+    "delegated-work": "委派工作",
+    "system": "系统工作"
   },
   "time": {
     "today": "今天",
     "week": "本周",
     "older": "更早"
+  },
+  "compatibility": {
+    "unknown": "未知",
+    "versionIncompatible": "此 Work 由 {{appId}} {{createdWithVersion}} 创建，数据版本为 {{workDataSchemaVersion}}。当前安装版本 {{installedVersion}}（数据版本 {{installedDataSchemaVersion}}）无法接管其数据或运行契约；历史应用版本已被清除。",
+    "appUnavailable": "无法运行此 Work，因为尚未安装 {{appId}}；系统不会保留或恢复它的历史应用版本。",
+    "appDisabled": "无法运行此 Work，因为 {{appId}} 已停用。",
+    "appSelectionChanged": "此 Work 属于 {{appId}}，但该应用槽位当前选择的是 {{installedAppId}}；系统不会使用历史应用版本。"
   },
   "errors": {
     "openFailed": "打开工作失败",

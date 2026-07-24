@@ -162,8 +162,11 @@ const SettingsNav: React.FC = () => {
         const tabLabel = t(`tabs.${presentation.tabId}`, {
           defaultValue: humanizeId(presentation.tabId),
         });
-        const itemLabel = i18n.t(presentation.titleKey, {
+        const itemLabelFallback = t(`fields.${presentation.fieldId}`, {
           defaultValue: humanizeId(presentation.fieldId),
+        });
+        const itemLabel = i18n.t(presentation.titleKey, {
+          defaultValue: itemLabelFallback,
         });
         const description = presentation.descriptionKey
           ? i18n.t(presentation.descriptionKey, { defaultValue: '' })

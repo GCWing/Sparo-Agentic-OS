@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use sparo_core::agentic::coordination::{
     ConversationCoordinator, DialogScheduler, SessionControlActor, TurnCancellationReason,
 };
+use sparo_core::agentic::core::{SessionDomain, SessionLocator};
 use sparo_core::infrastructure::try_get_path_manager_arc;
 use sparo_core::service::snapshot::{
     ensure_snapshot_manager_for_workspace, get_snapshot_manager_for_workspace,
@@ -67,6 +68,7 @@ pub struct RollbackTurnRequest {
     pub delete_turns: bool,
     #[serde(alias = "workspacePath")]
     pub workspace_path: String,
+    pub domain: SessionDomain,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,6 +103,7 @@ pub struct GetSessionTurnsRequest {
     pub session_id: String,
     #[serde(alias = "workspacePath")]
     pub workspace_path: String,
+    pub domain: SessionDomain,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -378,7 +381,6 @@ pub async fn rollback_to_turn(
 
     let mut deleted_turns_count = 0;
     if request.delete_turns {
-        let workspace_path = PathBuf::from(&request.workspace_path);
         {
             use sparo_core::agentic::coordination::get_global_coordinator;
 
@@ -386,8 +388,10 @@ pub async fn rollback_to_turn(
                 if let Err(e) = coordinator
                     .get_session_manager()
                     .rollback_context_to_turn_start(
-                        &workspace_path,
-                        &request.session_id,
+                        &SessionLocator {
+                            domain: request.domain.clone(),
+                            session_id: request.session_id.clone(),
+                        },
                         request.turn_index,
                     )
                     .await
@@ -408,7 +412,7 @@ pub async fn rollback_to_turn(
             Ok(path_manager) => match PersistenceManager::new(path_manager) {
                 Ok(persistence_manager) => {
                     match persistence_manager
-                        .delete_turns_from(&workspace_path, &request.session_id, request.turn_index)
+                        .delete_turns_from(&request.domain, &request.session_id, request.turn_index)
                         .await
                     {
                         Ok(count) => {
@@ -563,12 +567,11 @@ pub async fn get_session_turns(
 ) -> Result<Vec<usize>, String> {
     use sparo_core::agentic::persistence::PersistenceManager;
 
-    let workspace_path = PathBuf::from(&request.workspace_path);
     if let Ok(path_manager) = try_get_path_manager_arc() {
         match PersistenceManager::new(path_manager) {
             Ok(persistence_manager) => {
                 match persistence_manager
-                    .load_session_metadata(&workspace_path, &request.session_id)
+                    .load_session_metadata(&request.domain, &request.session_id)
                     .await
                 {
                     Ok(Some(metadata)) => {

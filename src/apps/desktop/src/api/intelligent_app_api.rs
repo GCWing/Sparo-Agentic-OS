@@ -2,8 +2,9 @@
 
 use crate::api::app_state::AppState;
 use crate::api::product_app_runtime_api::{
-    close_draft_runtime_preview, create_draft_runtime_preview, ProductAppRuntimeContext,
-    ProductAppRuntimeHostSurface,
+    close_draft_runtime_preview, create_draft_runtime_preview,
+    delete_product_app_runtime_instances_for_slot, prune_stale_product_app_runtime_instances,
+    ProductAppRuntimeContext, ProductAppRuntimeHostSurface,
 };
 use serde::{Deserialize, Serialize};
 use sparo_core::app_platform::{
@@ -389,7 +390,7 @@ pub async fn activate_app_release(
     state: State<'_, AppState>,
     request: ActivateAppReleaseApiRequest,
 ) -> Result<ActivationRecord, String> {
-    activation_policy(&state)
+    let activation = activation_policy(&state)
         .activate(ActivateReleaseRequest {
             scope: AppActivationScope::System,
             slot_id: request.slot_id,
@@ -397,7 +398,11 @@ pub async fn activate_app_release(
             release_id: request.release_id,
         })
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    prune_stale_product_app_runtime_instances(&state, &activation)
+        .await
+        .map_err(|error| format!("App activated, but stale runtime cleanup failed: {error}"))?;
+    Ok(activation)
 }
 
 #[tauri::command]
@@ -431,26 +436,17 @@ pub async fn approve_app_release_capabilities(
 }
 
 #[tauri::command]
-pub async fn rollback_app_activation(
-    state: State<'_, AppState>,
-    request: SlotActivationRequest,
-) -> Result<ActivationRecord, String> {
-    activation_policy(&state)
-        .rollback(&AppActivationScope::System, &request.slot_id)
-        .await
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
 pub async fn deactivate_app_slot(
     state: State<'_, AppState>,
     request: SlotActivationRequest,
 ) -> Result<ActivationRecord, String> {
-    state
+    let activation = state
         .app_revision_store
         .deactivate(&AppActivationScope::System, &request.slot_id)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    prune_stale_product_app_runtime_instances(&state, &activation).await?;
+    Ok(activation)
 }
 
 #[tauri::command]
@@ -458,12 +454,21 @@ pub async fn remove_intelligent_app(
     state: State<'_, AppState>,
     request: AppIdRequest,
 ) -> Result<(), String> {
-    state
+    let archived = state
         .app_revision_store
         .archive_app(&request.app_id)
         .await
-        .map(|_| ())
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    if let Some(activation) = state
+        .app_revision_store
+        .get_active(&AppActivationScope::System, &archived.app.slot_id)
+        .await
+    {
+        prune_stale_product_app_runtime_instances(&state, &activation).await?;
+    } else {
+        delete_product_app_runtime_instances_for_slot(&state, &archived.app.slot_id).await?;
+    }
+    Ok(())
 }
 
 fn provenance_for_owner(owner: AppOwnerKind) -> ReleaseProvenanceKind {

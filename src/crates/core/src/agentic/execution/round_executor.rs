@@ -394,6 +394,7 @@ impl RoundExecutor {
             // Create tool execution context
             let tool_context = ToolExecutionContext {
                 session_id: context.session_id.clone(),
+                session_domain: context.session_domain.clone(),
                 dialog_turn_id: context.dialog_turn_id.clone(),
                 surface_mode: context.surface_mode,
                 agent_type: context.agent_type.clone(),

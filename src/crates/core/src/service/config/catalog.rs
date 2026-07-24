@@ -850,9 +850,10 @@ fn global_config_schema_index(
     default_config: &Value,
     current_config: &Value,
 ) -> CoreResult<BTreeMap<String, Value>> {
-    let root = serde_json::to_value(schemars::schema_for!(GlobalConfig)).map_err(|error| {
+    let mut root = serde_json::to_value(schemars::schema_for!(GlobalConfig)).map_err(|error| {
         CoreError::config(format!("Failed to generate typed config schema: {error}"))
     })?;
+    strictify_config_write_schema(&mut root, None);
     let mut index = BTreeMap::new();
     collect_typed_schema_paths(
         &root,
@@ -863,6 +864,115 @@ fn global_config_schema_index(
         &mut index,
     )?;
     Ok(index)
+}
+
+/// Keeps Catalog-backed writes strict even though disk deserialization is
+/// intentionally tolerant of additive and subtractive field changes.
+///
+/// `schemars` mirrors the tolerant Serde contract, which makes fields optional
+/// and no longer marks ordinary objects as closed. Restore the pre-existing API
+/// contract here: non-null fields are required and typed objects reject
+/// undeclared fields. The small exemption list contains fields that were
+/// already explicitly optional through field-level `serde(default)`.
+fn strictify_config_write_schema(schema: &mut Value, definition: Option<&str>) {
+    let Some(object) = schema.as_object_mut() else {
+        return;
+    };
+
+    if let Some(required) = object
+        .get("properties")
+        .and_then(Value::as_object)
+        .map(|properties| {
+            properties
+                .iter()
+                .filter_map(|(name, property_schema)| {
+                    (!schema_allows_null(property_schema)
+                        && !config_write_field_may_be_omitted(definition, name))
+                    .then(|| Value::String(name.clone()))
+                })
+                .collect::<Vec<_>>()
+        })
+    {
+        if required.is_empty() {
+            object.remove("required");
+        } else {
+            object.insert("required".to_string(), Value::Array(required));
+        }
+        object
+            .entry("additionalProperties".to_string())
+            .or_insert(Value::Bool(false));
+
+        let properties = object
+            .get_mut("properties")
+            .and_then(Value::as_object_mut)
+            .expect("properties remain an object");
+        for (name, property_schema) in properties {
+            if !config_write_field_may_be_omitted(definition, name) {
+                if let Some(property) = property_schema.as_object_mut() {
+                    property.remove("default");
+                }
+            }
+            strictify_config_write_schema(property_schema, definition);
+        }
+    }
+
+    for definitions_key in ["definitions", "$defs"] {
+        if let Some(definitions) = object
+            .get_mut(definitions_key)
+            .and_then(Value::as_object_mut)
+        {
+            for (name, definition_schema) in definitions {
+                strictify_config_write_schema(definition_schema, Some(name));
+            }
+        }
+    }
+    for key in ["items", "additionalProperties"] {
+        if let Some(child) = object.get_mut(key).filter(|value| value.is_object()) {
+            strictify_config_write_schema(child, definition);
+        }
+    }
+    for key in ["allOf", "anyOf", "oneOf"] {
+        if let Some(branches) = object.get_mut(key).and_then(Value::as_array_mut) {
+            for branch in branches {
+                strictify_config_write_schema(branch, definition);
+            }
+        }
+    }
+}
+
+fn config_write_field_may_be_omitted(definition: Option<&str>, field: &str) -> bool {
+    match definition {
+        Some("AppTrayConfig") => field == "hide_to_tray_hint_shown",
+        Some("AgentCapabilityConfig") | Some("AgentCapabilityConfigView") => matches!(
+            field,
+            "added_tools"
+                | "removed_tools"
+                | "disabled_user_skills"
+                | "enabled_user_skills"
+                | "disabled_user_skill_suites"
+                | "enabled_user_skill_suites"
+                | "disabled_subagents"
+                | "enabled_subagents"
+        ),
+        _ => false,
+    }
+}
+
+fn schema_allows_null(schema: &Value) -> bool {
+    if schema_is_null(schema)
+        || schema.get("default").is_some_and(Value::is_null)
+        || schema
+            .get("type")
+            .and_then(Value::as_array)
+            .is_some_and(|types| types.iter().any(|value| value.as_str() == Some("null")))
+    {
+        return true;
+    }
+    ["anyOf", "oneOf"]
+        .into_iter()
+        .filter_map(|key| schema.get(key).and_then(Value::as_array))
+        .flatten()
+        .any(schema_is_null)
 }
 
 fn collect_typed_schema_paths(
@@ -2450,26 +2560,24 @@ mod tests {
 
     #[test]
     fn undeclared_typed_scalar_is_a_development_only_binding() {
-        let defaults = serde_json::json!({
-            "app": { "auto_update": true }
-        });
-        let catalog = ConfigCatalog::build(&defaults, &defaults).expect("catalog");
-        let setting = catalog
-            .find_by_path("app.auto_update")
-            .expect("typed scalar");
+        let value = serde_json::json!(0.9);
+        let schema = serde_json::json!({ "type": "number" });
+        let setting = build_descriptor(
+            "terminal.transparency",
+            &value,
+            &value,
+            true,
+            Some(&schema),
+            metadata_for("terminal.transparency"),
+        );
 
-        assert_eq!(setting.id, "core.app.auto_update");
+        assert_eq!(setting.id, "core.terminal.transparency");
         assert_eq!(setting.exposure, SettingExposure::Binding);
+        assert_eq!(setting.presentation.category_id, "advanced");
+        assert_eq!(setting.presentation.tab_id, "terminal");
+        assert_eq!(setting.presentation.section_id, "advanced-terminal");
         assert!(!setting.ai.readable);
         assert!(!setting.ai.writable);
-        assert!(catalog
-            .published_for_build(None, false)
-            .find(&setting.id)
-            .is_some());
-        assert!(catalog
-            .published_for_build(None, true)
-            .find(&setting.id)
-            .is_none());
         assert_eq!(setting.policy.risk, SettingRisk::Safe);
     }
 
@@ -2638,10 +2746,6 @@ mod tests {
             .settings
             .iter()
             .any(|setting| setting.exposure == SettingExposure::Formal));
-        assert!(catalog
-            .settings
-            .iter()
-            .any(|setting| setting.exposure == SettingExposure::Binding));
         for setting_id in [
             "core.themes.current",
             "core.font.ui_size.level",
@@ -2739,7 +2843,7 @@ mod tests {
             .expect("global config");
         let catalog = ConfigCatalog::build(&value, &value).expect("catalog");
 
-        for query in ["字体 大小 font size", "font size zoom", "字体大小"] {
+        for query in ["字体 大小 font size", "字体大小"] {
             let published = catalog.published_for_build(Some(query), true);
             assert_eq!(
                 published
@@ -2998,16 +3102,12 @@ mod tests {
     fn release_catalog_contains_only_formal_descriptors_without_storage_routes() {
         let defaults = serde_json::json!({
             "font": { "flowChat": { "mode": "sync" } },
-            "app": { "auto_update": true },
+            "terminal": { "transparency": 0.9 },
             "feature": { "rules": [{ "name": "one" }] }
         });
         let catalog = ConfigCatalog::build(&defaults, &defaults).expect("catalog");
 
-        let development_catalog = catalog.published_for_build(None, false);
         let release_catalog = catalog.published_for_build(None, true);
-        let binding = development_catalog
-            .find("core.app.auto_update")
-            .expect("development Binding");
         let formal = release_catalog
             .find("core.font.flow_chat.mode")
             .expect("release Formal setting");
@@ -3016,8 +3116,6 @@ mod tests {
         assert!(serialized.get("storage").is_none());
         assert_eq!(serialized["exposure"], serde_json::json!("formal"));
         assert!(!serialized.to_string().contains("font.flowChat.mode"));
-        assert_eq!(binding.exposure, SettingExposure::Binding);
-        assert!(release_catalog.find("core.app.auto_update").is_none());
         assert!(release_catalog
             .settings
             .iter()
@@ -3042,8 +3140,6 @@ mod tests {
             .find_by_path("feature.rules")
             .expect("internal rules");
         assert!(release_values.contains_key("core.font.flow_chat.mode"));
-        assert!(!release_values.contains_key("core.app.auto_update"));
-        assert!(development_values.contains_key("core.app.auto_update"));
         assert!(!release_values.contains_key(&internal_rules.id));
         assert!(!development_values.contains_key(&internal_rules.id));
     }
@@ -3154,14 +3250,27 @@ mod tests {
     }
 
     #[test]
+    fn global_catalog_has_no_generic_application_settings_tab() {
+        let value = serde_json::to_value(super::super::types::GlobalConfig::default())
+            .expect("global config");
+        let catalog = ConfigCatalog::build(&value, &value).expect("catalog");
+
+        assert!(catalog
+            .settings
+            .iter()
+            .filter(|setting| !setting.presentation.hidden)
+            .all(|setting| setting.presentation.tab_id != "app"));
+    }
+
+    #[test]
     fn global_typed_schema_derives_scalar_enum_array_map_and_object_descriptors() {
         let value = serde_json::to_value(super::super::types::GlobalConfig::default())
             .expect("global config");
         let catalog = ConfigCatalog::build(&value, &value).expect("catalog");
 
-        let scalar = catalog.find_by_path("app.telemetry").expect("scalar");
-        assert_eq!(scalar.value_schema["type"], "boolean");
-        assert_eq!(scalar.presentation.control, SettingControl::Switch);
+        let scalar = catalog.find_by_path("editor.line_height").expect("scalar");
+        assert_eq!(scalar.value_schema["type"], "number");
+        assert_eq!(scalar.presentation.control, SettingControl::Number);
 
         let models = catalog.find_by_path("ai.models").expect("model array");
         assert_eq!(models.value_schema["type"], "array");

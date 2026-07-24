@@ -48,7 +48,11 @@ export const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ data }) => {
   const toolViewState = toolItem ? getToolViewState(toolItem) : null;
   const taskToolId = toolItem?.id;
   const liveSubagentRun = useSubagentExecution(sessionId, taskToolId);
-  const subagentRun = liveSubagentRun ?? toolItem?.executionProjection ?? null;
+  const persistedSubagentRun = toolItem?.executionProjection?.kind === 'subagentRun'
+    && toolItem.executionProjection.edgeKind === 'delegates'
+    ? toolItem.executionProjection
+    : null;
+  const subagentRun = liveSubagentRun ?? persistedSubagentRun;
   const subagentItems = useMemo(() => getTaskExecutionVirtualItems(subagentRun), [subagentRun]);
   
   const isRunning = toolViewState?.isLive === true;

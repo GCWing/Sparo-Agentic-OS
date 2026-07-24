@@ -590,7 +590,13 @@ impl SessionDriver for SchedulerSessionDriver {
         }
         self.scheduler
             .session_manager()
-            .restore_session(workspace_path, session_id)
+            .restore_session(&crate::agentic::core::SessionLocator {
+                domain: crate::agentic::core::SessionDomain::Workspace {
+                    workspace_id: crate::infrastructure::try_get_path_manager_arc()?
+                        .workspace_id(workspace_path)?,
+                },
+                session_id: session_id.to_string(),
+            })
             .await
             .map(|_| ())
     }

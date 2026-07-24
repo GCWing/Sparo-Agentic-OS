@@ -39,14 +39,14 @@ import './VoiceInputConfig.scss';
 
 const log = createLogger('VoiceInputConfig');
 
-const LANGUAGE_OPTIONS: SelectOption[] = [
-  { label: 'Auto', value: 'auto' },
-  { label: '中文', value: 'zh' },
-  { label: '粤语', value: 'yue' },
-  { label: 'English', value: 'en' },
-  { label: '日本語', value: 'ja' },
-  { label: '한국어', value: 'ko' },
-];
+const LANGUAGE_OPTION_KEYS = [
+  { labelKey: 'languages.auto', value: 'auto' },
+  { labelKey: 'languages.zh', value: 'zh' },
+  { labelKey: 'languages.yue', value: 'yue' },
+  { labelKey: 'languages.en', value: 'en' },
+  { labelKey: 'languages.ja', value: 'ja' },
+  { labelKey: 'languages.ko', value: 'ko' },
+] as const;
 
 const normalizeSelectValue = (value: string | number | (string | number)[]): string =>
   String(Array.isArray(value) ? (value[0] ?? '') : value);
@@ -101,6 +101,13 @@ const VoiceInputConfig: React.FC = () => {
   const cancelDownloadRequestedRef = useRef(false);
 
   const voiceInput = settings?.voice_input;
+  const languageOptions = useMemo<SelectOption[]>(
+    () => LANGUAGE_OPTION_KEYS.map(({ labelKey, value }) => ({
+      label: t(labelKey),
+      value,
+    })),
+    [t],
+  );
   const model = useMemo(
     () => models.find(item => item.modelId === LOCAL_SENSEVOICE_SMALL_INT8_MODEL_ID) ?? models[0],
     [models],
@@ -312,7 +319,7 @@ const VoiceInputConfig: React.FC = () => {
             <Select
               value={voiceInput.default_language}
               onChange={(value) => updateVoiceInput({ default_language: normalizeSelectValue(value) })}
-              options={LANGUAGE_OPTIONS}
+              options={languageOptions}
               size="small"
               className="voice-input-config__select"
             />

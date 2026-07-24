@@ -1,0 +1,66 @@
+{
+  "name": "export_deck",
+  "description": "Export the current committed presentation as a validated PowerPoint file. The export fails when render review, document alignment, notes, slide count, media packaging, or PPTX package validation fails.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["format", "expectedDeckRevision", "expectedSystemRevision", "reviewId"],
+    "properties": {
+      "format": { "type": "string", "enum": ["pptx"] },
+      "expectedDeckRevision": { "type": "integer", "minimum": 0 },
+      "expectedSystemRevision": { "type": "integer", "minimum": 0 },
+      "reviewId": { "type": "string", "minLength": 1, "maxLength": 160 },
+      "filename": { "type": "string", "maxLength": 120 }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/export_deck.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 120000,
+  "maxOutputBytes": 100000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "ppt-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "detailed",
+      "displayName": "Export presentation",
+      "icon": "Download",
+      "title": "Export presentation",
+      "summary": {
+        "preparing": "Preparing export",
+        "running": "Exporting {{input.format}}",
+        "completed": "Presentation exported",
+        "failed": "Export failed"
+      },
+      "locales": {
+        "zh-CN": {
+          "displayName": "导出演示文稿",
+          "title": "导出演示文稿",
+          "summary": {
+            "preparing": "正在准备导出",
+            "running": "正在导出 {{input.format}}",
+            "completed": "演示文稿已导出",
+            "failed": "导出失败"
+          },
+          "fields": [
+            { "label": "格式" },
+            { "label": "文件" },
+            { "label": "审阅" },
+            { "label": "幻灯片" },
+            { "label": "校验" }
+          ]
+        }
+      },
+      "fields": [
+        { "label": "Format", "inputPath": ["format"] },
+        { "label": "File", "resultPath": ["bridge", "output", "artifact", "path"] },
+        { "label": "Review", "resultPath": ["bridge", "output", "artifact", "reviewId"] },
+        { "label": "Slides", "resultPath": ["bridge", "output", "artifact", "validation", "slideCount"] },
+        { "label": "Validation", "resultPath": ["bridge", "output", "artifact", "validation", "status"] }
+      ]
+    }
+  }
+}

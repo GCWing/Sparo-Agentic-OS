@@ -6,25 +6,25 @@
 
 use crate::api::app_state::AppState;
 use crate::api::product_app_runtime_api::ProductAppRuntimeContext;
-use crate::api::session_storage_path::{
-    desktop_effective_session_storage_path, SessionStorageScopeDto,
-};
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sparo_core::agent_component::AgentComponentManager;
-use sparo_core::agentic::agents::{build_ppt_live_private_prompt, PptLiveAgent};
 use sparo_core::agentic::coordination::{
     ConversationCoordinator, DialogScheduler, DialogSubmissionPolicy, DialogSubmitOutcome,
     DialogTriggerSource, SessionControlActor, TurnCancellationReason,
 };
-use sparo_core::agentic::core::{SessionConfig, SessionKind, SessionState, SessionStorageScope};
-use sparo_core::agentic_os::work::{
-    default_work_store, ArtifactRef, ArtifactRuntimeProvenance, WorkId, WorkRuntimeIssue,
-    WorkRuntimeIssueSeverity, WorkRuntimeLog, WorkRuntimeLogLevel, WorkRuntimeRun,
-    WorkRuntimeRunStatus, WorkService,
+use sparo_core::agentic::core::{
+    ProductAppSessionChannel, ProductAppSessionRole, SessionConfig, SessionKind, SessionOwner,
 };
-use sparo_core::app_platform::ProductAppRuntimeStorage;
+use sparo_core::agentic_os::work::{
+    default_work_store, ArtifactRef, ArtifactRuntimeProvenance, LinkSessionToWorkRequest, WorkId,
+    WorkRuntimeIssue, WorkRuntimeIssueSeverity, WorkRuntimeLog, WorkRuntimeLogLevel,
+    WorkRuntimeRun, WorkRuntimeRunStatus, WorkService,
+};
+use sparo_core::app_platform::{
+    AppDataLocator, ProductAppRuntimeStorage, ProductAppSessionResolver,
+};
 use sparo_core::bridge_component::{
     BridgeComponentConsumer, BridgeComponentConsumerKind, BridgeComponentEvent,
     BridgeComponentManager, BridgeComponentRun, BridgeComponentRunResult, BridgeComponentRunStatus,
@@ -45,13 +45,11 @@ use sparo_core::product_app_runtime_host::{
     ProductAppRuntimeHostSurfaceMeta,
 };
 use sparo_core::service::config::types::GlobalConfig;
-use sparo_core::service::ppt_deck::{ManuscriptCommitRequest, PptDeckService};
 use sparo_core::util::types::Message;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, State};
 
@@ -272,6 +270,8 @@ pub struct ProductAppRuntimeHostBackendCallRequest {
     pub idempotency_key: Option<String>,
     #[serde(default)]
     pub workspace_path: Option<String>,
+    #[serde(default)]
+    pub session_id: Option<String>,
     pub runtime_context: ProductAppRuntimeContext,
 }
 
@@ -303,23 +303,6 @@ pub struct ProductAppRuntimeHostBackendRunRequest {
     pub turn_id: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProductAppRuntimeHostPptTurnTextRequest {
-    pub app_id: String,
-    pub runtime_context: ProductAppRuntimeContext,
-    pub session_id: String,
-    pub turn_id: String,
-    #[serde(default)]
-    pub workspace_path: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProductAppRuntimeHostPptTurnTextResponse {
-    pub text: String,
-}
-
 fn product_app_runtime_host_payload(app: &ProductAppRuntimeHostSurface, reason: &str) -> Value {
     json!({
         "id": app.id,
@@ -343,9 +326,6 @@ const PRODUCT_APP_RUNTIME_WORKER_RESTARTED_EVENT: &str = "product-app-runtime-wo
 const PRODUCT_APP_RUNTIME_WORKER_STOPPED_EVENT: &str = "product-app-runtime-worker-stopped";
 const PRODUCT_APP_RUNTIME_ISSUE_EVENT: &str = "product-app-runtime-issue";
 const PRODUCT_APP_RUNTIME_ISSUES_CLEARED_EVENT: &str = "product-app-runtime-issues-cleared";
-const PRODUCT_APP_RUNTIME_MANUSCRIPT_COMMITTED_EVENT: &str =
-    "product-app-runtime-manuscript-committed";
-
 async fn emit_product_app_runtime_host_event(event_name: &str, payload: Value) {
     let _ = emit_global_event(BackendEvent::Custom {
         event_name: event_name.to_string(),
@@ -373,7 +353,9 @@ fn workspace_root_from_input(workspace_path: Option<&str>) -> Option<PathBuf> {
 struct ValidatedProductAppRuntimeContext {
     context: ProductAppRuntimeContext,
     owner_id: String,
-    work_id: WorkId,
+    work_locator: sparo_core::agentic_os::work::WorkLocator,
+    app_data_locator: AppDataLocator,
+    work_title: String,
 }
 
 impl ValidatedProductAppRuntimeContext {
@@ -382,31 +364,37 @@ impl ValidatedProductAppRuntimeContext {
     }
 
     fn work_id(&self) -> &WorkId {
-        &self.work_id
+        &self.work_locator.work_id
+    }
+
+    fn work_locator(&self) -> &sparo_core::agentic_os::work::WorkLocator {
+        &self.work_locator
     }
 
     fn runtime_instance_id(&self) -> &str {
         &self.context.runtime_instance_id
     }
 
-    fn backend_owner(&self, backend_id: &str, entity_id: Option<&str>) -> String {
-        match entity_id.map(str::trim).filter(|value| !value.is_empty()) {
-            Some(entity_id) => format!("{}:backend:{}:{}", self.owner_id, backend_id, entity_id),
-            None => format!("{}:backend:{}", self.owner_id, backend_id),
-        }
+    fn app_data_locator(&self) -> &AppDataLocator {
+        &self.app_data_locator
     }
 
-    fn backend_action_owner(
-        &self,
-        backend_id: &str,
-        entity_id: Option<&str>,
-        action_run_id: &str,
-    ) -> String {
-        format!(
-            "{}:run:{}",
-            self.backend_owner(backend_id, entity_id),
-            action_run_id
-        )
+    fn backend_owner(&self, backend_id: &str, entity_id: Option<&str>) -> String {
+        match entity_id.map(str::trim).filter(|value| !value.is_empty()) {
+            Some(entity_id) => format!(
+                "product-app-session:{}:{}:backend:{}:{}",
+                self.work_id(),
+                self.context.app_id,
+                backend_id,
+                entity_id
+            ),
+            None => format!(
+                "product-app-session:{}:{}:backend:{}",
+                self.work_id(),
+                self.context.app_id,
+                backend_id
+            ),
+        }
     }
 
     fn runtime_issue_fields(
@@ -419,7 +407,7 @@ impl ValidatedProductAppRuntimeContext {
     ) {
         (
             Some(self.owner_id.clone()),
-            Some(self.context.work_id.clone()),
+            Some(self.work_id().to_string()),
             Some(self.context.runtime_instance_id.clone()),
             Some(self.context.app_id.clone()),
         )
@@ -430,7 +418,6 @@ async fn validate_product_app_runtime_context(
     product_app_runtime_host_id: &str,
     context: &ProductAppRuntimeContext,
 ) -> Result<ValidatedProductAppRuntimeContext, String> {
-    validate_runtime_context_field("runtimeContext.workId", &context.work_id)?;
     validate_runtime_context_field(
         "runtimeContext.runtimeInstanceId",
         &context.runtime_instance_id,
@@ -456,13 +443,17 @@ async fn validate_product_app_runtime_context(
         ));
     }
 
-    let work_id = WorkId::parse(context.work_id.clone())?;
     let store = default_work_store().map_err(|error| error.to_string())?;
     let work = store
-        .get(&work_id)
+        .get(&context.work_locator)
         .await
         .map_err(|error| error.to_string())?
-        .ok_or_else(|| format!("Work not found for runtime context: {}", work_id))?;
+        .ok_or_else(|| {
+            format!(
+                "Work not found for runtime context: {}",
+                context.work_locator.work_id
+            )
+        })?;
     let instance = work
         .runtime_instances
         .iter()
@@ -491,10 +482,16 @@ async fn validate_product_app_runtime_context(
     Ok(ValidatedProductAppRuntimeContext {
         owner_id: format!(
             "product-app-runtime:{}:{}",
-            context.work_id, context.runtime_instance_id
+            context.work_locator.work_id, context.runtime_instance_id
         ),
         context: context.clone(),
-        work_id,
+        app_data_locator: AppDataLocator {
+            scope: work.scope.clone(),
+            app_id: context.app_id.clone(),
+            work_id: context.work_locator.work_id.clone(),
+        },
+        work_locator: context.work_locator.clone(),
+        work_title: work.title.clone(),
     })
 }
 
@@ -513,33 +510,25 @@ async fn bind_bridge_run_artifacts_to_work(
     if artifacts.is_empty() {
         return;
     }
-    let work_id = match WorkId::parse(runtime_owner.context.work_id.clone()) {
-        Ok(work_id) => work_id,
-        Err(error) => {
-            log::warn!(
-                "Failed to parse Work id for bridge artifact binding: work_id={}, error={}",
-                runtime_owner.context.work_id,
-                error
-            );
-            return;
-        }
-    };
     let service = match default_work_store() {
         Ok(store) => WorkService::new(store),
         Err(error) => {
             log::warn!(
                 "Failed to access Work store for bridge artifact binding: work_id={}, error={}",
-                work_id,
+                runtime_owner.work_id(),
                 error
             );
             return;
         }
     };
     for artifact in artifacts {
-        if let Err(error) = service.bind_artifact(&work_id, artifact).await {
+        if let Err(error) = service
+            .bind_artifact(runtime_owner.work_locator(), artifact)
+            .await
+        {
             log::warn!(
                 "Failed to bind bridge artifact to Work: work_id={}, run_id={}, error={}",
-                work_id,
+                runtime_owner.work_id(),
                 result.run_id,
                 error
             );
@@ -621,7 +610,7 @@ async fn record_bridge_runtime_run_to_work(
     };
     let run_id = run.run_id.clone();
     if let Err(error) = service
-        .record_runtime_run(runtime_owner.work_id(), run)
+        .record_runtime_run(runtime_owner.work_locator(), run)
         .await
     {
         log::warn!(
@@ -654,23 +643,12 @@ async fn bind_bridge_artifact_value_to_work(
     index: usize,
     artifact: Value,
 ) {
-    let work_id = match WorkId::parse(runtime_owner.context.work_id.clone()) {
-        Ok(work_id) => work_id,
-        Err(error) => {
-            log::warn!(
-                "Failed to parse Work id for bridge artifact binding: work_id={}, error={}",
-                runtime_owner.context.work_id,
-                error
-            );
-            return;
-        }
-    };
     let service = match default_work_store() {
         Ok(store) => WorkService::new(store),
         Err(error) => {
             log::warn!(
                 "Failed to access Work store for bridge artifact binding: work_id={}, error={}",
-                work_id,
+                runtime_owner.work_id(),
                 error
             );
             return;
@@ -687,10 +665,13 @@ async fn bind_bridge_artifact_value_to_work(
             action: action.to_string(),
         }),
     };
-    if let Err(error) = service.bind_artifact(&work_id, artifact_ref).await {
+    if let Err(error) = service
+        .bind_artifact(runtime_owner.work_locator(), artifact_ref)
+        .await
+    {
         log::warn!(
             "Failed to bind bridge artifact to Work: work_id={}, run_id={}, error={}",
-            work_id,
+            runtime_owner.work_id(),
             run_id,
             error
         );
@@ -918,55 +899,23 @@ pub async fn product_app_runtime_host_worker_call(
 ) -> Result<Value, String> {
     let runtime_owner =
         validate_product_app_runtime_context(&request.app_id, &request.runtime_context).await?;
-    validate_manuscript_method_access(&runtime_owner.context.app_id, &request.method)?;
     let runtime_storage = ProductAppRuntimeStorage::new(Arc::clone(
         state.product_app_runtime_host_manager.path_manager(),
     ));
-    if request.method == "deck.manuscript.get" {
-        validate_manuscript_document_id(&request.params)?;
-        let service = PptDeckService::new(runtime_storage.clone());
-        let document = service
-            .read_manuscript(runtime_owner.work_id(), runtime_owner.runtime_instance_id())
-            .await
-            .map_err(|error| error.to_string())?;
-        return serde_json::to_value(document).map_err(|error| error.to_string());
-    }
-    if request.method == "deck.manuscript.commit" {
-        validate_manuscript_document_id(&request.params)?;
-        let commit_request: ManuscriptCommitRequest =
-            serde_json::from_value(request.params.clone())
-                .map_err(|error| format!("Invalid deck.manuscript.commit request: {error}"))?;
-        let service = PptDeckService::new(runtime_storage.clone());
-        let result = service
-            .commit_manuscript(
-                runtime_owner.work_id(),
-                runtime_owner.runtime_instance_id(),
-                commit_request,
-            )
-            .await
-            .map_err(|error| error.to_string())?;
-        emit_product_app_runtime_host_event(
-            PRODUCT_APP_RUNTIME_MANUSCRIPT_COMMITTED_EVENT,
-            json!({
-                "appId": request.app_id,
-                "runtimeOwnerId": runtime_owner.owner_id(),
-                "workId": runtime_owner.context.work_id,
-                "runtimeInstanceId": runtime_owner.context.runtime_instance_id,
-                "document": &result.document,
-                "replayed": result.replayed,
-            }),
-        )
-        .await;
-        return serde_json::to_value(result).map_err(|error| error.to_string());
-    }
     if request.method == "storage.probe" {
         return runtime_storage
-            .probe_storage_scope(runtime_owner.work_id(), runtime_owner.runtime_instance_id())
+            .probe_storage_scope(
+                runtime_owner.app_data_locator(),
+                runtime_owner.runtime_instance_id(),
+            )
             .map_err(|e| e.to_string());
     }
     if request.method == "storage.readinessProbe" {
         return runtime_storage
-            .probe_readiness(runtime_owner.work_id(), runtime_owner.runtime_instance_id())
+            .probe_readiness(
+                runtime_owner.app_data_locator(),
+                runtime_owner.runtime_instance_id(),
+            )
             .await
             .map_err(|e| e.to_string());
     }
@@ -978,7 +927,7 @@ pub async fn product_app_runtime_host_worker_call(
             .ok_or_else(|| "storage.get requires string key".to_string())?;
         return runtime_storage
             .get_storage(
-                runtime_owner.work_id(),
+                runtime_owner.app_data_locator(),
                 runtime_owner.runtime_instance_id(),
                 key,
             )
@@ -994,7 +943,7 @@ pub async fn product_app_runtime_host_worker_call(
         let value = request.params.get("value").cloned().unwrap_or(Value::Null);
         runtime_storage
             .set_storage(
-                runtime_owner.work_id(),
+                runtime_owner.app_data_locator(),
                 runtime_owner.runtime_instance_id(),
                 key,
                 value,
@@ -1016,7 +965,10 @@ pub async fn product_app_runtime_host_worker_call(
             .granted_paths_for_app(&request.app_id)
             .await;
         let app_data_dir = runtime_storage
-            .ensure_runtime_dir(runtime_owner.work_id(), runtime_owner.runtime_instance_id())
+            .ensure_runtime_dir(
+                runtime_owner.app_data_locator(),
+                runtime_owner.runtime_instance_id(),
+            )
             .await
             .map_err(|e| e.to_string())?;
         return dispatch_host(
@@ -1050,7 +1002,10 @@ pub async fn product_app_runtime_host_worker_call(
         .granted_paths_for_app(&request.app_id)
         .await;
     let app_data_dir = runtime_storage
-        .ensure_runtime_dir(runtime_owner.work_id(), runtime_owner.runtime_instance_id())
+        .ensure_runtime_dir(
+            runtime_owner.app_data_locator(),
+            runtime_owner.runtime_instance_id(),
+        )
         .await
         .map_err(|e| e.to_string())?;
     let policy = resolve_policy(
@@ -1097,20 +1052,6 @@ pub async fn product_app_runtime_host_worker_call(
         .await;
     }
     Ok(result)
-}
-
-fn validate_manuscript_document_id(params: &Value) -> Result<(), String> {
-    match params.get("documentId").and_then(Value::as_str) {
-        None | Some("manuscript") => Ok(()),
-        Some(_) => Err("Only the managed 'manuscript' document is available".to_string()),
-    }
-}
-
-fn validate_manuscript_method_access(product_app_id: &str, method: &str) -> Result<(), String> {
-    if method.starts_with("deck.manuscript.") && product_app_id != "builtin-ppt-live" {
-        return Err("Managed presentation manuscripts are only available to PPT Live".to_string());
-    }
-    Ok(())
 }
 
 #[tauri::command]
@@ -1295,7 +1236,7 @@ async fn record_product_app_runtime_issue_to_work(
         timestamp_ms: issue.timestamp_ms,
     };
     if let Err(error) = service
-        .record_runtime_issue(runtime_owner.work_id(), work_issue)
+        .record_runtime_issue(runtime_owner.work_locator(), work_issue)
         .await
     {
         log::warn!(
@@ -1334,7 +1275,7 @@ async fn record_product_app_runtime_log_to_work(
         timestamp_ms: log_entry.timestamp_ms,
     };
     if let Err(error) = service
-        .record_runtime_log(runtime_owner.work_id(), work_log)
+        .record_runtime_log(runtime_owner.work_locator(), work_log)
         .await
     {
         log::warn!(
@@ -1388,6 +1329,8 @@ static AI_STREAM_REGISTRY: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = O
 /// Per-app rate limiter state: app_id -> (request_count, window_start_ms).
 static AI_RATE_LIMITER: OnceLock<Mutex<HashMap<String, (u32, u64)>>> = OnceLock::new();
 static PRODUCT_APP_RUNTIME_AGENTIC_TURN_COUNTER: AtomicU64 = AtomicU64::new(1);
+static PRODUCT_APP_BACKEND_SESSION_RESOLVE_LOCK: tokio::sync::Mutex<()> =
+    tokio::sync::Mutex::const_new(());
 
 fn ai_stream_registry() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
     AI_STREAM_REGISTRY.get_or_init(|| Mutex::new(HashMap::new()))
@@ -1775,7 +1718,7 @@ pub async fn product_app_runtime_host_ai_chat(
     let stream_id = request.stream_id.clone();
     let app_id = request.app_id.clone();
     let runtime_owner_id = runtime_owner.owner_id().to_string();
-    let work_id = runtime_owner.context.work_id.clone();
+    let work_id = runtime_owner.work_id().to_string();
     let runtime_instance_id = runtime_owner.context.runtime_instance_id.clone();
     let product_app_id = runtime_owner.context.app_id.clone();
     let app_handle = app.clone();
@@ -1980,84 +1923,18 @@ pub async fn product_app_runtime_host_ai_list_models(
 #[cfg(test)]
 mod tests {
     use super::{
-        is_ppt_live_private_session, is_ppt_live_private_session_for_runtime,
-        validate_manuscript_method_access, ProductAppRuntimeContext,
-        ValidatedProductAppRuntimeContext, WorkId,
+        AppDataLocator, ProductAppRuntimeContext, ValidatedProductAppRuntimeContext, WorkId,
     };
-    use sparo_core::agentic::agents::PptLiveAgent;
-    use sparo_core::agentic::core::SessionKind;
-
-    #[test]
-    fn managed_manuscript_methods_reject_non_ppt_raw_worker_calls() {
-        for method in [
-            "deck.manuscript.get",
-            "deck.manuscript.commit",
-            "deck.manuscript.futureOperation",
-        ] {
-            assert!(validate_manuscript_method_access("builtin-ppt-live", method).is_ok());
-            assert!(validate_manuscript_method_access("other-product-app", method).is_err());
-        }
-        assert!(validate_manuscript_method_access("other-product-app", "storage.get").is_ok());
-    }
-
-    #[test]
-    fn ppt_live_private_cleanup_matches_product_runtime_owner() {
-        assert!(is_ppt_live_private_session(Some(
-            "product-app-runtime:work-1:runtime-1:backend:ppt:run:run-1",
-        )));
-        assert!(is_ppt_live_private_session(Some(
-            "product-app-runtime:work-1:runtime-1:backend:ppt:deck-1:run:run-1",
-        )));
-    }
-
-    #[test]
-    fn ppt_live_private_cleanup_rejects_legacy_surface_backend_owner() {
-        assert!(!is_ppt_live_private_session(Some(
-            "surface-component-backend:builtin-ppt-live:ppt:run-1",
-        )));
-    }
-
-    #[test]
-    fn ppt_live_private_session_access_is_scoped_to_the_exact_runtime_owner() {
-        let owner = "product-app-runtime:work-1:runtime-1";
-        let created_by = "product-app-runtime:work-1:runtime-1:backend:ppt:deck:run:run-1";
-        assert!(is_ppt_live_private_session_for_runtime(
-            PptLiveAgent::ID,
-            &SessionKind::Internal,
-            Some(created_by),
-            owner,
-        ));
-        assert!(!is_ppt_live_private_session_for_runtime(
-            PptLiveAgent::ID,
-            &SessionKind::Internal,
-            Some(created_by),
-            "product-app-runtime:work-2:runtime-2",
-        ));
-    }
-
-    #[test]
-    fn ppt_live_private_session_access_rejects_wrong_agent_or_session_kind() {
-        let owner = "product-app-runtime:work-1:runtime-1";
-        let created_by = "product-app-runtime:work-1:runtime-1:backend:ppt:run:run-1";
-        assert!(!is_ppt_live_private_session_for_runtime(
-            "Runno",
-            &SessionKind::Internal,
-            Some(created_by),
-            owner,
-        ));
-        assert!(!is_ppt_live_private_session_for_runtime(
-            PptLiveAgent::ID,
-            &SessionKind::Standard,
-            Some(created_by),
-            owner,
-        ));
-    }
+    use sparo_core::agentic_os::work::{WorkLocator, WorkScope};
 
     #[test]
     fn product_runtime_storage_scope_uses_work_runtime_instance() {
         let runtime_owner = ValidatedProductAppRuntimeContext {
             context: ProductAppRuntimeContext {
-                work_id: "work_1".to_string(),
+                work_locator: WorkLocator {
+                    scope: WorkScope::Global,
+                    work_id: WorkId::parse("work_1").unwrap(),
+                },
                 runtime_instance_id: "runtime_work_1_release".to_string(),
                 slot_id: "primary".to_string(),
                 app_id: "product-app".to_string(),
@@ -2069,7 +1946,16 @@ mod tests {
                 host_surface_id: "shared-surface-host".to_string(),
             },
             owner_id: "product-app-runtime:work_1:runtime_work_1_release".to_string(),
-            work_id: WorkId::parse("work_1").unwrap(),
+            work_locator: WorkLocator {
+                scope: WorkScope::Global,
+                work_id: WorkId::parse("work_1").unwrap(),
+            },
+            app_data_locator: AppDataLocator {
+                scope: WorkScope::Global,
+                app_id: "product-app".to_string(),
+                work_id: WorkId::parse("work_1").unwrap(),
+            },
+            work_title: "Test presentation".to_string(),
         };
 
         assert_eq!(runtime_owner.work_id().as_str(), "work_1");
@@ -2147,399 +2033,6 @@ Return only a single JSON object that conforms to the effective output schema. D
     )
 }
 
-fn is_ppt_live_private_backend(product_app_id: &str, backend_id: &str, action_name: &str) -> bool {
-    product_app_id == "builtin-ppt-live" && backend_id == "ppt" && action_name == "generate"
-}
-
-fn is_ppt_live_private_session(created_by: Option<&str>) -> bool {
-    let Some(value) = created_by else {
-        return false;
-    };
-    let segments = value.split(':').collect::<Vec<_>>();
-    if segments.first() != Some(&"product-app-runtime") {
-        return false;
-    }
-    let Some(backend_index) = segments.iter().position(|segment| *segment == "backend") else {
-        return false;
-    };
-    segments.get(backend_index + 1) == Some(&"ppt")
-        && segments
-            .get(backend_index + 2..)
-            .is_some_and(|tail| tail.iter().any(|segment| *segment == "run"))
-}
-
-fn is_ppt_live_private_session_for_runtime(
-    agent_type: &str,
-    kind: &SessionKind,
-    created_by: Option<&str>,
-    runtime_owner_id: &str,
-) -> bool {
-    if agent_type != PptLiveAgent::ID || kind != &SessionKind::Internal {
-        return false;
-    }
-    let Some(created_by) = created_by else {
-        return false;
-    };
-    let expected_prefix = format!("{}:backend:ppt:", runtime_owner_id);
-    let Some(backend_tail) = created_by.strip_prefix(&expected_prefix) else {
-        return false;
-    };
-    let segments = backend_tail.split(':').collect::<Vec<_>>();
-    segments
-        .iter()
-        .position(|segment| *segment == "run")
-        .and_then(|run_index| segments.get(run_index + 1))
-        .is_some_and(|run_id| !run_id.trim().is_empty())
-}
-
-fn matches_ppt_live_cleanup_scope(
-    agent_type: &str,
-    kind: &SessionKind,
-    created_by: Option<&str>,
-    runtime_owner_id: Option<&str>,
-) -> bool {
-    match runtime_owner_id {
-        Some(runtime_owner_id) => {
-            is_ppt_live_private_session_for_runtime(agent_type, kind, created_by, runtime_owner_id)
-        }
-        None => is_ppt_live_private_session(created_by),
-    }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProductAppRuntimeHostCancelStalePptRunsRequest {
-    pub app_id: String,
-    pub runtime_context: ProductAppRuntimeContext,
-    pub workspace_path: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProductAppRuntimeHostCancelStalePptRunsResponse {
-    pub cancelled_sessions: usize,
-    pub cancelled_turns: usize,
-    pub cleared_queues: usize,
-}
-
-async fn cancel_ppt_live_session_work(
-    coordinator: &ConversationCoordinator,
-    scheduler: &DialogScheduler,
-    session_id: &str,
-) -> Result<Option<String>, String> {
-    let queue_depth = scheduler.queue_depth(session_id);
-    if queue_depth > 0 {
-        scheduler.clear_session_queue(session_id);
-    }
-
-    let cancelled = scheduler
-        .cancel_active_turn_for_session(
-            session_id,
-            TurnCancellationReason::Superseded,
-            SessionControlActor::System,
-            Duration::from_secs(2),
-        )
-        .await
-        .map_err(|e| format!("Failed to cancel active PPT Live turn: {}", e))?;
-
-    if cancelled.is_some() {
-        return Ok(cancelled);
-    }
-
-    let Some(session) = coordinator.get_session_manager().get_session(session_id) else {
-        return Ok(None);
-    };
-    let SessionState::Processing {
-        current_turn_id, ..
-    } = &session.state
-    else {
-        return Ok(None);
-    };
-    scheduler
-        .cancel_dialog_turn(
-            session_id,
-            current_turn_id,
-            TurnCancellationReason::Superseded,
-            SessionControlActor::System,
-        )
-        .await
-        .map_err(|e| format!("Failed to cancel processing PPT Live turn: {}", e))?;
-    Ok(Some(current_turn_id.clone()))
-}
-
-/// Cancel in-flight PPT Live private backend runs (survives app/webview reload).
-pub async fn cancel_stale_ppt_live_private_runs_internal(
-    coordinator: &ConversationCoordinator,
-    scheduler: &DialogScheduler,
-    workspace_path: &Path,
-    runtime_owner_id: Option<&str>,
-) -> Result<ProductAppRuntimeHostCancelStalePptRunsResponse, String> {
-    let effective_path = workspace_path.to_path_buf();
-    let mut session_ids = HashSet::new();
-
-    for session in coordinator.get_session_manager().list_loaded_sessions() {
-        if matches_ppt_live_cleanup_scope(
-            &session.agent_type,
-            &session.kind,
-            session.created_by.as_deref(),
-            runtime_owner_id,
-        ) {
-            session_ids.insert(session.session_id);
-        }
-    }
-
-    let summaries = coordinator
-        .list_sessions(&effective_path)
-        .await
-        .map_err(|e| format!("Failed to list sessions for PPT Live cleanup: {}", e))?;
-    for summary in summaries {
-        if matches_ppt_live_cleanup_scope(
-            &summary.agent_type,
-            &summary.kind,
-            summary.created_by.as_deref(),
-            runtime_owner_id,
-        ) {
-            session_ids.insert(summary.session_id);
-        }
-    }
-
-    let mut cancelled_sessions = 0usize;
-    let mut cancelled_turns = 0usize;
-    let mut cleared_queues = 0usize;
-
-    for session_id in session_ids {
-        let queue_depth = scheduler.queue_depth(&session_id);
-        if queue_depth > 0 {
-            scheduler.clear_session_queue(&session_id);
-            cleared_queues += 1;
-        }
-
-        if coordinator
-            .get_session_manager()
-            .get_session(&session_id)
-            .is_none()
-        {
-            let _ = coordinator
-                .restore_session(&effective_path, &session_id)
-                .await
-                .map_err(|e| {
-                    log::warn!(
-                        "PPT Live cleanup could not restore session {}: {}",
-                        session_id,
-                        e
-                    );
-                });
-        }
-
-        if let Some(turn_id) =
-            cancel_ppt_live_session_work(coordinator, scheduler, &session_id).await?
-        {
-            cancelled_sessions += 1;
-            cancelled_turns += 1;
-            log::info!(
-                "Cancelled stale PPT Live private backend run: session_id={}, turn_id={}",
-                session_id,
-                turn_id
-            );
-        }
-    }
-
-    Ok(ProductAppRuntimeHostCancelStalePptRunsResponse {
-        cancelled_sessions,
-        cancelled_turns,
-        cleared_queues,
-    })
-}
-
-#[tauri::command]
-pub async fn product_app_runtime_host_cancel_stale_ppt_runs(
-    coordinator: State<'_, Arc<ConversationCoordinator>>,
-    scheduler: State<'_, Arc<DialogScheduler>>,
-    state: State<'_, AppState>,
-    request: ProductAppRuntimeHostCancelStalePptRunsRequest,
-) -> Result<ProductAppRuntimeHostCancelStalePptRunsResponse, String> {
-    let runtime_owner =
-        validate_product_app_runtime_context(&request.app_id, &request.runtime_context).await?;
-    if runtime_owner.context.app_id != "builtin-ppt-live" {
-        return Err("PPT Live backend cleanup is only available to builtin-ppt-live".to_string());
-    }
-    let workspace_path = request.workspace_path.clone().unwrap_or_else(|| {
-        state
-            .workspace_service
-            .path_manager()
-            .agentic_os_runtime_root()
-            .to_string_lossy()
-            .into_owned()
-    });
-    cancel_stale_ppt_live_private_runs_internal(
-        coordinator.as_ref(),
-        scheduler.as_ref(),
-        Path::new(&workspace_path),
-        Some(runtime_owner.owner_id()),
-    )
-    .await
-}
-
-fn assistant_text_from_ppt_turn(turn: &sparo_core::service::session::DialogTurnData) -> String {
-    turn.model_rounds
-        .iter()
-        .flat_map(|round| round.text_items.iter())
-        .map(|item| item.content.as_str())
-        .filter(|content| !content.trim().is_empty())
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-/// Load persisted assistant text for a finished PPT Live private backend turn.
-#[tauri::command]
-pub async fn product_app_runtime_host_ppt_turn_assistant_text(
-    state: State<'_, AppState>,
-    request: ProductAppRuntimeHostPptTurnTextRequest,
-) -> Result<ProductAppRuntimeHostPptTurnTextResponse, String> {
-    use sparo_core::agentic::persistence::PersistenceManager;
-    use sparo_core::infrastructure::PathManager;
-
-    let runtime_owner =
-        validate_product_app_runtime_context(&request.app_id, &request.runtime_context).await?;
-    if runtime_owner.context.app_id != "builtin-ppt-live" {
-        return Err("PPT Live turn output is only available to builtin-ppt-live".to_string());
-    }
-    let session_id = request.session_id.trim();
-    let turn_id = request.turn_id.trim();
-    if session_id.is_empty() || turn_id.is_empty() {
-        return Err("sessionId and turnId are required".to_string());
-    }
-
-    let workspace_path = request.workspace_path.clone().unwrap_or_else(|| {
-        state
-            .workspace_service
-            .path_manager()
-            .agentic_os_runtime_root()
-            .to_string_lossy()
-            .into_owned()
-    });
-    let effective = desktop_effective_session_storage_path(
-        &state,
-        Some(workspace_path.as_str()),
-        Some(SessionStorageScopeDto::AgenticOs),
-    )
-    .await;
-    let path_manager =
-        Arc::new(PathManager::new().map_err(|e| format!("Path manager init failed: {}", e))?);
-    let persistence = PersistenceManager::new(path_manager)
-        .map_err(|e| format!("Persistence init failed: {}", e))?;
-    let metadata = persistence
-        .load_session_metadata(&effective, session_id)
-        .await
-        .map_err(|e| format!("Failed to load PPT Live session metadata: {}", e))?
-        .ok_or_else(|| format!("PPT Live session metadata not found: {}", session_id))?;
-    if !is_ppt_live_private_session_for_runtime(
-        &metadata.agent_type,
-        &metadata.session_kind,
-        metadata.created_by.as_deref(),
-        runtime_owner.owner_id(),
-    ) {
-        return Err("PPT Live session does not belong to this runtime instance".to_string());
-    }
-
-    for turn_index in (0..metadata.turn_count).rev() {
-        let Some(turn) = persistence
-            .load_dialog_turn(&effective, session_id, turn_index)
-            .await
-            .map_err(|e| format!("Failed to load PPT Live dialog turn: {}", e))?
-        else {
-            continue;
-        };
-        if turn.turn_id != turn_id {
-            continue;
-        }
-        let text = assistant_text_from_ppt_turn(&turn);
-        if text.trim().is_empty() {
-            return Err("PPT Live assistant output is not available yet".to_string());
-        }
-        return Ok(ProductAppRuntimeHostPptTurnTextResponse { text });
-    }
-
-    Err(format!("PPT Live dialog turn not found: {}", turn_id))
-}
-
-async fn submit_ppt_live_private_backend(
-    coordinator: State<'_, Arc<ConversationCoordinator>>,
-    state: State<'_, AppState>,
-    app: ProductAppRuntimeHostSurface,
-    runtime_owner: ValidatedProductAppRuntimeContext,
-    backend_id: &str,
-    backend_component_id: &str,
-    action_name: &str,
-    request: ProductAppRuntimeHostBackendCallRequest,
-) -> Result<ProductAppRuntimeHostBackendCallResponse, String> {
-    let workspace_path = request.workspace_path.clone().unwrap_or_else(|| {
-        state
-            .workspace_service
-            .path_manager()
-            .agentic_os_runtime_root()
-            .to_string_lossy()
-            .into_owned()
-    });
-    let action_run_id = request
-        .idempotency_key
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| next_product_app_runtime_backend_run_id(&app.id));
-    let owner = runtime_owner.backend_action_owner(
-        backend_id,
-        request.entity_id.as_deref(),
-        &action_run_id,
-    );
-    let config = SessionConfig {
-        workspace_path: Some(workspace_path.clone()),
-        storage_scope: Some(SessionStorageScope::AgenticOs),
-        model_id: Some("primary".to_string()),
-        enable_tools: true,
-        safe_mode: true,
-        auto_compact: false,
-        enable_context_compression: false,
-        max_turns: 1,
-        ..Default::default()
-    };
-    let session = coordinator
-        .create_ppt_live_backend_session(
-            "PPT Live Run".to_string(),
-            config,
-            workspace_path.clone(),
-            owner,
-        )
-        .await
-        .map_err(|e| format!("Failed to create PPT Live backend session: {}", e))?;
-    let phase = request
-        .input
-        .get("phase")
-        .and_then(Value::as_str)
-        .map(str::to_string);
-    let prompt = build_ppt_live_private_prompt(&request.input);
-    coordinator
-        .start_ppt_live_backend_turn(
-            &session.session_id,
-            &action_run_id,
-            prompt,
-            phase.as_deref(),
-        )
-        .await
-        .map_err(|e| format!("Failed to start PPT Live generation: {}", e))?;
-
-    Ok(ProductAppRuntimeHostBackendCallResponse {
-        session_id: session.session_id,
-        turn_id: action_run_id.clone(),
-        action_run_id,
-        status: "started".to_string(),
-        backend_id: backend_id.to_string(),
-        action: action_name.to_string(),
-        agent_type: PptLiveAgent::ID.to_string(),
-        backend_kind: "agentComponent".to_string(),
-        backend_component_id: backend_component_id.to_string(),
-        bridge_result: None,
-    })
-}
-
 #[tauri::command]
 pub async fn product_app_runtime_host_backend_call(
     coordinator: State<'_, Arc<ConversationCoordinator>>,
@@ -2572,21 +2065,6 @@ pub async fn product_app_runtime_host_backend_call(
                 action_name, backend_id
             )
         })?;
-    if is_ppt_live_private_backend(&runtime_owner.context.app_id, &backend_id, &action_name) {
-        let backend_component_id = binding.component_id.clone();
-        return submit_ppt_live_private_backend(
-            coordinator,
-            state,
-            app,
-            runtime_owner,
-            &backend_id,
-            &backend_component_id,
-            &action_name,
-            request,
-        )
-        .await;
-    }
-
     let action_run_id = request
         .idempotency_key
         .clone()
@@ -2611,8 +2089,11 @@ pub async fn product_app_runtime_host_backend_call(
         let consumer = BridgeComponentConsumer {
             kind: BridgeComponentConsumerKind::ProductAppRuntime,
             id: runtime_owner.owner_id().to_string(),
-            session_id: None,
+            session_id: request.session_id.clone(),
             turn_id: Some(action_run_id.clone()),
+            work_id: Some(runtime_owner.work_id().to_string()),
+            work_title: Some(runtime_owner.work_title.clone()),
+            runtime_instance_id: Some(runtime_owner.context.runtime_instance_id.clone()),
         };
         let result = if let Some(package_dir) = binding.component_package_dir.as_deref() {
             BridgeComponentManager::run_capability_action_from_package_dir(
@@ -2653,7 +2134,7 @@ pub async fn product_app_runtime_host_backend_call(
                 json!({
                     "appId": app.id,
                     "runtimeOwnerId": runtime_owner.owner_id(),
-                    "workId": runtime_owner.context.work_id.as_str(),
+                    "workId": runtime_owner.work_id().as_str(),
                     "runtimeInstanceId": runtime_owner.context.runtime_instance_id.as_str(),
                     "productAppId": runtime_owner.context.app_id.as_str(),
                     "backendId": backend_id,
@@ -2711,8 +2192,11 @@ pub async fn product_app_runtime_host_backend_call(
         let consumer = BridgeComponentConsumer {
             kind: BridgeComponentConsumerKind::ProductAppRuntime,
             id: runtime_owner.owner_id().to_string(),
-            session_id: None,
+            session_id: request.session_id.clone(),
             turn_id: Some(action_run_id.clone()),
+            work_id: Some(runtime_owner.work_id().to_string()),
+            work_title: Some(runtime_owner.work_title.clone()),
+            runtime_instance_id: Some(runtime_owner.context.runtime_instance_id.clone()),
         };
         let bridge_package_dir = app
             .backends
@@ -2761,7 +2245,7 @@ pub async fn product_app_runtime_host_backend_call(
                 json!({
                     "appId": app.id,
                     "runtimeOwnerId": runtime_owner.owner_id(),
-                    "workId": runtime_owner.context.work_id.as_str(),
+                    "workId": runtime_owner.work_id().as_str(),
                     "runtimeInstanceId": runtime_owner.context.runtime_instance_id.as_str(),
                     "productAppId": runtime_owner.context.app_id.as_str(),
                     "backendId": backend_id,
@@ -2795,54 +2279,124 @@ pub async fn product_app_runtime_host_backend_call(
         });
     }
 
-    let workspace_path = state
-        .workspace_service
-        .path_manager()
-        .agentic_os_runtime_root()
-        .to_string_lossy()
-        .into_owned();
-    let owner = runtime_owner.backend_owner(&backend_id, request.entity_id.as_deref());
-    let effective_path = desktop_effective_session_storage_path(
-        &state,
-        Some(&workspace_path),
-        Some(SessionStorageScopeDto::AgenticOs),
-    )
-    .await;
-    let existing_session = coordinator
-        .list_sessions(&effective_path)
+    let _session_resolve_guard = PRODUCT_APP_BACKEND_SESSION_RESOLVE_LOCK.lock().await;
+    let work_service = WorkService::new(default_work_store().map_err(|error| error.to_string())?);
+    let work = work_service
+        .get(runtime_owner.work_locator())
         .await
-        .map_err(|e| format!("Failed to list backend sessions: {}", e))?
-        .into_iter()
-        .find(|session| session.created_by.as_deref() == Some(owner.as_str()));
-    let session = match existing_session {
-        Some(session) => coordinator
-            .get_session_manager()
-            .get_session(&session.session_id)
-            .ok_or_else(|| "Backend session is not loaded".to_string())?,
-        None => {
-            let config = SessionConfig {
-                workspace_path: Some(workspace_path.clone()),
-                storage_scope: Some(SessionStorageScope::AgenticOs),
-                model_id: Some(agent_package.manifest.model.clone()),
-                enable_tools: !agent_package.manifest.readonly,
-                safe_mode: true,
-                auto_compact: true,
-                enable_context_compression: true,
-                ..Default::default()
-            };
-            coordinator
-                .create_session_with_workspace_and_creator(
-                    None,
-                    format!("{} Backend", app.name),
-                    binding.component_id.clone(),
-                    config,
-                    workspace_path.clone(),
-                    Some(owner),
-                )
-                .await
-                .map_err(|e| format!("Failed to create backend session: {}", e))?
-        }
+        .map_err(|error| error.to_string())?;
+    let channel = ProductAppSessionChannel {
+        channel_id: backend_id.clone(),
+        entity_id: request
+            .entity_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string),
     };
+    let expected_owner = SessionOwner::ProductApp {
+        app_id: runtime_owner.context.app_id.clone(),
+        work_id: runtime_owner.work_id().to_string(),
+        channel: channel.clone(),
+        role: ProductAppSessionRole::BackendInternal,
+    };
+    let matching_refs = work
+        .session_refs
+        .iter()
+        .filter(|session_ref| session_ref.owner.as_ref() == Some(&expected_owner))
+        .collect::<Vec<_>>();
+    if matching_refs.len() > 1 {
+        return Err(format!(
+            "Work {} has multiple backend sessions for channel {}",
+            work.id, backend_id
+        ));
+    }
+
+    let owner = runtime_owner.backend_owner(&backend_id, request.entity_id.as_deref());
+    let session = if let Some(session_ref) = matching_refs.first() {
+        let history_binding = ProductAppSessionResolver::binding_for_work(
+            state.workspace_service.path_manager(),
+            &work,
+            &runtime_owner.context.app_id,
+            session_ref.session_id.clone(),
+            channel.clone(),
+            ProductAppSessionRole::BackendInternal,
+        )
+        .map_err(|error| error.to_string())?;
+        if session_ref.locator.as_ref() != Some(&history_binding.locator) {
+            return Err(format!(
+                "Product App backend session {} has an invalid history locator",
+                session_ref.session_id
+            ));
+        }
+        match coordinator
+            .get_session_manager()
+            .get_session(&session_ref.session_id)
+        {
+            Some(session) => session,
+            None => coordinator
+                .get_session_manager()
+                .restore_internal_session(&history_binding.locator, &history_binding.locator.domain)
+                .await
+                .map_err(|error| format!("Failed to restore backend session: {error}"))?,
+        }
+    } else {
+        let history_binding = ProductAppSessionResolver::binding_for_work(
+            state.workspace_service.path_manager(),
+            &work,
+            &runtime_owner.context.app_id,
+            uuid::Uuid::new_v4().to_string(),
+            channel,
+            ProductAppSessionRole::BackendInternal,
+        )
+        .map_err(|error| error.to_string())?;
+        let mut config = SessionConfig::new(history_binding.locator.domain.clone());
+        config.workspace_path = Some(history_binding.execution_workspace_path.clone());
+        config.model_id = Some(agent_package.manifest.model.clone());
+        config.enable_tools = !agent_package.manifest.readonly;
+        config.safe_mode = true;
+        config.auto_compact = true;
+        config.enable_context_compression = true;
+        let session = coordinator
+            .get_session_manager()
+            .create_session_with_id_and_details(
+                Some(history_binding.locator.session_id.clone()),
+                format!("{} Backend", app.name),
+                binding.component_id.clone(),
+                config,
+                Some(owner),
+                SessionKind::Internal,
+            )
+            .await
+            .map_err(|error| format!("Failed to create backend session: {error}"))?;
+        if let Err(error) = work_service
+            .link_session_to_work(LinkSessionToWorkRequest {
+                work_locator: work.locator(),
+                session_id: session.session_id.clone(),
+                workspace_path: work.workspace_path.clone(),
+                locator: Some(history_binding.locator.clone()),
+                owner: Some(history_binding.owner),
+                surface: None,
+                bind_surface: false,
+                set_primary: false,
+            })
+            .await
+        {
+            let cleanup_error = coordinator
+                .get_session_manager()
+                .delete_session(&history_binding.locator)
+                .await
+                .err();
+            return Err(match cleanup_error {
+                Some(cleanup_error) => format!(
+                    "Failed to link backend session to Work: {error}; cleanup failed: {cleanup_error}"
+                ),
+                None => format!("Failed to link backend session to Work: {error}"),
+            });
+        }
+        session
+    };
+    drop(_session_resolve_guard);
 
     let prompt = build_backend_action_prompt(
         &app,

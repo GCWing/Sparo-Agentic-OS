@@ -329,6 +329,7 @@ mod tests {
             tool_call_id: None,
             agent_type: Some("Filer".to_string()),
             session_id: Some(session_id.to_string()),
+            session_domain: None,
             dialog_turn_id: None,
             workspace: None,
             custom_data: std::collections::HashMap::new(),

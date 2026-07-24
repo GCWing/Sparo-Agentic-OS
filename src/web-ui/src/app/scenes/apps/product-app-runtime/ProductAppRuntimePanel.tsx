@@ -16,6 +16,7 @@ import {
 import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
 import { useProductAppRuntimeStore } from './productAppRuntimeStore';
 import ProductAppRuntimeIframeHost from './ProductAppRuntimeIframeHost';
+import { registerProductAppRuntimeToolCardManifests } from './productAppRuntimeToolCardManifests';
 import {
   productAppRuntimeHostAPI,
   type ProductAppHostSurface,
@@ -67,6 +68,10 @@ const ProductAppRuntimePanel: React.FC<ProductAppRuntimePanelProps> = ({
   const effectiveWorkspacePath = workspacePathFromAppScope(effectiveScope);
 
   useEffect(() => {
+    if (productAppRuntime) registerProductAppRuntimeToolCardManifests(productAppRuntime);
+  }, [productAppRuntime]);
+
+  useEffect(() => {
     if (!appId) return;
     openApp(appId);
     void productAppRuntimeHostAPI.recordRecentHostSurface(appId)
@@ -89,6 +94,13 @@ const ProductAppRuntimePanel: React.FC<ProductAppRuntimePanelProps> = ({
         effectiveWorkspacePath,
       );
       if (requestId !== loadRequestRef.current) return;
+      const productAppId = runtimeContext?.appId ?? productAppRuntime?.appId;
+      if (productAppId) {
+        registerProductAppRuntimeToolCardManifests({
+          appId: productAppId,
+          flowChatCards: loaded.interaction?.flowChatCards,
+        });
+      }
       setApp(loaded);
     } catch (error) {
       if (requestId !== loadRequestRef.current) return;
@@ -100,7 +112,7 @@ const ProductAppRuntimePanel: React.FC<ProductAppRuntimePanelProps> = ({
         setLoading(false);
       }
     }
-  }, [appId, effectiveWorkspacePath, themeType]);
+  }, [appId, effectiveWorkspacePath, productAppRuntime?.appId, runtimeContext?.appId, themeType]);
 
   useEffect(() => {
     void load();

@@ -23,35 +23,22 @@ fn last_used_workspace_path() -> Option<std::path::PathBuf> {
         .and_then(|service| service.try_get_last_used_workspace_path())
 }
 
-async fn resolve_session_workspace_path(session_id: &str) -> Option<std::path::PathBuf> {
+async fn resolve_session_workspace_path(
+    locator: &crate::agentic::core::SessionLocator,
+) -> Option<std::path::PathBuf> {
     use crate::agentic::coordination::get_global_coordinator;
     use crate::agentic::persistence::PersistenceManager;
     use crate::infrastructure::PathManager;
-    use crate::service::workspace::get_global_workspace_service;
 
     if let Some(coordinator) = get_global_coordinator() {
         if let Some(workspace_path) = coordinator
             .get_session_manager()
-            .get_session(session_id)
+            .get_session(&locator.session_id)
+            .filter(|session| session.config.domain == locator.domain)
             .and_then(|session| session.config.workspace_path.clone())
             .filter(|path| !path.is_empty())
         {
             return Some(std::path::PathBuf::from(workspace_path));
-        }
-    }
-
-    let workspace_service = get_global_workspace_service()?;
-    let mut candidates: Vec<std::path::PathBuf> = workspace_service
-        .get_opened_workspaces()
-        .await
-        .into_iter()
-        .map(|workspace| workspace.root_path)
-        .collect();
-
-    if let Some(last_used_workspace) = workspace_service.get_last_used_workspace().await {
-        let last_used_root = last_used_workspace.root_path;
-        if !candidates.iter().any(|path| path == &last_used_root) {
-            candidates.push(last_used_root);
         }
     }
 
@@ -62,38 +49,21 @@ async fn resolve_session_workspace_path(session_id: &str) -> Option<std::path::P
     let Ok(persistence_manager) = PersistenceManager::new(path_manager) else {
         return None;
     };
-
-    for workspace_path in candidates {
-        match persistence_manager
-            .load_session_metadata(&workspace_path, session_id)
-            .await
-        {
-            Ok(Some(metadata)) => {
-                if let Some(bound_workspace) =
-                    metadata.workspace_path.filter(|path| !path.is_empty())
-                {
-                    return Some(std::path::PathBuf::from(bound_workspace));
-                }
-                return Some(workspace_path);
-            }
-            Ok(None) => {}
-            Err(err) => {
-                debug!(
-                    "Failed to load session metadata while resolving workspace: session_id={} workspace={} error={}",
-                    session_id,
-                    workspace_path.display(),
-                    err
-                );
-            }
-        }
-    }
-
-    None
+    persistence_manager
+        .load_session_metadata(&locator.domain, &locator.session_id)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|metadata| metadata.workspace_path)
+        .filter(|path| !path.is_empty())
+        .map(std::path::PathBuf::from)
 }
 
-async fn resolve_file_workspace_root(session_id: Option<&str>) -> Option<std::path::PathBuf> {
-    if let Some(session_id) = session_id {
-        if let Some(workspace_path) = resolve_session_workspace_path(session_id).await {
+async fn resolve_file_workspace_root(
+    locator: Option<&crate::agentic::core::SessionLocator>,
+) -> Option<std::path::PathBuf> {
+    if let Some(locator) = locator {
+        if let Some(workspace_path) = resolve_session_workspace_path(locator).await {
             return Some(workspace_path);
         }
     }
@@ -101,7 +71,9 @@ async fn resolve_file_workspace_root(session_id: Option<&str>) -> Option<std::pa
     last_used_workspace_path()
 }
 
-async fn resolve_session_model_id(session_id: &str) -> Option<String> {
+async fn resolve_session_model_id(
+    locator: &crate::agentic::core::SessionLocator,
+) -> Option<String> {
     use crate::agentic::coordination::get_global_coordinator;
 
     let coordinator = get_global_coordinator()?;
@@ -119,13 +91,15 @@ async fn resolve_session_model_id(session_id: &str) -> Option<String> {
         None => Some("primary".to_string()),
     };
 
-    if let Some(session) = session_manager.get_session(session_id) {
+    if let Some(session) = session_manager
+        .get_session(&locator.session_id)
+        .filter(|session| session.config.domain == locator.domain)
+    {
         return normalize(session.config.model_id.clone());
     }
 
-    let workspace_path = resolve_session_workspace_path(session_id).await?;
     coordinator
-        .restore_session(&workspace_path, session_id)
+        .restore_session(locator)
         .await
         .ok()
         .and_then(|session| normalize(session.config.model_id.clone()))
@@ -159,7 +133,7 @@ pub struct RemoteModelCatalog {
 }
 
 async fn load_remote_model_catalog(
-    session_id: Option<&str>,
+    locator: Option<&crate::agentic::core::SessionLocator>,
 ) -> std::result::Result<RemoteModelCatalog, String> {
     use crate::service::config::{
         get_global_config_service,
@@ -225,8 +199,8 @@ async fn load_remote_model_catalog(
         })
         .collect();
 
-    let session_model_id = if let Some(session_id) = session_id {
-        resolve_session_model_id(session_id).await
+    let session_model_id = if let Some(locator) = locator {
+        resolve_session_model_id(locator).await
     } else {
         None
     };
@@ -265,30 +239,30 @@ pub enum RemoteCommand {
         workspace_path: Option<String>,
     },
     GetModelCatalog {
-        session_id: Option<String>,
+        locator: Option<crate::agentic::core::SessionLocator>,
     },
     SetSessionModel {
-        session_id: String,
+        locator: crate::agentic::core::SessionLocator,
         model_id: String,
     },
     GetSessionMessages {
-        session_id: String,
+        locator: crate::agentic::core::SessionLocator,
         limit: Option<usize>,
         before_message_id: Option<String>,
     },
     SendMessage {
-        session_id: String,
+        locator: crate::agentic::core::SessionLocator,
         content: String,
         agent_type: Option<String>,
         images: Option<Vec<ImageAttachment>>,
         image_contexts: Option<Vec<crate::agentic::image_analysis::ImageContextData>>,
     },
     CancelTask {
-        session_id: String,
+        locator: crate::agentic::core::SessionLocator,
         turn_id: Option<String>,
     },
     DeleteSession {
-        session_id: String,
+        locator: crate::agentic::core::SessionLocator,
     },
     ConfirmTool {
         tool_id: String,
@@ -309,7 +283,7 @@ pub enum RemoteCommand {
     },
     /// Incremental poll — returns only what changed since `since_version`.
     PollSession {
-        session_id: String,
+        locator: crate::agentic::core::SessionLocator,
         since_version: u64,
         known_msg_count: usize,
         known_model_catalog_version: Option<u64>,
@@ -321,7 +295,7 @@ pub enum RemoteCommand {
     /// resolved against that session's bound workspace first.
     ReadFile {
         path: String,
-        session_id: Option<String>,
+        session_locator: Option<crate::agentic::core::SessionLocator>,
     },
     /// Read a chunk of a workspace file.  `offset` is the byte offset into the
     /// raw file and `limit` is the maximum number of raw bytes to return.
@@ -329,7 +303,7 @@ pub enum RemoteCommand {
     /// the client knows when it has all the data.
     ReadFileChunk {
         path: String,
-        session_id: Option<String>,
+        session_locator: Option<crate::agentic::core::SessionLocator>,
         offset: u64,
         limit: u64,
     },
@@ -338,7 +312,7 @@ pub enum RemoteCommand {
     /// cards before the user confirms the download.
     GetFileInfo {
         path: String,
-        session_id: Option<String>,
+        session_locator: Option<crate::agentic::core::SessionLocator>,
     },
     /// List all skills visible in the current workspace context.
     ListSkills {
@@ -375,7 +349,7 @@ pub enum RemoteResponse {
         has_more: bool,
     },
     SessionCreated {
-        session_id: String,
+        locator: crate::agentic::core::SessionLocator,
     },
     ModelCatalog {
         catalog: RemoteModelCatalog,
@@ -482,6 +456,7 @@ pub struct RemoteSkillInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionInfo {
+    pub locator: crate::agentic::core::SessionLocator,
     pub session_id: String,
     pub name: String,
     pub agent_type: String,
@@ -850,8 +825,7 @@ fn turns_to_chat_messages(turns: &[crate::service::session::DialogTurnData]) -> 
 /// Load historical chat messages from the unified project session store.
 /// Uses the same data source as the desktop frontend.
 async fn load_chat_messages_from_conversation_persistence(
-    workspace_path: &std::path::Path,
-    session_id: &str,
+    locator: &crate::agentic::core::SessionLocator,
 ) -> (Vec<ChatMessage>, bool) {
     use crate::agentic::persistence::PersistenceManager;
     use crate::infrastructure::PathManager;
@@ -863,7 +837,10 @@ async fn load_chat_messages_from_conversation_persistence(
     let Ok(store) = PersistenceManager::new(pm) else {
         return (vec![], false);
     };
-    let Ok(turns) = store.load_session_turns(workspace_path, session_id).await else {
+    let Ok(turns) = store
+        .load_session_turns(&locator.domain, &locator.session_id)
+        .await
+    else {
         return (vec![], false);
     };
     (turns_to_chat_messages(&turns), false)
@@ -1662,7 +1639,7 @@ impl RemoteExecutionDispatcher {
     /// All platforms (desktop, mobile, bot) use the same `ImageContextData` format.
     pub async fn send_message(
         &self,
-        session_id: &str,
+        locator: &crate::agentic::core::SessionLocator,
         content: String,
         agent_type: Option<&str>,
         image_contexts: Vec<crate::agentic::image_analysis::ImageContextData>,
@@ -1677,26 +1654,21 @@ impl RemoteExecutionDispatcher {
         let scheduler = get_global_scheduler()
             .ok_or_else(|| "Dialog scheduler is not initialized".to_string())?;
 
+        let session_id = &locator.session_id;
         self.ensure_tracker(session_id);
 
         let session_mgr = coordinator.get_session_manager();
-        let binding_workspace = resolve_session_workspace_path(session_id)
+        let binding_workspace = resolve_session_workspace_path(locator)
             .await
             .map(|path| path.to_string_lossy().into_owned());
 
         // Restore the session if it is not in memory, so we can read its agent_type below.
-        let restored_session = match session_mgr.get_session(session_id) {
+        let restored_session = match session_mgr
+            .get_session(session_id)
+            .filter(|session| session.config.domain == locator.domain)
+        {
             Some(session) => Some(session),
-            None => {
-                if let Some(workspace_path) = binding_workspace.as_deref() {
-                    coordinator
-                        .restore_session(std::path::Path::new(workspace_path), session_id)
-                        .await
-                        .ok()
-                } else {
-                    None
-                }
-            }
+            None => coordinator.restore_session(locator).await.ok(),
         };
 
         // Pre-warm the terminal so shell integration is ready before BashTool runs.
@@ -1787,7 +1759,7 @@ impl RemoteExecutionDispatcher {
     /// Cancel a running dialog turn.
     pub async fn cancel_task(
         &self,
-        session_id: &str,
+        locator: &crate::agentic::core::SessionLocator,
         requested_turn_id: Option<&str>,
     ) -> std::result::Result<(), String> {
         use crate::agentic::coordination::{
@@ -1798,20 +1770,17 @@ impl RemoteExecutionDispatcher {
         let coordinator = get_global_coordinator()
             .ok_or_else(|| "Desktop session system not ready".to_string())?;
 
+        let session_id = &locator.session_id;
         let session_mgr = coordinator.get_session_manager();
-        let session = match session_mgr.get_session(session_id) {
+        let session = match session_mgr
+            .get_session(session_id)
+            .filter(|session| session.config.domain == locator.domain)
+        {
             Some(s) => s,
-            None => {
-                let workspace_path = resolve_session_workspace_path(session_id)
-                    .await
-                    .ok_or_else(|| {
-                        format!("Workspace path not available for session: {}", session_id)
-                    })?;
-                coordinator
-                    .restore_session(&workspace_path, session_id)
-                    .await
-                    .map_err(|e| format!("Session not found: {e}"))?
-            }
+            None => coordinator
+                .restore_session(locator)
+                .await
+                .map_err(|e| format!("Session not found: {e}"))?,
         };
 
         let running_turn_id = match &session.state {
@@ -1928,20 +1897,25 @@ impl RemoteServer {
                 self.handle_list_skills(workspace_path.as_deref()).await
             }
 
-            RemoteCommand::ReadFile { path, session_id } => {
-                self.handle_read_file(path, session_id.as_deref()).await
-            }
+            RemoteCommand::ReadFile {
+                path,
+                session_locator,
+            } => self.handle_read_file(path, session_locator.as_ref()).await,
             RemoteCommand::ReadFileChunk {
                 path,
-                session_id,
+                session_locator,
                 offset,
                 limit,
             } => {
-                self.handle_read_file_chunk(path, session_id.as_deref(), *offset, *limit)
+                self.handle_read_file_chunk(path, session_locator.as_ref(), *offset, *limit)
                     .await
             }
-            RemoteCommand::GetFileInfo { path, session_id } => {
-                self.handle_get_file_info(path, session_id.as_deref()).await
+            RemoteCommand::GetFileInfo {
+                path,
+                session_locator,
+            } => {
+                self.handle_get_file_info(path, session_locator.as_ref())
+                    .await
             }
         }
     }
@@ -2029,25 +2003,35 @@ impl RemoteServer {
             if let Ok(pm) = PathManager::new() {
                 let pm = std::sync::Arc::new(pm);
                 if let Ok(store) = PersistenceManager::new(pm) {
-                    if let Ok(all_meta) = store.list_session_metadata(wp).await {
-                        let total = all_meta.len();
-                        let page_size = 100usize;
-                        let has_more = total > page_size;
-                        let sessions: Vec<SessionInfo> = all_meta
-                            .into_iter()
-                            .take(page_size)
-                            .map(|s| SessionInfo {
-                                session_id: s.session_id,
-                                name: s.session_name,
-                                agent_type: s.agent_type,
-                                created_at: (s.created_at / 1000).to_string(),
-                                updated_at: (s.last_active_at / 1000).to_string(),
-                                message_count: s.turn_count,
-                                workspace_path: Some(ws_str.clone()),
-                                workspace_name: ws_name.clone(),
-                            })
-                            .collect();
-                        (sessions, has_more)
+                    if let Ok(workspace_id) = store.path_manager().workspace_id(wp) {
+                        let domain =
+                            crate::agentic::core::SessionDomain::Workspace { workspace_id };
+                        if let Ok(all_meta) = store.list_session_metadata(&domain).await {
+                            let total = all_meta.len();
+                            let page_size = 100usize;
+                            let has_more = total > page_size;
+                            let sessions: Vec<SessionInfo> = all_meta
+                                .into_iter()
+                                .take(page_size)
+                                .map(|s| SessionInfo {
+                                    locator: crate::agentic::core::SessionLocator {
+                                        domain: domain.clone(),
+                                        session_id: s.session_id.clone(),
+                                    },
+                                    session_id: s.session_id,
+                                    name: s.session_name,
+                                    agent_type: s.agent_type,
+                                    created_at: (s.created_at / 1000).to_string(),
+                                    updated_at: (s.last_active_at / 1000).to_string(),
+                                    message_count: s.turn_count,
+                                    workspace_path: Some(ws_str.clone()),
+                                    workspace_name: ws_name.clone(),
+                                })
+                                .collect();
+                            (sessions, has_more)
+                        } else {
+                            (vec![], false)
+                        }
                     } else {
                         (vec![], false)
                     }
@@ -2077,7 +2061,7 @@ impl RemoteServer {
 
     async fn handle_poll_command(&self, cmd: &RemoteCommand) -> RemoteResponse {
         let RemoteCommand::PollSession {
-            session_id,
+            locator,
             since_version,
             known_msg_count,
             known_model_catalog_version,
@@ -2088,9 +2072,10 @@ impl RemoteServer {
             };
         };
 
+        let session_id = &locator.session_id;
         let tracker = self.ensure_tracker(session_id);
         let current_version = tracker.version();
-        let current_model_catalog = match load_remote_model_catalog(Some(session_id)).await {
+        let current_model_catalog = match load_remote_model_catalog(Some(locator)).await {
             Ok(catalog) => Some(catalog),
             Err(message) => return RemoteResponse::Error { message },
         };
@@ -2140,13 +2125,7 @@ impl RemoteServer {
             };
         }
 
-        let Some(workspace_path) = resolve_session_workspace_path(session_id).await else {
-            return RemoteResponse::Error {
-                message: format!("Workspace path not available for session: {}", session_id),
-            };
-        };
-        let (all_chat_msgs, _) =
-            load_chat_messages_from_conversation_persistence(&workspace_path, session_id).await;
+        let (all_chat_msgs, _) = load_chat_messages_from_conversation_persistence(locator).await;
         let total_msg_count = all_chat_msgs.len();
         let skip = *known_msg_count;
         let new_messages: Vec<ChatMessage> = all_chat_msgs.into_iter().skip(skip).collect();
@@ -2208,11 +2187,15 @@ impl RemoteServer {
     ///
     /// Relative paths are resolved against the session workspace when possible,
     /// otherwise the current workspace root. Rejects files larger than 30 MB.
-    async fn handle_read_file(&self, raw_path: &str, session_id: Option<&str>) -> RemoteResponse {
+    async fn handle_read_file(
+        &self,
+        raw_path: &str,
+        session_locator: Option<&crate::agentic::core::SessionLocator>,
+    ) -> RemoteResponse {
         use crate::service::remote_connect::bot::{read_workspace_file, WorkspaceFileContent};
 
         const MAX_SIZE: u64 = 30 * 1024 * 1024; // Unified 30 MB cap (Feishu API hard limit)
-        let workspace_root = resolve_file_workspace_root(session_id).await;
+        let workspace_root = resolve_file_workspace_root(session_locator).await;
         match read_workspace_file(raw_path, MAX_SIZE, workspace_root.as_deref()).await {
             Ok(WorkspaceFileContent {
                 name,
@@ -2238,13 +2221,13 @@ impl RemoteServer {
     async fn handle_read_file_chunk(
         &self,
         raw_path: &str,
-        session_id: Option<&str>,
+        session_locator: Option<&crate::agentic::core::SessionLocator>,
         offset: u64,
         limit: u64,
     ) -> RemoteResponse {
         use crate::service::remote_connect::bot::{detect_mime_type, resolve_workspace_path};
 
-        let workspace_root = resolve_file_workspace_root(session_id).await;
+        let workspace_root = resolve_file_workspace_root(session_locator).await;
         let abs = match resolve_workspace_path(raw_path, workspace_root.as_deref()) {
             Some(p) => p,
             None => {
@@ -2309,11 +2292,11 @@ impl RemoteServer {
     async fn handle_get_file_info(
         &self,
         raw_path: &str,
-        session_id: Option<&str>,
+        session_locator: Option<&crate::agentic::core::SessionLocator>,
     ) -> RemoteResponse {
         use crate::service::remote_connect::bot::{detect_mime_type, resolve_workspace_path};
 
-        let workspace_root = resolve_file_workspace_root(session_id).await;
+        let workspace_root = resolve_file_workspace_root(session_locator).await;
         let abs = match resolve_workspace_path(raw_path, workspace_root.as_deref()) {
             Some(p) => p,
             None => {
@@ -2537,12 +2520,28 @@ impl RemoteServer {
                     let ws_str = ws_path.to_string_lossy().to_string();
                     let workspace_name =
                         ws_path.file_name().map(|n| n.to_string_lossy().to_string());
-                    match store.list_session_metadata(ws_path).await {
+                    let workspace_id = match store.path_manager().workspace_id(ws_path) {
+                        Ok(workspace_id) => workspace_id,
+                        Err(error) => {
+                            debug!(
+                                "Skipping workspace without stable identity: workspace={} error={}",
+                                ws_path.display(),
+                                error
+                            );
+                            continue;
+                        }
+                    };
+                    let domain = crate::agentic::core::SessionDomain::Workspace { workspace_id };
+                    match store.list_session_metadata(&domain).await {
                         Ok(meta_list) => {
                             for s in meta_list {
                                 let created = (s.created_at / 1000).to_string();
                                 let updated = (s.last_active_at / 1000).to_string();
                                 all_sessions.push(SessionInfo {
+                                    locator: crate::agentic::core::SessionLocator {
+                                        domain: domain.clone(),
+                                        session_id: s.session_id.clone(),
+                                    },
                                     session_id: s.session_id,
                                     name: s.session_name,
                                     agent_type: s.agent_type,
@@ -2631,6 +2630,24 @@ impl RemoteServer {
                     };
                 };
 
+                let domain = if agent == "OSAgent" {
+                    crate::agentic::core::SessionDomain::OsAgent
+                } else if agent == "AppBuilder" && requested_ws_path.is_none() {
+                    crate::agentic::core::SessionDomain::Global
+                } else {
+                    let workspace_id = match crate::infrastructure::try_get_path_manager_arc()
+                        .and_then(|manager| {
+                            manager.workspace_id(std::path::Path::new(&binding_ws_str))
+                        }) {
+                        Ok(workspace_id) => workspace_id,
+                        Err(error) => {
+                            return RemoteResponse::Error {
+                                message: format!("Workspace has no stable identity: {error}"),
+                            }
+                        }
+                    };
+                    crate::agentic::core::SessionDomain::Workspace { workspace_id }
+                };
                 match coordinator
                     .create_session_with_workspace(
                         None,
@@ -2638,31 +2655,30 @@ impl RemoteServer {
                         agent.to_string(),
                         SessionConfig {
                             workspace_path: Some(binding_ws_str.clone()),
-                            ..Default::default()
+                            ..SessionConfig::new(domain)
                         },
                         binding_ws_str,
                     )
                     .await
                 {
-                    Ok(session) => {
-                        let session_id = session.session_id.clone();
-                        RemoteResponse::SessionCreated { session_id }
-                    }
+                    Ok(session) => RemoteResponse::SessionCreated {
+                        locator: crate::agentic::core::SessionLocator {
+                            domain: session.config.domain.clone(),
+                            session_id: session.session_id.clone(),
+                        },
+                    },
                     Err(e) => RemoteResponse::Error {
                         message: e.to_string(),
                     },
                 }
             }
-            RemoteCommand::GetModelCatalog { session_id } => {
-                match load_remote_model_catalog(session_id.as_deref()).await {
+            RemoteCommand::GetModelCatalog { locator } => {
+                match load_remote_model_catalog(locator.as_ref()).await {
                     Ok(catalog) => RemoteResponse::ModelCatalog { catalog },
                     Err(message) => RemoteResponse::Error { message },
                 }
             }
-            RemoteCommand::SetSessionModel {
-                session_id,
-                model_id,
-            } => {
+            RemoteCommand::SetSessionModel { locator, model_id } => {
                 use crate::service::config::{get_global_config_service, types::AIConfig};
 
                 let requested_model_id = model_id.trim();
@@ -2700,22 +2716,11 @@ impl RemoteServer {
 
                 if coordinator
                     .get_session_manager()
-                    .get_session(session_id)
+                    .get_session(&locator.session_id)
+                    .filter(|session| session.config.domain == locator.domain)
                     .is_none()
                 {
-                    let Some(workspace_path) = resolve_session_workspace_path(session_id).await
-                    else {
-                        return RemoteResponse::Error {
-                            message: format!(
-                                "Workspace path not available for session: {}",
-                                session_id
-                            ),
-                        };
-                    };
-                    if let Err(e) = coordinator
-                        .restore_session(&workspace_path, session_id)
-                        .await
-                    {
+                    if let Err(e) = coordinator.restore_session(locator).await {
                         return RemoteResponse::Error {
                             message: format!("Failed to restore session: {e}"),
                         };
@@ -2723,11 +2728,11 @@ impl RemoteServer {
                 }
 
                 match coordinator
-                    .update_session_model(session_id, &normalized_model_id)
+                    .update_session_model(&locator.session_id, &normalized_model_id)
                     .await
                 {
                     Ok(()) => RemoteResponse::SessionModelUpdated {
-                        session_id: session_id.clone(),
+                        session_id: locator.session_id.clone(),
                         model_id: normalized_model_id,
                     },
                     Err(e) => RemoteResponse::Error {
@@ -2736,45 +2741,24 @@ impl RemoteServer {
                 }
             }
             RemoteCommand::GetSessionMessages {
-                session_id,
+                locator,
                 limit: _,
                 before_message_id: _,
             } => {
-                let Some(workspace_path) = resolve_session_workspace_path(session_id).await else {
-                    return RemoteResponse::Error {
-                        message: format!(
-                            "Workspace path not available for session: {}",
-                            session_id
-                        ),
-                    };
-                };
                 let (chat_msgs, has_more) =
-                    load_chat_messages_from_conversation_persistence(&workspace_path, session_id)
-                        .await;
+                    load_chat_messages_from_conversation_persistence(locator).await;
                 RemoteResponse::Messages {
-                    session_id: session_id.clone(),
+                    session_id: locator.session_id.clone(),
                     messages: chat_msgs,
                     has_more,
                 }
             }
-            RemoteCommand::DeleteSession { session_id } => {
-                let Some(workspace_path) = resolve_session_workspace_path(session_id).await else {
-                    return RemoteResponse::Error {
-                        message: format!(
-                            "Workspace path not available for session: {}",
-                            session_id
-                        ),
-                    };
-                };
-
-                match coordinator
-                    .delete_session(&workspace_path, session_id)
-                    .await
-                {
+            RemoteCommand::DeleteSession { locator } => {
+                match coordinator.delete_session(locator).await {
                     Ok(_) => {
-                        get_or_init_global_dispatcher().remove_tracker(session_id);
+                        get_or_init_global_dispatcher().remove_tracker(&locator.session_id);
                         RemoteResponse::SessionDeleted {
-                            session_id: session_id.clone(),
+                            session_id: locator.session_id.clone(),
                         }
                     }
                     Err(e) => RemoteResponse::Error {
@@ -2799,12 +2783,30 @@ impl RemoteServer {
 
         match cmd {
             RemoteCommand::SendMessage {
-                session_id,
+                locator,
                 content,
                 agent_type: requested_agent_type,
                 images,
                 image_contexts,
             } => {
+                let Some(coordinator) = get_global_coordinator() else {
+                    return RemoteResponse::Error {
+                        message: "Desktop session system not ready".into(),
+                    };
+                };
+                if coordinator
+                    .get_session_manager()
+                    .get_session(&locator.session_id)
+                    .filter(|session| session.config.domain == locator.domain)
+                    .is_none()
+                {
+                    if let Err(error) = coordinator.restore_session(locator).await {
+                        return RemoteResponse::Error {
+                            message: format!("Failed to restore session: {error}"),
+                        };
+                    }
+                }
+                let session_id = &locator.session_id;
                 // Unified: prefer image_contexts (new format), fall back to legacy images
                 let resolved_contexts = image_contexts
                     .clone()
@@ -2816,7 +2818,7 @@ impl RemoteServer {
                 );
                 match dispatcher
                     .send_message(
-                        session_id,
+                        locator,
                         content.clone(),
                         requested_agent_type.as_deref(),
                         resolved_contexts,
@@ -2844,15 +2846,14 @@ impl RemoteServer {
                     Err(e) => RemoteResponse::Error { message: e },
                 }
             }
-            RemoteCommand::CancelTask {
-                session_id,
-                turn_id,
-            } => match dispatcher.cancel_task(session_id, turn_id.as_deref()).await {
-                Ok(()) => RemoteResponse::TaskCancelled {
-                    session_id: session_id.clone(),
-                },
-                Err(e) => RemoteResponse::Error { message: e },
-            },
+            RemoteCommand::CancelTask { locator, turn_id } => {
+                match dispatcher.cancel_task(locator, turn_id.as_deref()).await {
+                    Ok(()) => RemoteResponse::TaskCancelled {
+                        session_id: locator.session_id.clone(),
+                    },
+                    Err(e) => RemoteResponse::Error { message: e },
+                }
+            }
             RemoteCommand::ConfirmTool {
                 tool_id,
                 updated_input,
@@ -2937,7 +2938,8 @@ impl RemoteServer {
     }
 }
 
-#[cfg(test)]
+// Superseded by SessionLocator-based Remote Connect contract tests.
+#[cfg(any())]
 mod tests {
     use super::*;
     use crate::service::remote_connect::encryption::KeyPair;

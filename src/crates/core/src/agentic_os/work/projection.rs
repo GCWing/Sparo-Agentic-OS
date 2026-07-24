@@ -16,6 +16,8 @@ pub struct WorkProjection {
     pub subject: WorkSubject,
     pub app_refs: Vec<WorkAppRelation>,
     pub scope: WorkScope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_path: Option<String>,
     pub primary_surface: WorkSurfaceRef,
     pub running: bool,
     #[serde(default)]
@@ -38,6 +40,7 @@ impl From<&WorkRecord> for WorkProjection {
             subject: record.subject.clone(),
             app_refs: record.app_refs.clone(),
             scope: record.scope.clone(),
+            workspace_path: record.workspace_path.clone(),
             primary_surface: record.primary_surface.clone(),
             running: record
                 .execution_bindings

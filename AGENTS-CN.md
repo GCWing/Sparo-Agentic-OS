@@ -128,8 +128,9 @@ await api.invoke('your_command', { request: { /* fields */ } });
 - 项目本地配置位于 `<workspace>/.sparo_os/config/`。
 - 默认 debug log 位于 `<workspace>/.sparo_os/debug.log`。
 - 运行时工作区数据通常位于 `<app-root>/workspaces/<workspace-id>/`。
-- 项目 sessions 位于 `<app-root>/workspaces/<workspace-id>/sessions/`。
-- Agentic OS 全局 sessions 位于 `<app-root>/agentic_os/sessions/`。
+- Agentic OS 会话位于 `<app-root>/sessions/os_agent/`。
+- 全局智能应用会话位于 `<app-root>/sessions/global/`。
+- Workspace 会话位于 `<app-root>/sessions/workspaces/<workspace-id>/`。
 
 桌面运行时日志：
 

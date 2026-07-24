@@ -11,6 +11,7 @@
 import { create } from 'zustand';
 import type { ReactNode } from 'react';
 import type { SessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
+import type { ProductAppTopBarContext } from '../navigation/workspaceTopBarContext';
 
 export interface SessionHeaderContext {
   /** Stable product identity for the active session. */
@@ -19,6 +20,8 @@ export interface SessionHeaderContext {
   workspacePath?: string;
   /** Resolved display name (same as sidebar), not the raw path basename. */
   workspaceDisplayName?: string;
+  /** Product App identity and scope semantics, when this is an Intelligent App session. */
+  productApp?: ProductAppTopBarContext;
 }
 
 export interface ContextNavAction {

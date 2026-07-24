@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next';
 import type { SessionComposerActionProviderId, SessionProfile } from '@/app/session-profiles';
 import type { SessionDescriptor } from '@/flow_chat/domain/sessionDescriptor';
-import type { SessionCustomMetadata, SessionStorageScope } from '@/shared/types/session-history';
+import type { SessionCustomMetadata, SessionDomain } from '@/shared/types/session-history';
 import type { AgentInfo } from '../../../../reducers/agentReducer';
 import type { ComposerMcpPromptCommand } from '../../model/composerCommands';
 import type { ComposerActionDescriptor } from '../composerActionTypes';
@@ -23,7 +23,7 @@ export interface ComposerActionProviderContext {
   descriptor?: SessionDescriptor | null;
   targetSessionId: string | null;
   workspacePath: string | null;
-  storageScope?: SessionStorageScope;
+  domain?: SessionDomain;
   customMetadata?: SessionCustomMetadata;
   availableAgents: AgentInfo[];
   currentAgent: string;

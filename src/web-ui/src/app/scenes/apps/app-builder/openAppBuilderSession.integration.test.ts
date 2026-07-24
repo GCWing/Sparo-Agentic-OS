@@ -44,7 +44,14 @@ describe('openAppBuilderSession', () => {
         id: 'work-1',
         primarySurface: { kind: 'work_session', sessionId: 'session-1' },
         surfaces: [{ kind: 'work_session', sessionId: 'session-1' }],
-        sessionRefs: [{ sessionId: 'session-1', workspacePath: 'D:/workspace/project' }],
+        sessionRefs: [{
+          sessionId: 'session-1',
+          workspacePath: 'D:/workspace/project',
+          locator: {
+            session_id: 'session-1',
+            domain: { kind: 'workspace', workspace_id: 'ws_project' },
+          },
+        }],
       } as unknown as WorkRecord,
     });
     mocks.openBoundAgentSession.mockResolvedValue({ sessionId: 'session-1' });
@@ -58,14 +65,21 @@ describe('openAppBuilderSession', () => {
         displayName: 'Research Assistant',
       } as IntelligentAppRecord,
       draft: { draftId: 'draft-1' } as AppDraftRecord,
-      scope: { kind: 'workspace', workspacePath: 'D:/workspace/project' },
+      scope: {
+        kind: 'workspace',
+        workspaceId: 'ws_project',
+        workspacePath: 'D:/workspace/project',
+      },
     });
 
     expect(mocks.resolveComponentWork).toHaveBeenCalledOnce();
     expect(mocks.openBoundAgentSession).toHaveBeenCalledWith(expect.objectContaining({
-      storageScope: 'workspace',
+      domain: { kind: 'workspace', workspace_id: 'ws_project' },
       existingSession: {
-        sessionId: 'session-1',
+        locator: {
+          session_id: 'session-1',
+          domain: { kind: 'workspace', workspace_id: 'ws_project' },
+        },
         workspacePath: 'D:/workspace/project',
       },
       context: { kind: 'work', workId: 'work-1' },

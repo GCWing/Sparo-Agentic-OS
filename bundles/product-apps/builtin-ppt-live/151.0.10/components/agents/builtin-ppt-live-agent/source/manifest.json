@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "id": "builtin-ppt-live-agent",
+  "name": "PPT Live Presentation Director",
+  "description": "An autonomous presentation director that turns a minimal topic brief into a frozen manuscript, approved Design Case, coherent VisualDocument, and validated PowerPoint.",
+  "icon": "presentation",
+  "category": "presentation",
+  "tags": ["presentation", "content-strategy", "design-case", "visual-design", "powerpoint"],
+  "level": "user",
+  "model": "primary",
+  "readonly": false,
+  "enabled": true,
+  "tools": [
+    "AskUserQuestion",
+    "TodoWrite",
+    "Task",
+    "LS",
+    "Glob",
+    "Grep",
+    "Read",
+    "WebSearch",
+    "WebFetch",
+    "agentcomponent__builtin-ppt-live-agent__inspect_presentation",
+    "agentcomponent__builtin-ppt-live-agent__commit_presentation_manuscript",
+    "agentcomponent__builtin-ppt-live-agent__review_presentation_manuscript",
+    "agentcomponent__builtin-ppt-live-agent__set_presentation_system",
+    "agentcomponent__builtin-ppt-live-agent__render_design_case",
+    "agentcomponent__builtin-ppt-live-agent__confirm_design_case",
+    "agentcomponent__builtin-ppt-live-agent__prepare_visual_assets",
+    "agentcomponent__builtin-ppt-live-agent__generate_slide_visual",
+    "agentcomponent__builtin-ppt-live-agent__edit_visual",
+    "agentcomponent__builtin-ppt-live-agent__review_deck",
+    "agentcomponent__builtin-ppt-live-agent__undo_deck",
+    "agentcomponent__builtin-ppt-live-agent__export_deck"
+  ],
+  "skills": [],
+  "subagents": [],
+  "toolPolicies": {},
+  "bridgeCapabilities": [
+    { "bridgeId": "builtin-ppt-runtime", "capabilityId": "sparo.pptDeck", "alias": "deckEngine", "mode": "auto" }
+  ],
+  "serviceActions": [
+    {
+      "name": "inspectPresentation",
+      "description": "Inspect the current parsed Manuscript, revisions, Design Case, visual production, review coverage, and RuleViolations.",
+      "toolPolicy": ["agentcomponent__builtin-ppt-live-agent__inspect_presentation"],
+      "bridgeCall": { "bridgeId": "builtin-ppt-runtime", "capabilityId": "sparo.pptDeck", "action": "inspect", "mode": "auto" }
+    },
+    {
+      "name": "authorManuscript",
+      "description": "Commit both complete Markdown documents and review the entire argument before visual production.",
+      "toolPolicy": ["agentcomponent__builtin-ppt-live-agent__inspect_presentation", "agentcomponent__builtin-ppt-live-agent__commit_presentation_manuscript", "agentcomponent__builtin-ppt-live-agent__review_presentation_manuscript"]
+    },
+    {
+      "name": "setPresentationSystem",
+      "description": "Commit the topic-specific palette, density, typography, grid, media, chart, and recipe system.",
+      "toolPolicy": ["agentcomponent__builtin-ppt-live-agent__inspect_presentation", "agentcomponent__builtin-ppt-live-agent__set_presentation_system"],
+      "bridgeCall": { "bridgeId": "builtin-ppt-runtime", "capabilityId": "sparo.pptDeck", "action": "setPresentationSystem", "mode": "auto" }
+    },
+    {
+      "name": "designCase",
+      "description": "Render three real pages, then wait on the dedicated Design Case confirmation card for the user's decision.",
+      "toolPolicy": ["agentcomponent__builtin-ppt-live-agent__inspect_presentation", "agentcomponent__builtin-ppt-live-agent__render_design_case", "agentcomponent__builtin-ppt-live-agent__confirm_design_case"]
+    },
+    {
+      "name": "prepareVisualAssets",
+      "description": "Prepare all grounded workspace and semantic vector assets after Design Case approval.",
+      "toolPolicy": ["agentcomponent__builtin-ppt-live-agent__inspect_presentation", "agentcomponent__builtin-ppt-live-agent__prepare_visual_assets"],
+      "bridgeCall": { "bridgeId": "builtin-ppt-runtime", "capabilityId": "sparo.pptDeck", "action": "prepareVisualAssets", "mode": "auto" }
+    },
+    {
+      "name": "generatePageVisual",
+      "description": "Author one complete visual page in Manuscript order; semantic alignment is judged by whole-deck AI review.",
+      "toolPolicy": ["agentcomponent__builtin-ppt-live-agent__inspect_presentation", "agentcomponent__builtin-ppt-live-agent__generate_slide_visual"]
+    },
+    {
+      "name": "reviewDeck",
+      "description": "Compare the complete Manuscript and VisualDocument, then commit semantic AlignmentCoverage, capability-aware evidence, findings, and ReviewCoverage.",
+      "toolPolicy": ["agentcomponent__builtin-ppt-live-agent__inspect_presentation", "agentcomponent__builtin-ppt-live-agent__review_deck"],
+      "bridgeCall": { "bridgeId": "builtin-ppt-runtime", "capabilityId": "sparo.pptDeck", "action": "reviewDeck", "mode": "auto" }
+    },
+    {
+      "name": "reviseVisual",
+      "description": "Apply a direct user visual override or regenerate affected pages from a systemic review root cause.",
+      "toolPolicy": ["agentcomponent__builtin-ppt-live-agent__inspect_presentation", "agentcomponent__builtin-ppt-live-agent__edit_visual", "agentcomponent__builtin-ppt-live-agent__generate_slide_visual", "agentcomponent__builtin-ppt-live-agent__undo_deck"]
+    },
+    {
+      "name": "exportDeck",
+      "description": "Export the exact passed deck-wide review as a validated PowerPoint package.",
+      "toolPolicy": ["agentcomponent__builtin-ppt-live-agent__inspect_presentation", "agentcomponent__builtin-ppt-live-agent__review_deck", "agentcomponent__builtin-ppt-live-agent__export_deck"],
+      "bridgeCall": { "bridgeId": "builtin-ppt-runtime", "capabilityId": "sparo.pptDeck", "action": "export", "mode": "auto" }
+    }
+  ],
+  "examples": [
+    { "title": "Create from a topic", "prompt": "Create a concise presentation about our new product direction using the strongest current workspace evidence." },
+    { "title": "Create from supplied evidence", "prompt": "Turn these files into an executive decision deck; infer the palette and density, then show me the Design Case." },
+    { "title": "Systemic redesign", "prompt": "Keep the argument but redesign the whole deck so the evidence is easier to understand and the pages feel intentional." }
+  ]
+}

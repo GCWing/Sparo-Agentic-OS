@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::app_platform::{
     seed_system_app_releases, AppActivationScope, AppRevisionStore, AppSlotProjection, DraftRecord,
+    SystemAppSeedIssue,
 };
 use crate::infrastructure::try_get_path_manager_arc;
 
@@ -16,6 +17,7 @@ pub struct IntelligentAppCatalogRequest {}
 pub struct IntelligentAppCatalogResponse {
     pub slots: Vec<AppSlotProjection>,
     pub drafts: Vec<DraftRecord>,
+    pub issues: Vec<SystemAppSeedIssue>,
 }
 
 /// Opens the same revision store used by Desktop, synchronizes bundled system
@@ -28,7 +30,7 @@ pub async fn get_intelligent_app_catalog(
     let store = AppRevisionStore::open(path_manager.app_root())
         .await
         .map_err(CommandError::session)?;
-    seed_system_app_releases(&path_manager, &store)
+    let sync = seed_system_app_releases(&path_manager, &store)
         .await
         .map_err(CommandError::session)?;
 
@@ -39,5 +41,6 @@ pub async fn get_intelligent_app_catalog(
     Ok(IntelligentAppCatalogResponse {
         slots: projection.slots,
         drafts: projection.drafts,
+        issues: sync.issues,
     })
 }

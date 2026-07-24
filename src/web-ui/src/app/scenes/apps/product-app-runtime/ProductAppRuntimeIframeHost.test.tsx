@@ -9,12 +9,33 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProductAppHostSurface } from '@/infrastructure/api/service-api/ProductAppRuntimeHostAPI';
 import { useExcelLiveFocusStore } from '@/app/agentic-os/excel-live/excelLiveFocusStore';
 import ProductAppRuntimeIframeHost from './ProductAppRuntimeIframeHost';
+import {
+  useProductAppRuntimeBridge,
+  type ProductAppRuntimeBridgeOptions,
+} from './useProductAppRuntimeBridge';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 vi.mock('./useProductAppRuntimeBridge', () => ({
   useProductAppRuntimeBridge: vi.fn(),
 }));
+
+vi.mock('@/tools/markdown', async () => {
+  const ReactModule = await import('react');
+  return {
+    MarkdownEditor: (props: {
+      fileName?: string;
+      initialContent?: string;
+      onContentChange?: (content: string, dirty: boolean) => void;
+      onSave?: (content: string) => void;
+    }) => ReactModule.createElement('button', {
+      type: 'button',
+      'data-hosted-markdown-editor': props.fileName,
+      onClick: () => props.onContentChange?.('# Updated', true),
+      onDoubleClick: () => props.onSave?.('# Updated'),
+    }, props.initialContent),
+  };
+});
 
 vi.mock('@/infrastructure/theme/hooks/useTheme', () => ({
   useTheme: () => ({
@@ -100,8 +121,12 @@ function setAmbientFocusForSession(sessionId: string): void {
 describe('Product App runtime host adapter preview observation', () => {
   let container: HTMLDivElement;
   let root: Root;
+  let bridgeOptions: ProductAppRuntimeBridgeOptions | undefined;
 
   beforeEach(() => {
+    vi.mocked(useProductAppRuntimeBridge).mockImplementation((_iframeRef, _app, options) => {
+      bridgeOptions = options;
+    });
     useExcelLiveFocusStore.setState({ ambient: null, ambientBySessionId: {}, includeOnSend: true });
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -113,6 +138,40 @@ describe('Product App runtime host adapter preview observation', () => {
     useExcelLiveFocusStore.setState({ ambient: null, ambientBySessionId: {}, includeOnSend: true });
     container.remove();
     vi.clearAllMocks();
+  });
+
+  it('renders the system Markdown editor for a hosted document view', () => {
+    act(() => {
+      root.render(<ProductAppRuntimeIframeHost app={app} />);
+    });
+
+    expect(bridgeOptions?.hostedViews).toBeDefined();
+    act(() => {
+      bridgeOptions?.hostedViews?.mount({
+        viewId: 'manuscript',
+        kind: 'markdown-editor',
+        rect: { x: 12, y: 48, width: 600, height: 420, visible: true },
+        options: {
+          content: '# Manuscript',
+          fileName: 'manuscript.md',
+          savedVersion: 1,
+          showToolbar: false,
+        },
+      });
+    });
+
+    const editor = container.querySelector<HTMLButtonElement>('[data-hosted-markdown-editor="manuscript.md"]');
+    expect(editor?.textContent).toBe('# Manuscript');
+    expect(editor?.parentElement?.style.left).toBe('12px');
+
+    const iframe = container.querySelector('iframe');
+    const postMessage = vi.spyOn(iframe!.contentWindow!, 'postMessage');
+    act(() => editor?.click());
+    expect(postMessage).toHaveBeenCalledWith({
+      type: 'sparo:event',
+      event: 'hostedView:change',
+      payload: { viewId: 'manuscript', content: '# Updated', dirty: true },
+    }, '*');
   });
 
   it('grants only iframe features declared by the surface', () => {

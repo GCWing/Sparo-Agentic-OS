@@ -7,13 +7,14 @@ use async_trait::async_trait;
 use log::warn;
 use serde_json::{json, Value};
 
+use crate::agentic::app_builder_context::{AppBuilderSubject, AppBuilderSubjectScope};
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::implementations::util::{
     bound_app_builder_draft_root, enforce_app_builder_package_write,
     has_app_builder_session_context,
 };
 use crate::agentic::tools::implementations::work_tool_support::work_service_from_tool_context;
-use crate::agentic_os::work::{ArtifactRef, WorkId};
+use crate::agentic_os::work::{ArtifactRef, WorkId, WorkLocator, WorkScope};
 use crate::app_platform::{
     compare_product_app_revisions, create_product_app_checkpoint, list_system_shared_components,
     restore_product_app_checkpoint, CompareProductAppRevisionsRequest,
@@ -377,9 +378,23 @@ async fn bind_checkpoint_artifact(
     };
     let work_id = WorkId::parse(work_id_input)
         .map_err(|error| CoreError::validation(format!("Invalid work_id: {error}")))?;
+    let app_builder = context
+        .app_builder
+        .as_ref()
+        .ok_or_else(|| CoreError::validation("App Builder context is required for work binding"))?;
+    let AppBuilderSubject::BuilderDraft { scope, .. } = &app_builder.subject;
+    let scope = match scope {
+        AppBuilderSubjectScope::System => WorkScope::Global,
+        AppBuilderSubjectScope::Workspace { workspace_path } => WorkScope::Workspace {
+            workspace_id: try_get_path_manager_arc()?.workspace_id(workspace_path)?,
+        },
+    };
     work_service_from_tool_context(context)?
         .bind_artifact(
-            &work_id,
+            &WorkLocator {
+                scope,
+                work_id: work_id.clone(),
+            },
             ArtifactRef {
                 id: checkpoint.checkpoint_id.clone(),
                 label: Some(format!(

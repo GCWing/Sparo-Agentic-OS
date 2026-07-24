@@ -2,13 +2,16 @@
 
 use crate::agent_component::{AgentComponentLevel, AgentComponentManager};
 use crate::agentic::agents::get_agent_registry;
-use crate::agentic::app_builder_context::{AppBuilderExecutionContext, AppBuilderSubject};
+use crate::agentic::app_builder_context::{
+    AppBuilderExecutionContext, AppBuilderSubject, AppBuilderSubjectScope,
+};
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
 use crate::agentic::tools::implementations::skills::get_skill_registry;
 use crate::agentic::tools::implementations::work_tool_support::work_service_from_tool_context;
 use crate::agentic::tools::pipeline::SubagentParentInfo;
 use crate::agentic_os::work::{
-    WorkBuilderFactStatus, WorkBuilderPreviewKind, WorkBuilderPreviewSource, WorkId,
+    WorkBuilderFactStatus, WorkBuilderPreviewKind, WorkBuilderPreviewSource, WorkId, WorkLocator,
+    WorkScope,
 };
 use crate::app_platform::{
     AppSurfaceMode, ComponentDefinition, ComponentKind, ComponentSource, ProductAppEvalCase,
@@ -787,6 +790,9 @@ async fn capability_preview_checks(
                     id: "app-builder-preview-harness".to_string(),
                     session_id: context.session_id.clone(),
                     turn_id: context.dialog_turn_id.clone(),
+                    work_id: None,
+                    work_title: None,
+                    runtime_instance_id: None,
                 };
                 Some(
                     BridgeComponentManager::start_run(
@@ -3685,7 +3691,26 @@ async fn work_preview_observation_checks(
             };
         }
     };
-    let record = match service.get(&work_id).await {
+    let locator = match app_builder_work_locator(app_builder, work_id.clone()) {
+        Ok(locator) => locator,
+        Err(error) => {
+            checks.push(runtime_identity_check(
+                runtime_instance_id,
+                None,
+                runtime_identity_required,
+            ));
+            checks.push(check(
+                "previewObservation",
+                "notVerified",
+                format!("Unable to resolve Work scope: {error}."),
+            ));
+            return WorkPreviewEvidence {
+                checks,
+                found: false,
+            };
+        }
+    };
+    let record = match service.get(&locator).await {
         Ok(record) => record,
         Err(error) => {
             checks.push(runtime_identity_check(
@@ -3780,6 +3805,21 @@ async fn work_preview_observation_checks(
         checks,
         found: true,
     }
+}
+
+fn app_builder_work_locator(
+    app_builder: &AppBuilderExecutionContext,
+    work_id: WorkId,
+) -> CoreResult<WorkLocator> {
+    let AppBuilderSubject::BuilderDraft { scope, .. } = &app_builder.subject;
+    let scope = match scope {
+        AppBuilderSubjectScope::System => WorkScope::Global,
+        AppBuilderSubjectScope::Workspace { workspace_path } => WorkScope::Workspace {
+            workspace_id: crate::infrastructure::try_get_path_manager_arc()?
+                .workspace_id(workspace_path)?,
+        },
+    };
+    Ok(WorkLocator { scope, work_id })
 }
 
 fn is_external_preview_observation(source: WorkBuilderPreviewSource) -> bool {
@@ -4045,6 +4085,7 @@ module.exports = { run };
             tool_call_id: None,
             agent_type: Some("AppBuilder".to_string()),
             session_id: Some("session-1".to_string()),
+            session_domain: None,
             dialog_turn_id: Some("turn-1".to_string()),
             workspace: workspace_root.map(|root| WorkspaceBinding::new(None, root)),
             custom_data: HashMap::new(),
@@ -4074,6 +4115,7 @@ module.exports = { run };
             tool_call_id: None,
             agent_type: Some("AppBuilder".to_string()),
             session_id: None,
+            session_domain: None,
             dialog_turn_id: None,
             workspace: None,
             custom_data: HashMap::new(),
@@ -4219,80 +4261,6 @@ module.exports = { run };
             .as_str()
             .expect("agentEval detail")
             .contains("execute=true"));
-        let _ = std_fs::remove_dir_all(base);
-    }
-
-    #[tokio::test]
-    async fn agent_eval_product_app_executes_runtime_binding_without_claiming_behavior() {
-        let tool = RunBuilderPreviewTool::new();
-        let base = std::env::temp_dir().join(format!(
-            "sparo-run-builder-preview-product-agent-runtime-binding-{}",
-            uuid::Uuid::new_v4()
-        ));
-        let path_manager = PathManager::with_user_root_for_tests(base.clone());
-        let written = create_product_app_package_with_options(
-            &path_manager,
-            CreateProductAppPackageDraft {
-                app_id: "current-app".to_string(),
-                name: "Current App".to_string(),
-                description: "A test Product App.".to_string(),
-                authors: Vec::new(),
-                i18n: Default::default(),
-                version: "1.0.0".to_string(),
-                agent_type: "Runno".to_string(),
-                category: "test".to_string(),
-                tags: Vec::new(),
-                primary_surface_mode: AppSurfaceMode::ImmersivePrimary,
-                work_multiplicity: Default::default(),
-                truth_source: None,
-            },
-            CreateProductAppPackageOptions {
-                include_agent: Some(true),
-                include_surface: Some(true),
-            },
-        )
-        .await
-        .expect("create product app package");
-
-        let output = tool
-            .call_impl(
-                &json!({
-                    "mode": "agent-eval",
-                    "execute": true
-                }),
-                &draft_context_with_root(written.package_dir),
-            )
-            .await
-            .expect("preview result");
-        let data = output[0].content();
-        let checks = data["checks"].as_array().expect("checks");
-        let agent_eval = checks
-            .iter()
-            .find(|check| check["id"] == "agentEval")
-            .expect("agentEval check");
-        let eval_logs = checks
-            .iter()
-            .find(|check| check["id"] == "evalLogs")
-            .expect("evalLogs check");
-
-        assert_eq!(data["status"], "notVerified");
-        assert_eq!(agent_eval["status"], "notVerified");
-        assert!(agent_eval["detail"]
-            .as_str()
-            .expect("agentEval detail")
-            .contains("passed=1"));
-        assert!(agent_eval["detail"]
-            .as_str()
-            .expect("agentEval detail")
-            .contains("notVerified=1"));
-        assert!(eval_logs["detail"]
-            .as_str()
-            .expect("evalLogs detail")
-            .contains("agent-runtime-binding [passed]"));
-        assert!(eval_logs["detail"]
-            .as_str()
-            .expect("evalLogs detail")
-            .contains("primary-agent-behavior [notVerified]"));
         let _ = std_fs::remove_dir_all(base);
     }
 

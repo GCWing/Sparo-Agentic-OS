@@ -1,9 +1,9 @@
 //! System Intelligent App release seeding.
 //!
 //! Bundled Product Apps are release inputs, never mutable installations. Seeding
-//! resolves each package into an immutable release. Startup initializes an
-//! empty slot from the newest bundled release, but never changes an existing
-//! selection. Newer bundled releases remain available until the user updates.
+//! resolves only the newest package for each App into an immutable release.
+//! Startup replaces an existing official selection with that Release and
+//! permanently prunes older Releases and artifacts for the same App.
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 
 use include_dir::Dir;
 use semver::Version;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::fs;
 use uuid::Uuid;
@@ -23,31 +24,49 @@ use super::catalog::ComponentDefinition;
 use super::draft_package::prepare_draft_release;
 use super::resolver::ProductAppResolver;
 use super::revision_store::{
-    ActivateReleaseRequest, AppActivationScope, AppOwner, AppRevisionStore,
-    ImportReleaseFromPackageRequest, ReleaseMetadata, ReleaseProvenanceKind, ReleaseRecord,
-    ReleaseRuntimeSpec, SystemReleaseInitializationOutcome,
+    AppOwner, AppRevisionStore, ImportReleaseFromPackageRequest, ReleaseMetadata,
+    ReleaseProvenanceKind, ReleaseRuntimeSpec, SystemReleaseInitializationOutcome,
+    SystemReleaseSyncOutcome,
 };
 
 const APP_JSON: &str = "app.json";
 const COMPONENT_JSON: &str = "component.json";
 const COMPONENT_DIGEST_DOMAIN: &[u8] = b"sparo-system-component-v1\0";
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SystemAppSeedResult {
     pub components_added: usize,
     pub components_reused: usize,
     pub releases_added: usize,
     pub releases_reused: usize,
+    pub releases_replaced: usize,
     pub activations_created: usize,
     pub activations_preserved: usize,
+    pub issues: Vec<SystemAppSeedIssue>,
+}
+
+impl SystemAppSeedResult {
+    pub fn is_degraded(&self) -> bool {
+        !self.issues.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemAppSeedIssue {
+    pub source: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    pub message: String,
 }
 
 #[derive(Debug, Clone)]
 struct ImportedSystemRelease {
-    app_id: String,
-    slot_id: String,
-    version: Version,
-    release_id: String,
+    sync_outcome: SystemReleaseSyncOutcome,
+    activation_outcome: SystemReleaseInitializationOutcome,
 }
 
 async fn load_shared_components<'a>(
@@ -60,168 +79,122 @@ async fn load_shared_components<'a>(
     Ok(cache.as_deref().unwrap_or_default())
 }
 
-// Startup is a release consumer, not a publisher. Once a valid system Release
-// owns an app/version identity, preserve it even when a development filesystem
-// bundle has drifted. Direct imports still reject changed bytes at the same
-// version, so authors must publish the bundle under a new version.
-async fn reusable_system_release(
-    revision_store: &AppRevisionStore,
-    existing_releases: &[ReleaseRecord],
-    source_identity: &[String],
-) -> CoreResult<Option<ImportedSystemRelease>> {
-    let app_id = &source_identity[0];
-    let version_text = &source_identity[1];
-    let Some(release) = existing_releases
-        .iter()
-        .filter(|release| {
-            release.provenance == ReleaseProvenanceKind::System
-                && release.app_id.as_str() == app_id.as_str()
-                && release.slot_id.as_str() == app_id.as_str()
-                && release.version.as_str() == version_text.as_str()
-        })
-        .max_by(|left, right| left.release_id.cmp(&right.release_id))
-    else {
-        return Ok(None);
-    };
-    if !reusable_release_artifact(revision_store.storage_root(), release).await? {
-        return Ok(None);
-    }
-    let version = Version::parse(version_text).map_err(|error| {
-        CoreError::validation(format!(
-            "Invalid bundled Intelligent App version {version_text}: {error}"
-        ))
-    })?;
-    Ok(Some(ImportedSystemRelease {
-        app_id: release.app_id.clone(),
-        slot_id: release.slot_id.clone(),
-        version,
-        release_id: release.release_id.clone(),
-    }))
-}
-
-async fn reusable_release_artifact(
-    revision_store_root: &Path,
-    release: &ReleaseRecord,
-) -> CoreResult<bool> {
-    let Some(digest) = release.artifact_digest.strip_prefix("sha256:") else {
-        return Err(CoreError::validation(format!(
-            "System Release {} has an invalid artifact digest",
-            release.release_id
-        )));
-    };
-    if digest.len() != 64
-        || !digest
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
-    {
-        return Err(CoreError::validation(format!(
-            "System Release {} has an invalid artifact digest",
-            release.release_id
-        )));
-    }
-    let artifact = revision_store_root.join("artifacts").join(digest);
-    let metadata = match fs::symlink_metadata(&artifact).await {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-        Err(error) => return Err(error.into()),
-    };
-    if metadata.file_type().is_symlink() || !metadata.is_dir() {
-        return Err(CoreError::validation(format!(
-            "System Release artifact path is not an immutable directory: {}",
-            artifact.display()
-        )));
-    }
-    Ok(true)
-}
-
-/// Imports bundled shared components and Product Apps without mutating an
-/// existing release or user-owned routing decision.
-///
-/// All releases are imported before empty slots are initialized or untouched
-/// official selections are advanced. A malformed bundle can therefore leave
-/// new immutable artifacts available for a retry, but cannot partially change
-/// runtime routing.
+/// Synchronizes only the newest bundled Product App version for each identity.
+/// Each System-owned App is committed independently, so one malformed package
+/// becomes a reported issue without blocking other Apps. User-selected variants
+/// retain their routing decision, while official System Apps follow the current
+/// content snapshot even when its declared development version is unchanged.
 pub async fn seed_system_app_releases(
     path_manager: &PathManager,
     revision_store: &AppRevisionStore,
 ) -> CoreResult<SystemAppSeedResult> {
-    cleanup_system_seed_staging_directories(revision_store.storage_root()).await?;
-    let (components_added, components_reused) = seed_system_shared_components(path_manager).await?;
-    let existing_releases = revision_store.list_releases(None).await;
-    let existing_release_ids = existing_releases
-        .iter()
-        .map(|release| release.release_id.clone())
-        .collect::<BTreeSet<_>>();
+    let mut result = SystemAppSeedResult::default();
+    if let Err(error) = cleanup_system_seed_staging_directories(revision_store.storage_root()).await
+    {
+        result.issues.push(SystemAppSeedIssue {
+            source: "staging-cleanup".to_string(),
+            app_id: None,
+            version: None,
+            message: error.to_string(),
+        });
+    }
+    match seed_system_shared_components(path_manager).await {
+        Ok((added, reused)) => {
+            result.components_added = added;
+            result.components_reused = reused;
+        }
+        Err(error) => result.issues.push(SystemAppSeedIssue {
+            source: "shared-components".to_string(),
+            app_id: None,
+            version: None,
+            message: error.to_string(),
+        }),
+    }
     let filesystem_root = filesystem_product_apps_root();
     let mut shared_components = None;
 
-    let mut imported = Vec::new();
-    let mut releases_added = 0;
-    let mut releases_reused = 0;
+    let mut newest_sources = BTreeMap::<String, (Version, PathBuf)>::new();
     for source in collect_package_sources(&SYSTEM_PRODUCT_APP_BUNDLES, &filesystem_root, APP_JSON) {
-        let source_identity = package_source_segments(&source, 2, "Product App")?;
-        let release = if let Some(release) =
-            reusable_system_release(revision_store, &existing_releases, &source_identity).await?
-        {
-            release
-        } else {
-            let components = load_shared_components(&mut shared_components, path_manager).await?;
-            import_system_app_release(revision_store, &source, components).await?
+        let identity = match package_source_segments(&source, 2, "Product App") {
+            Ok(identity) => identity,
+            Err(error) => {
+                result.issues.push(SystemAppSeedIssue {
+                    source: source.display().to_string(),
+                    app_id: None,
+                    version: None,
+                    message: error.to_string(),
+                });
+                continue;
+            }
         };
-        if release.app_id != source_identity[0] || release.version.to_string() != source_identity[1]
-        {
-            return Err(CoreError::validation(format!(
-                "Bundled Product App path {} does not match manifest identity {}@{}",
-                source.display(),
-                release.app_id,
-                release.version
-            )));
-        }
-        if existing_release_ids.contains(&release.release_id) {
-            releases_reused += 1;
-        } else {
-            releases_added += 1;
-        }
-        imported.push(release);
-    }
-
-    let mut newest_by_slot = BTreeMap::<String, ImportedSystemRelease>::new();
-    for release in imported {
-        let replace = newest_by_slot.get(&release.slot_id).is_none_or(|current| {
-            release.version > current.version
-                || (release.version == current.version && release.release_id > current.release_id)
-        });
+        let version = match Version::parse(&identity[1]) {
+            Ok(version) => version,
+            Err(error) => {
+                result.issues.push(SystemAppSeedIssue {
+                    source: source.display().to_string(),
+                    app_id: Some(identity[0].clone()),
+                    version: Some(identity[1].clone()),
+                    message: format!(
+                        "Invalid bundled Intelligent App version {}: {error}",
+                        identity[1]
+                    ),
+                });
+                continue;
+            }
+        };
+        let replace = newest_sources
+            .get(&identity[0])
+            .is_none_or(|(current, _)| version > *current);
         if replace {
-            newest_by_slot.insert(release.slot_id.clone(), release);
+            newest_sources.insert(identity[0].clone(), (version, source));
         }
     }
 
-    let scope = AppActivationScope::System;
-    let mut activations_created = 0;
-    let mut activations_preserved = 0;
-    for release in newest_by_slot.into_values() {
-        let (_, outcome) = revision_store
-            .initialize_system_release(ActivateReleaseRequest {
-                scope: scope.clone(),
-                slot_id: release.slot_id,
-                app_id: release.app_id,
-                release_id: release.release_id,
-            })
-            .await?;
-        match outcome {
-            SystemReleaseInitializationOutcome::Created => activations_created += 1,
-            SystemReleaseInitializationOutcome::Preserved => activations_preserved += 1,
+    for (expected_app_id, (expected_version, source)) in newest_sources {
+        let components = match load_shared_components(&mut shared_components, path_manager).await {
+            Ok(components) => components,
+            Err(error) => {
+                result.issues.push(SystemAppSeedIssue {
+                    source: source.display().to_string(),
+                    app_id: Some(expected_app_id.clone()),
+                    version: Some(expected_version.to_string()),
+                    message: error.to_string(),
+                });
+                continue;
+            }
+        };
+        let release = match import_system_app_release(
+            revision_store,
+            &source,
+            &expected_app_id,
+            &expected_version,
+            components,
+        )
+        .await
+        {
+            Ok(release) => release,
+            Err(error) => {
+                result.issues.push(SystemAppSeedIssue {
+                    source: source.display().to_string(),
+                    app_id: Some(expected_app_id),
+                    version: Some(expected_version.to_string()),
+                    message: error.to_string(),
+                });
+                continue;
+            }
+        };
+        match release.sync_outcome {
+            SystemReleaseSyncOutcome::Added => result.releases_added += 1,
+            SystemReleaseSyncOutcome::Reused => result.releases_reused += 1,
+            SystemReleaseSyncOutcome::Replaced => result.releases_replaced += 1,
+        }
+        match release.activation_outcome {
+            SystemReleaseInitializationOutcome::Created => result.activations_created += 1,
+            SystemReleaseInitializationOutcome::Preserved => result.activations_preserved += 1,
         }
     }
 
-    Ok(SystemAppSeedResult {
-        components_added,
-        components_reused,
-        releases_added,
-        releases_reused,
-        activations_created,
-        activations_preserved,
-    })
+    Ok(result)
 }
 
 /// Reads installed shared component packages without creating directories or
@@ -286,17 +259,6 @@ async fn seed_system_shared_components(path_manager: &PathManager) -> CoreResult
         collect_package_sources(&SYSTEM_COMPONENT_BUNDLES, &filesystem_root, COMPONENT_JSON)
     {
         let source_identity = package_source_segments(&source, 3, "component")?;
-        let filesystem_source_present =
-            filesystem_package_source_exists(&filesystem_root.join(&source)).await?;
-        let destination = path_manager.system_component_version_dir(
-            &source_identity[0],
-            &source_identity[1],
-            &source_identity[2],
-        );
-        if !filesystem_source_present && reusable_embedded_component(&destination).await? {
-            reused += 1;
-            continue;
-        }
         let staging = components_root.join(format!(".system-seed-{}", Uuid::new_v4().simple()));
         if let Err(error) = materialize_source(
             &source,
@@ -322,55 +284,6 @@ async fn seed_system_shared_components(path_manager: &PathManager) -> CoreResult
         }
     }
     Ok((added, reused))
-}
-
-async fn filesystem_package_source_exists(source: &Path) -> CoreResult<bool> {
-    let metadata = match fs::symlink_metadata(source).await {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-        Err(error) => return Err(error.into()),
-    };
-    if metadata.file_type().is_symlink() {
-        return Err(CoreError::validation(format!(
-            "Filesystem system package source must not be a symbolic link: {}",
-            source.display()
-        )));
-    }
-    if !metadata.is_dir() {
-        return Err(CoreError::validation(format!(
-            "Filesystem system package source must be a directory: {}",
-            source.display()
-        )));
-    }
-    Ok(true)
-}
-
-async fn reusable_embedded_component(destination: &Path) -> CoreResult<bool> {
-    let metadata = match fs::symlink_metadata(destination).await {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-        Err(error) => return Err(error.into()),
-    };
-    if metadata.file_type().is_symlink() || !metadata.is_dir() {
-        return Err(CoreError::validation(format!(
-            "Immutable system component path is not a directory: {}",
-            destination.display()
-        )));
-    }
-    let marker = destination.join(COMPONENT_JSON);
-    let marker_metadata = match fs::symlink_metadata(&marker).await {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-        Err(error) => return Err(error.into()),
-    };
-    if marker_metadata.file_type().is_symlink() || !marker_metadata.is_file() {
-        return Err(CoreError::validation(format!(
-            "Immutable system component marker is not a regular file: {}",
-            marker.display()
-        )));
-    }
-    fs::read(&marker).await?;
-    Ok(true)
 }
 
 async fn cleanup_system_seed_staging_directories(parent: &Path) -> CoreResult<()> {
@@ -516,6 +429,8 @@ async fn ensure_same_immutable_component(
 async fn import_system_app_release(
     revision_store: &AppRevisionStore,
     source: &Path,
+    expected_app_id: &str,
+    expected_version: &Version,
     shared_components: &[ComponentDefinition],
 ) -> CoreResult<ImportedSystemRelease> {
     let staging = revision_store
@@ -535,7 +450,13 @@ async fn import_system_app_release(
         return Err(error);
     }
 
-    let result = normalize_and_import_system_app(revision_store, &staging, shared_components).await;
+    let result = normalize_and_import_system_app(
+        revision_store,
+        &staging,
+        Some((expected_app_id, expected_version)),
+        shared_components,
+    )
+    .await;
     if staging.exists() {
         let _ = fs::remove_dir_all(&staging).await;
     }
@@ -545,6 +466,7 @@ async fn import_system_app_release(
 async fn normalize_and_import_system_app(
     revision_store: &AppRevisionStore,
     staging: &Path,
+    expected_identity: Option<(&str, &Version)>,
     shared_components: &[ComponentDefinition],
 ) -> CoreResult<ImportedSystemRelease> {
     let package = ProductAppResolver::read_product_app_package(staging).await?;
@@ -558,10 +480,17 @@ async fn normalize_and_import_system_app(
         ))
     })?;
     let app_id = app.id.clone();
+    if let Some((expected_app_id, expected_version)) = expected_identity {
+        if app_id != expected_app_id || version != *expected_version {
+            return Err(CoreError::validation(format!(
+                "Bundled Product App path identity {expected_app_id}@{expected_version} does not match manifest identity {app_id}@{version}"
+            )));
+        }
+    }
     let slot_id = app.id.clone();
     let runtime = ReleaseRuntimeSpec::from_app(&app);
-    let release = revision_store
-        .import_release_from_package(
+    let (_, sync_outcome, activation_outcome) = revision_store
+        .sync_system_release_from_package(
             staging,
             ImportReleaseFromPackageRequest {
                 app_id: app_id.clone(),
@@ -591,10 +520,8 @@ async fn normalize_and_import_system_app(
         .await?;
 
     Ok(ImportedSystemRelease {
-        app_id,
-        slot_id,
-        version,
-        release_id: release.release_id,
+        sync_outcome,
+        activation_outcome,
     })
 }
 
@@ -848,7 +775,9 @@ fn filesystem_components_root() -> PathBuf {
 mod tests {
     use tempfile::TempDir;
 
-    use super::super::revision_store::{ForkReleaseRequest, PublishDraftRequest};
+    use super::super::revision_store::{
+        ActivateReleaseRequest, AppActivationScope, ForkReleaseRequest, PublishDraftRequest,
+    };
     use super::*;
 
     fn test_path_manager(temp: &TempDir) -> PathManager {
@@ -888,7 +817,7 @@ mod tests {
         )
         .await
         .expect("embedded package");
-        let embedded_release = normalize_and_import_system_app(&store, &embedded_staging, &[])
+        normalize_and_import_system_app(&store, &embedded_staging, None, &[])
             .await
             .expect("embedded release");
 
@@ -922,16 +851,53 @@ mod tests {
         )
         .await
         .expect("materialized filesystem package");
-        let filesystem_release = normalize_and_import_system_app(&store, &filesystem_staging, &[])
-            .await
-            .expect("filesystem release");
+        let filesystem_release =
+            normalize_and_import_system_app(&store, &filesystem_staging, None, &[])
+                .await
+                .expect("filesystem release");
 
-        assert_eq!(filesystem_release.release_id, embedded_release.release_id);
+        assert_eq!(
+            filesystem_release.sync_outcome,
+            SystemReleaseSyncOutcome::Reused
+        );
         assert_eq!(store.list_releases(Some("app-builder")).await.len(), 1);
     }
 
     #[tokio::test]
-    async fn system_seed_preserves_existing_same_version_release() {
+    async fn package_identity_is_validated_before_system_release_commit() {
+        let temp = TempDir::new().expect("temp dir");
+        let store = AppRevisionStore::open(temp.path().join("store"))
+            .await
+            .expect("revision store");
+        let staging = temp.path().join("identity-mismatch");
+        materialize_source(
+            Path::new("app-builder/1.0.0"),
+            &temp.path().join("missing-bundles"),
+            &SYSTEM_PRODUCT_APP_BUNDLES,
+            &staging,
+        )
+        .await
+        .expect("embedded package");
+        let expected_version = Version::parse("1.0.0").expect("expected version");
+
+        let error = normalize_and_import_system_app(
+            &store,
+            &staging,
+            Some(("different-app", &expected_version)),
+            &[],
+        )
+        .await
+        .expect_err("path and manifest identity must match");
+
+        assert!(error
+            .to_string()
+            .contains("does not match manifest identity"));
+        assert!(store.list_apps().await.is_empty());
+        assert!(store.list_releases(None).await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn system_seed_replaces_changed_bytes_at_the_same_version() {
         let temp = TempDir::new().expect("temp dir");
         let path_manager = test_path_manager(&temp);
         let store = AppRevisionStore::open(path_manager.app_root())
@@ -952,20 +918,30 @@ mod tests {
         )
         .await
         .expect("legacy marker");
-        let existing = normalize_and_import_system_app(&store, &staging, &[])
+        normalize_and_import_system_app(&store, &staging, None, &[])
             .await
             .expect("existing release");
+        let existing_release_id = store
+            .get_active(&AppActivationScope::System, "app-builder")
+            .await
+            .expect("existing activation")
+            .active_release_id;
 
         let seeded = seed_system_app_releases(&path_manager, &store)
             .await
-            .expect("system seed");
+            .expect("system development snapshot");
+
+        assert!(seeded.issues.is_empty());
+        assert!(seeded.releases_replaced >= 1);
+        assert!(store
+            .resolve_release("app-builder", &existing_release_id)
+            .await
+            .is_err());
         let activation = store
             .get_active(&AppActivationScope::System, "app-builder")
             .await
-            .expect("app builder activation");
-
-        assert_eq!(activation.active_release_id, existing.release_id);
-        assert!(seeded.releases_reused >= 1);
+            .expect("replacement activation");
+        assert_ne!(activation.active_release_id, existing_release_id);
         assert_eq!(store.list_releases(Some("app-builder")).await.len(), 1);
     }
 
@@ -980,23 +956,6 @@ mod tests {
 
         assert!(components.is_empty());
         assert!(!path_manager.system_components_dir().exists());
-    }
-
-    #[tokio::test]
-    async fn embedded_component_fast_path_requires_a_readable_regular_marker() {
-        let temp = TempDir::new().expect("temp dir");
-        let destination = temp.path().join("component");
-        fs::create_dir(&destination).await.expect("component dir");
-
-        assert!(!reusable_embedded_component(&destination)
-            .await
-            .expect("missing marker is not reusable"));
-        fs::write(destination.join(COMPONENT_JSON), b"{}")
-            .await
-            .expect("component marker");
-        assert!(reusable_embedded_component(&destination)
-            .await
-            .expect("readable marker is reusable"));
     }
 
     #[tokio::test]
@@ -1091,7 +1050,63 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn system_seed_exposes_new_official_release_but_preserves_existing_selection() {
+    async fn system_seed_reports_failures_and_continues_product_apps() {
+        let temp = TempDir::new().expect("temp dir");
+        let path_manager = test_path_manager(&temp);
+        let store = AppRevisionStore::open(path_manager.app_root())
+            .await
+            .expect("revision store");
+        let initial = seed_system_app_releases(&path_manager, &store)
+            .await
+            .expect("initial seed");
+        assert!(initial.issues.is_empty());
+
+        let component = list_system_shared_components(&path_manager)
+            .await
+            .expect("seeded components")
+            .into_iter()
+            .next()
+            .expect("bundled component");
+        let manifest = path_manager
+            .system_component_version_dir(
+                component.kind.path_segment(),
+                &component.id,
+                component
+                    .version
+                    .as_deref()
+                    .expect("shared component version"),
+            )
+            .join(COMPONENT_JSON);
+        let mut changed = fs::read(&manifest).await.expect("component manifest");
+        changed.extend_from_slice(b"\n");
+        fs::write(&manifest, changed)
+            .await
+            .expect("change installed bytes");
+        fs::write(
+            store.storage_root().join(".system-seed-blocked"),
+            b"unexpected file",
+        )
+        .await
+        .expect("blocked staging entry");
+
+        let report = seed_system_app_releases(&path_manager, &store)
+            .await
+            .expect("synchronization failures are reported issues");
+
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.source == "shared-components"));
+        assert!(report
+            .issues
+            .iter()
+            .any(|issue| issue.source == "staging-cleanup"));
+        assert!(store.get_app("app-builder").await.is_some());
+        assert!(report.releases_reused + report.releases_replaced > 0);
+    }
+
+    #[tokio::test]
+    async fn system_seed_replaces_old_official_release_and_preserves_user_selection() {
         let temp = TempDir::new().expect("temp dir");
         let path_manager = test_path_manager(&temp);
         let store = AppRevisionStore::open(path_manager.app_root())
@@ -1113,19 +1128,6 @@ mod tests {
             .await
             .expect("official release")
             .release;
-        let fast_path_release = reusable_system_release(
-            &store,
-            &store.list_releases(None).await,
-            &[
-                official_release.app_id.clone(),
-                official_release.version.clone(),
-            ],
-        )
-        .await
-        .expect("embedded release fast path")
-        .expect("reusable system release");
-        assert_eq!(fast_path_release.release_id, official_release.release_id);
-
         let legacy_package = temp.path().join("legacy-runno");
         fs::create_dir(&legacy_package)
             .await
@@ -1179,16 +1181,16 @@ mod tests {
         let official_activation = store
             .get_active(&AppActivationScope::System, "runno")
             .await
-            .expect("preserved official activation");
+            .expect("updated official activation");
         assert_eq!(
             official_activation.active_release_id,
-            legacy_release.release_id
+            official_release.release_id
         );
-        assert_eq!(
-            official_activation.previous_release_id.as_deref(),
-            Some(official_release.release_id.as_str())
-        );
-        assert!(first.activations_preserved >= 1);
+        assert!(store
+            .resolve_release("runno", &legacy_release.release_id)
+            .await
+            .is_err());
+        assert!(first.activations_created >= 1);
         let fork = store
             .fork_release(ForkReleaseRequest {
                 source_release_id: official_release.release_id.clone(),

@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "commonjs",
+  "name": "builtin-ppt-live-agent",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}

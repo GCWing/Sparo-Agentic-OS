@@ -6,6 +6,12 @@
   "tags": ["presentations", "deck-design"],
   "members": [
     {
+      "skillId": "presentation-director",
+      "role": "PPT Live content direction, Design Case, visual production, capability-aware review, and systemic repair",
+      "required": false,
+      "overridePolicy": "sparoManaged"
+    },
+    {
       "skillId": "ppt-design",
       "role": "Presentation design, style systems, slide structure, and visual review",
       "required": false,

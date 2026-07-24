@@ -102,6 +102,11 @@ describe('SettingRenderer nullable number projection', () => {
     expect(input).not.toBeNull();
     expect(input?.value).toBe('');
     expect(input?.placeholder).toBe('Not set');
+    expect(container.querySelector('.ds-form-field--horizontal')).not.toBeNull();
+    expect(container.querySelector('.ds-form-field--control-compact')).not.toBeNull();
+    expect(container.querySelector('label')?.textContent).toBe(
+      nullableIntegerDescriptor.presentation.titleKey,
+    );
 
     await act(async () => {
       input!.focus();

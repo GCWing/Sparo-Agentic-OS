@@ -1,5 +1,4 @@
-import type { AppScope } from '@/shared/types/app-scope';
-import { workspacePathFromAppScope } from '@/shared/types/app-scope';
+import { type AppScope, workScopeFromAppScope } from '@/shared/types/app-scope';
 import type { WorkAppRef, WorkRecord, WorkScope, WorkStatus } from '../domain/workTypes';
 import { sameAppRef } from '../domain/productAppRefs';
 
@@ -17,15 +16,10 @@ export function workReferencesApp(work: WorkRecord, app: WorkAppRef): boolean {
     || work.appRefs.some((relation) => sameApp(relation.app, app));
 }
 
-function workScopeFromAppScope(scope: AppScope): WorkScope {
-  const workspacePath = workspacePathFromAppScope(scope);
-  return workspacePath ? { kind: 'workspace', workspacePath } : { kind: 'system' };
-}
-
 function sameScope(left: WorkScope, right: WorkScope): boolean {
   if (left.kind !== right.kind) return false;
-  if (left.kind === 'system') return true;
-  return right.kind === 'workspace' && left.workspacePath === right.workspacePath;
+  if (left.kind === 'global') return true;
+  return right.kind === 'workspace' && left.workspaceId === right.workspaceId;
 }
 
 function statusScore(status: WorkStatus): number {

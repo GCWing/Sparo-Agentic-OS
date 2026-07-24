@@ -1,17 +1,17 @@
 import React from 'react';
+import { Blocks } from 'lucide-react';
 import {
-  AppWindow,
-  Blocks,
-  BookOpen,
-  Brain,
-  FolderTree,
-  LayoutDashboard,
-  MailOpen,
-  MessageSquareCode,
-  Settings,
-  SquareTerminal,
-  Wrench,
-} from 'lucide-react';
+  AppCenterIcon,
+  DailyLetterIcon,
+  FilesIcon,
+  MemoryIcon,
+  SettingsIcon,
+  SkillsIcon,
+  SubagentIcon,
+  TerminalIcon,
+  ToolsIcon,
+  WorkCenterIcon,
+} from '@/design-system';
 import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
 import type { WorkspaceSurface } from '@/app/navigation/workspaceSurfaceTypes';
 
@@ -36,7 +36,7 @@ export const WORKSPACE_HUB_ITEM_DEFINITIONS = [
   {
     id: 'work-center',
     group: 'frequent',
-    Icon: LayoutDashboard,
+    Icon: WorkCenterIcon,
     labelKey: 'scenes.workCenter',
     openTarget: { kind: 'work-center' },
     matches: (surface) => surface.kind === 'scene' && surface.sceneId === 'work-center',
@@ -45,7 +45,7 @@ export const WORKSPACE_HUB_ITEM_DEFINITIONS = [
   {
     id: 'apps',
     group: 'frequent',
-    Icon: AppWindow,
+    Icon: AppCenterIcon,
     labelKey: 'nav.sections.apps',
     openTarget: { kind: 'scene', sceneId: 'apps' },
     matches: (surface) => surface.kind === 'scene'
@@ -55,7 +55,7 @@ export const WORKSPACE_HUB_ITEM_DEFINITIONS = [
   {
     id: 'files',
     group: 'frequent',
-    Icon: FolderTree,
+    Icon: FilesIcon,
     labelKey: 'scenes.fileViewer',
     openTarget: { kind: 'scene', sceneId: 'file-viewer', systemScope: true },
     matches: (surface) => surface.kind === 'scene' && surface.sceneId === 'file-viewer',
@@ -64,7 +64,7 @@ export const WORKSPACE_HUB_ITEM_DEFINITIONS = [
   {
     id: 'shell',
     group: 'frequent',
-    Icon: SquareTerminal,
+    Icon: TerminalIcon,
     labelKey: 'nav.sections.shell',
     openTarget: { kind: 'scene', sceneId: 'shell', systemScope: true },
     matches: (surface) => surface.kind === 'scene' && surface.sceneId === 'shell',
@@ -73,7 +73,7 @@ export const WORKSPACE_HUB_ITEM_DEFINITIONS = [
   {
     id: 'daily-letter',
     group: 'secondary',
-    Icon: MailOpen,
+    Icon: DailyLetterIcon,
     labelKey: 'scenes.dailyLetter',
     openTarget: { kind: 'scene', sceneId: 'daily-letter' },
     matches: (surface) => surface.kind === 'scene' && surface.sceneId === 'daily-letter',
@@ -82,7 +82,7 @@ export const WORKSPACE_HUB_ITEM_DEFINITIONS = [
   {
     id: 'memory',
     group: 'secondary',
-    Icon: Brain,
+    Icon: MemoryIcon,
     labelKey: 'nav.items.memory',
     openTarget: { kind: 'scene', sceneId: 'memory' },
     matches: (surface) => surface.kind === 'scene' && surface.sceneId === 'memory',
@@ -91,7 +91,7 @@ export const WORKSPACE_HUB_ITEM_DEFINITIONS = [
   {
     id: 'skills',
     group: 'secondary',
-    Icon: BookOpen,
+    Icon: SkillsIcon,
     labelKey: 'nav.items.skills',
     openTarget: { kind: 'scene', sceneId: 'skills' },
     matches: (surface) => surface.kind === 'scene' && surface.sceneId === 'skills',
@@ -100,7 +100,7 @@ export const WORKSPACE_HUB_ITEM_DEFINITIONS = [
   {
     id: 'tools',
     group: 'secondary',
-    Icon: Wrench,
+    Icon: ToolsIcon,
     labelKey: 'nav.items.tools',
     openTarget: { kind: 'scene', sceneId: 'tools' },
     matches: (surface) => surface.kind === 'scene' && surface.sceneId === 'tools',
@@ -109,7 +109,7 @@ export const WORKSPACE_HUB_ITEM_DEFINITIONS = [
   {
     id: 'subagents',
     group: 'secondary',
-    Icon: MessageSquareCode,
+    Icon: SubagentIcon,
     labelKey: 'nav.items.subAgent',
     openTarget: { kind: 'scene', sceneId: 'subagents' },
     matches: (surface) => surface.kind === 'scene' && surface.sceneId === 'subagents',
@@ -128,7 +128,7 @@ export const WORKSPACE_HUB_ITEM_DEFINITIONS = [
   {
     id: 'settings',
     group: 'utility',
-    Icon: Settings,
+    Icon: SettingsIcon,
     labelKey: 'tabs.settings',
     openTarget: { kind: 'scene', sceneId: 'settings' },
     matches: (surface) => surface.kind === 'scene' && surface.sceneId === 'settings',
@@ -179,9 +179,9 @@ export function resolveWorkspaceHubItem(surface: WorkspaceSurface): WorkspaceHub
   return WORKSPACE_HUB_ITEM_DEFINITIONS.find((item) => item.matches(surface))?.id ?? 'work-center';
 }
 
-export function renderWorkspaceHubItemIcon(itemId: WorkspaceHubItemId, size = 15): React.ReactNode {
+export function renderWorkspaceHubItemIcon(itemId: WorkspaceHubItemId, size = 22): React.ReactNode {
   const { Icon } = getWorkspaceHubItem(itemId);
-  return <Icon size={size} />;
+  return <Icon size={size} strokeWidth={1.8} absoluteStrokeWidth aria-hidden="true" />;
 }
 
 export function isWorkspaceHubPreviewItem(

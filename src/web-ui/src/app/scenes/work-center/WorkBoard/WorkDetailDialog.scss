@@ -66,6 +66,12 @@
   font-size: var(--ds-font-size-xs);
 }
 
+.work-detail-dialog__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+}
+
 .work-detail-dialog__status {
   display: inline-flex;
   align-items: center;

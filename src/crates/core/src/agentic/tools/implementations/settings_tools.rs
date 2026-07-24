@@ -841,7 +841,7 @@ mod tests {
             "expected_revision": 4
         }))
         .expect_err("change input must match the model-facing schema");
-        assert!(change_error.to_string().contains("plan_id"));
+        assert!(change_error.to_string().contains("unknown field"));
     }
 
     #[test]

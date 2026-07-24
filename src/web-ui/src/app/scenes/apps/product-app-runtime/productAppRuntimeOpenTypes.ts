@@ -1,5 +1,6 @@
 import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
 import type { AppScope } from '@/shared/types/app-scope';
+import type { ProductAppWorkMultiplicity } from '@/shared/types/app-manifest';
 import type { ProductAppRuntimeContext } from '@/shared/types/product-app-runtime';
 import type {
   ProductAppHostSurface,
@@ -7,6 +8,8 @@ import type {
 } from '@/infrastructure/api/service-api/ProductAppRuntimeHostAPI';
 
 export interface OpenProductAppRuntimeOptions {
+  /** Resume the most recent compatible Work by default; create is always explicit. */
+  workMode?: 'resume' | 'create';
   entityId?: string | null;
   locale?: string | null;
   workspacePath?: string | null;
@@ -31,6 +34,7 @@ export interface ProductAppRuntimeHostTarget {
     appId: string;
     displayName: string;
     releaseId: string;
+    workMultiplicity: ProductAppWorkMultiplicity;
   };
   hostSurface: ProductAppHostSurface | ProductAppHostSurfaceMeta;
   runtimeContext: ProductAppRuntimeContext;

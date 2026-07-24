@@ -1,5 +1,6 @@
 //! Tool framework - Tool interface definition and execution context
 use crate::agentic::app_builder_context::{AppBuilderExecutionContext, AppBuilderSubject};
+use crate::agentic::core::{SessionDomain, SessionLocator};
 use crate::agentic::tools::restrictions::{
     is_local_path_within_root, ToolPathOperation, ToolRuntimeRestrictions,
 };
@@ -61,6 +62,7 @@ pub struct ToolUseContext {
     pub tool_call_id: Option<String>,
     pub agent_type: Option<String>,
     pub session_id: Option<String>,
+    pub session_domain: Option<SessionDomain>,
     pub dialog_turn_id: Option<String>,
     pub workspace: Option<WorkspaceBinding>,
     /// Extended context data passed from execution layer to tools.
@@ -90,6 +92,18 @@ pub struct ToolUseContext {
 impl ToolUseContext {
     pub fn workspace_root(&self) -> Option<&Path> {
         self.workspace.as_ref().map(|binding| binding.root_path())
+    }
+
+    pub fn product_app_work_id(&self) -> Option<&str> {
+        self.custom_data
+            .get(crate::agentic::product_app_context::PRODUCT_APP_WORK_ID_CONTEXT_KEY)
+            .and_then(Value::as_str)
+    }
+
+    pub fn product_app_runtime_instance_id(&self) -> Option<&str> {
+        self.custom_data
+            .get(crate::agentic::product_app_context::PRODUCT_APP_RUNTIME_INSTANCE_ID_CONTEXT_KEY)
+            .and_then(Value::as_str)
     }
 
     pub fn agentic(&self) -> Option<&AgenticHandles> {
@@ -125,48 +139,55 @@ impl ToolUseContext {
         operation: ToolPathOperation,
         resolution: &ToolPathResolution,
     ) -> CoreResult<()> {
-        if let Some(app_builder) = self.app_builder.as_ref() {
-            if !app_builder.package_root.is_dir() {
+        let is_mutation = matches!(
+            operation,
+            ToolPathOperation::Write | ToolPathOperation::Edit | ToolPathOperation::Delete
+        );
+        if is_mutation {
+            if let Some(app_builder) = self.app_builder.as_ref() {
+                if !app_builder.package_root.is_dir() {
+                    return Err(crate::error::CoreError::validation(
+                        "This App Draft has already been published or removed; create a new Draft before editing",
+                    ));
+                }
+                let target = Path::new(&resolution.resolved_path);
+                let control_root = app_builder.package_root.join(".sparo_os");
+                if is_local_path_within_root(target, &control_root)? {
+                    return Err(crate::error::CoreError::validation(format!(
+                        "AppBuilder cannot {} platform-controlled Draft metadata '{}'",
+                        operation.verb(),
+                        resolution.logical_path
+                    )));
+                }
+                let mut allowed = false;
+                for root in &app_builder.allowed_write_roots {
+                    if is_local_path_within_root(target, root)? {
+                        allowed = true;
+                        break;
+                    }
+                }
+
+                if !allowed {
+                    return Err(crate::error::CoreError::validation(format!(
+                        "AppBuilder is bound to package root '{}' and cannot {} '{}'",
+                        app_builder.package_root.display(),
+                        operation.verb(),
+                        resolution.logical_path
+                    )));
+                }
+            } else if self.agent_type.as_deref() == Some("AppBuilder") {
                 return Err(crate::error::CoreError::validation(
-                    "This App Draft has already been published or removed; create a new Draft before editing",
+                    "AppBuilder file mutations require a valid bound App Draft execution context",
                 ));
             }
-            let target = Path::new(&resolution.resolved_path);
-            let control_root = app_builder.package_root.join(".sparo_os");
-            if is_local_path_within_root(target, &control_root)? {
-                return Err(crate::error::CoreError::validation(format!(
-                    "AppBuilder cannot {} platform-controlled Draft metadata '{}'",
-                    operation.verb(),
-                    resolution.logical_path
-                )));
-            }
-            let mut allowed = false;
-            for root in &app_builder.allowed_write_roots {
-                if is_local_path_within_root(target, root)? {
-                    allowed = true;
-                    break;
-                }
-            }
-
-            if !allowed {
-                return Err(crate::error::CoreError::validation(format!(
-                    "AppBuilder is bound to package root '{}' and cannot {} '{}'",
-                    app_builder.package_root.display(),
-                    operation.verb(),
-                    resolution.logical_path
-                )));
-            }
-        } else if self.agent_type.as_deref() == Some("AppBuilder") {
-            return Err(crate::error::CoreError::validation(
-                "AppBuilder file mutations require a valid bound App Draft execution context",
-            ));
         }
 
         let allowed_roots = self
             .runtime_tool_restrictions
             .path_policy
             .roots_for(operation);
-        if allowed_roots.is_empty() {
+        let denied_roots = &self.runtime_tool_restrictions.path_policy.denied_roots;
+        if allowed_roots.is_empty() && denied_roots.is_empty() {
             return Ok(());
         }
 
@@ -175,7 +196,7 @@ impl ToolUseContext {
             resolved_roots.push(self.resolve_tool_path(root)?);
         }
 
-        let mut is_allowed = false;
+        let mut allowed_specificity: Option<usize> = None;
         for root in &resolved_roots {
             if root.backend != resolution.backend {
                 continue;
@@ -187,12 +208,39 @@ impl ToolUseContext {
             )?;
 
             if matches_root {
-                is_allowed = true;
-                break;
+                allowed_specificity = Some(
+                    allowed_specificity
+                        .unwrap_or_default()
+                        .max(Path::new(&root.resolved_path).components().count()),
+                );
             }
         }
 
-        if is_allowed {
+        let mut denied_specificity: Option<usize> = None;
+        for root in denied_roots {
+            let root = self.resolve_tool_path(root)?;
+            if root.backend != resolution.backend {
+                continue;
+            }
+            if is_local_path_within_root(
+                Path::new(&resolution.resolved_path),
+                Path::new(&root.resolved_path),
+            )? {
+                denied_specificity = Some(
+                    denied_specificity
+                        .unwrap_or_default()
+                        .max(Path::new(&root.resolved_path).components().count()),
+                );
+            }
+        }
+
+        let root_allowed = allowed_roots.is_empty() || allowed_specificity.is_some();
+        let protection_allows = match (allowed_specificity, denied_specificity) {
+            (_, None) => true,
+            (Some(allowed), Some(denied)) => allowed > denied,
+            (None, Some(_)) => false,
+        };
+        if root_allowed && protection_allows {
             return Ok(());
         }
 
@@ -231,7 +279,7 @@ impl ToolUseContext {
             )
         })?;
 
-        Ok(get_path_manager_arc().workspace_runtime_root(workspace.root_path()))
+        get_path_manager_arc().workspace_runtime_root(workspace.root_path())
     }
 
     pub fn workspace_scope(&self) -> Option<String> {
@@ -285,31 +333,35 @@ impl ToolUseContext {
         relative_path: &str,
     ) -> CoreResult<String> {
         let normalized_relative_path = normalize_runtime_relative_path(relative_path)?;
-        self.build_runtime_artifact_reference(&format!(
-            "sessions/{}/{}",
-            session_id, normalized_relative_path
-        ))
+        let mut path = self.session_dir(session_id)?;
+        for segment in normalized_relative_path.split('/') {
+            path.push(segment);
+        }
+        Ok(path.to_string_lossy().into_owned())
     }
 
-    pub fn workspace_session_dir(&self, session_id: &str) -> CoreResult<PathBuf> {
-        Ok(self
-            .workspace_runtime_root()?
-            .join("sessions")
-            .join(session_id))
+    pub fn session_dir(&self, session_id: &str) -> CoreResult<PathBuf> {
+        let domain = self.session_domain.clone().ok_or_else(|| {
+            crate::error::CoreError::tool(
+                "A session domain is required to resolve session artifacts".to_string(),
+            )
+        })?;
+        get_path_manager_arc().session_dir(&SessionLocator {
+            domain,
+            session_id: session_id.to_string(),
+        })
     }
 
-    pub fn workspace_session_tool_results_dir(&self, session_id: &str) -> CoreResult<PathBuf> {
-        Ok(self.workspace_session_dir(session_id)?.join("tool-results"))
+    pub fn session_tool_results_dir(&self, session_id: &str) -> CoreResult<PathBuf> {
+        Ok(self.session_dir(session_id)?.join("tool-results"))
     }
 
-    pub fn workspace_session_tool_result_path(
+    pub fn session_tool_result_path(
         &self,
         session_id: &str,
         file_name: &str,
     ) -> CoreResult<PathBuf> {
-        Ok(self
-            .workspace_session_tool_results_dir(session_id)?
-            .join(file_name))
+        Ok(self.session_tool_results_dir(session_id)?.join(file_name))
     }
 
     pub fn resolve_tool_path(&self, path: &str) -> CoreResult<ToolPathResolution> {
@@ -645,7 +697,7 @@ mod tests {
     use crate::agentic::app_builder_context::{
         AppBuilderExecutionContext, AppBuilderSubject, AppBuilderSubjectScope,
     };
-    use crate::agentic::tools::ToolRuntimeRestrictions;
+    use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
     use std::collections::HashMap;
 
     fn app_builder_context(package_root: PathBuf) -> ToolUseContext {
@@ -653,6 +705,7 @@ mod tests {
             tool_call_id: None,
             agent_type: Some("AppBuilder".to_string()),
             session_id: Some("session-1".to_string()),
+            session_domain: None,
             dialog_turn_id: None,
             workspace: None,
             custom_data: HashMap::new(),
@@ -686,6 +739,100 @@ mod tests {
             runtime_scope: None,
             runtime_root: None,
         }
+    }
+
+    fn unrestricted_context() -> ToolUseContext {
+        let mut context = app_builder_context(std::env::temp_dir());
+        context.agent_type = Some("Runno".to_string());
+        context.app_builder = None;
+        context
+    }
+
+    #[test]
+    fn default_path_policy_does_not_change_any_file_operation() {
+        let context = unrestricted_context();
+        let target = resolution(&std::env::temp_dir().join("sparo-unrestricted.txt"));
+
+        for operation in [
+            ToolPathOperation::Read,
+            ToolPathOperation::List,
+            ToolPathOperation::Search,
+            ToolPathOperation::Write,
+            ToolPathOperation::Edit,
+            ToolPathOperation::Delete,
+        ] {
+            context
+                .enforce_path_operation(operation, &target)
+                .expect("empty policy must preserve existing unrestricted behavior");
+        }
+    }
+
+    #[test]
+    fn legacy_write_only_policy_keeps_read_list_and_search_unrestricted() {
+        let mut context = unrestricted_context();
+        let write_root = std::env::temp_dir().join("sparo-write-root");
+        context.runtime_tool_restrictions.path_policy = ToolPathPolicy {
+            write_roots: vec![write_root.to_string_lossy().to_string()],
+            edit_roots: vec![write_root.to_string_lossy().to_string()],
+            ..ToolPathPolicy::default()
+        };
+        let outside = resolution(&std::env::temp_dir().join("outside").join("input.md"));
+
+        for operation in [
+            ToolPathOperation::Read,
+            ToolPathOperation::List,
+            ToolPathOperation::Search,
+        ] {
+            context
+                .enforce_path_operation(operation, &outside)
+                .expect("legacy write restrictions must not narrow read operations");
+        }
+    }
+
+    #[test]
+    fn app_builder_read_operations_keep_their_existing_unrestricted_behavior() {
+        let package_root = std::env::temp_dir();
+        let context = app_builder_context(package_root);
+        let outside = resolution(&PathBuf::from("C:/outside/reference.md"));
+
+        for operation in [
+            ToolPathOperation::Read,
+            ToolPathOperation::List,
+            ToolPathOperation::Search,
+        ] {
+            context
+                .enforce_path_operation(operation, &outside)
+                .expect("AppBuilder mutation protection must not become a read restriction");
+        }
+    }
+
+    #[test]
+    fn a_more_specific_allowed_root_can_open_a_document_inside_a_denied_parent() {
+        let mut context = unrestricted_context();
+        let workspace_root = std::env::temp_dir().join("sparo-policy-workspace");
+        let control_root = workspace_root.join(".sparo_os");
+        let document_root = control_root.join("product-apps").join("documents");
+        context.runtime_tool_restrictions.path_policy = ToolPathPolicy {
+            read_roots: vec![
+                workspace_root.to_string_lossy().to_string(),
+                document_root.to_string_lossy().to_string(),
+            ],
+            denied_roots: vec![control_root.to_string_lossy().to_string()],
+            ..ToolPathPolicy::default()
+        };
+
+        context
+            .enforce_path_operation(
+                ToolPathOperation::Read,
+                &resolution(&document_root.join("manuscript.md")),
+            )
+            .expect("the explicit document grant is more specific than its protected parent");
+        context
+            .enforce_path_operation(
+                ToolPathOperation::Read,
+                &resolution(&control_root.join("sessions").join("private.json")),
+            )
+            .expect_err("the rest of the protected parent must stay inaccessible");
     }
 
     #[test]

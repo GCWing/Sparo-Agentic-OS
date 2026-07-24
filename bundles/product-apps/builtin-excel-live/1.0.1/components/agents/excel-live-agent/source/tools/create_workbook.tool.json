@@ -1,0 +1,66 @@
+{
+  "name": "create_workbook",
+  "description": "Create an empty workbook (default 50x26 sheet) and persist its Excel Live store.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "title": {
+        "type": "string"
+      },
+      "rows": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "cols": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "sheetName": {
+        "type": "string"
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/create_workbook.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 60000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "excel-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "detailed",
+      "primaryColor": "var(--ds-tool-family-agent-component-fg)",
+      "displayName": "Create Workbook",
+      "icon": "FilePlus",
+      "title": "Create Workbook",
+      "summary": {
+        "preparing": "Creating workbook",
+        "running": "Creating workbook",
+        "completed": "Workbook created",
+        "failed": "Create failed"
+      },
+      "fields": [
+        {
+          "label": "Title",
+          "inputPath": [
+            "title"
+          ]
+        },
+        {
+          "label": "Meta",
+          "resultPath": [
+            "bridge",
+            "output",
+            "meta"
+          ],
+          "format": "json"
+        }
+      ]
+    }
+  }
+}

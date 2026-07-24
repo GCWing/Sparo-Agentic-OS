@@ -35,9 +35,8 @@ import { nativeAppWorkRef } from '@/app/agentic-os/work/domain/productAppRefs';
 import { launchActiveIntelligentApp } from '@/app/scenes/apps/intelligentAppLaunchService';
 import type { WorkspaceInfo } from '@/shared/types';
 import {
-  appScopeFromWorkspacePath,
+  appScopeFromWorkspaceIdentity,
   systemAppScope,
-  type AppScope,
 } from '@/shared/types/app-scope';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
@@ -181,8 +180,8 @@ export async function launchWorkForChoice(params: {
   const resolvedTitle = title?.trim();
   const resolvedObjective = objective?.trim();
   const resolvedWorkScope = workspace
-    ? { kind: 'workspace' as const, workspacePath: workspace.rootPath }
-    : { kind: 'system' as const };
+    ? { kind: 'workspace' as const, workspaceId: workspace.id }
+    : { kind: 'global' as const };
 
   const descriptor = resolveDescriptorFromChoice(resolvedAgentChoice);
   const backendAgentType = getBackendAgentType(descriptor);
@@ -202,6 +201,7 @@ export async function launchWorkForChoice(params: {
       : { kind: 'goal' },
     appRefs,
     scope: resolvedWorkScope,
+    workspacePath: workspace?.rootPath,
     visibility: 'primary',
     primarySurfacePolicy: 'work_session',
     titleState: titleState ?? { source: 'template', locked: false },
@@ -245,13 +245,6 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
     () => new Set(BUILTIN_WORK_SLOT_IDS.map(appSlotWorkChoice)),
     []
   );
-
-  const workAppScope = useMemo<AppScope>(() => {
-    const workspacePath = workspaceId === BROWSED_WORKSPACE_VALUE
-      ? browsedWorkspacePath
-      : openedWorkspacesList.find((workspace) => workspace.id === workspaceId)?.rootPath;
-    return appScopeFromWorkspacePath(workspacePath) ?? systemAppScope();
-  }, [browsedWorkspacePath, openedWorkspacesList, workspaceId]);
 
   const intelligentExecutors = useMemo(() => appSlots.flatMap((slot) => {
     const activeApp = intelligentAppAPI.activeRef(slot);
@@ -514,8 +507,15 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
         workspace = await openWorkspace(browsedWorkspacePath);
       }
       if (selectedExecutor) {
+        const scope = workspace
+          ? appScopeFromWorkspaceIdentity({
+              workspaceId: workspace.id,
+              workspacePath: workspace.rootPath,
+              workspaceName: workspace.name,
+            })
+          : systemAppScope();
         await launchActiveIntelligentApp(selectedExecutor.activeApp, {
-          scope: workAppScope,
+          scope,
           title: selectedExecutor.slot.displayName,
           objective: selectedExecutor.description || selectedExecutor.slot.displayName,
         });
@@ -556,7 +556,6 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
   }, [
     agentChoice,
     browsedWorkspacePath,
-    workAppScope,
     objective,
     onClose,
     openWorkspace,

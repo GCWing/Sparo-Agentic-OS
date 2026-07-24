@@ -1,0 +1,157 @@
+{
+  "name": "commit_presentation_manuscript",
+  "description": "Commit one complete structured ManuscriptContract document before visual production. Runtime validates the whole payload, serializes the human-readable 内容.md and 演讲稿.md files, records the Manuscript revision, and clears visual pages bound to the previous revision. The Manuscript guides AI design but is never injected into visual nodes.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["expectedManuscriptRevision", "expectedSpeakerScriptRevision", "manuscript", "speakerScript", "intent"],
+    "properties": {
+      "expectedManuscriptRevision": { "type": "integer", "minimum": 1 },
+      "expectedSpeakerScriptRevision": { "type": "integer", "minimum": 1 },
+      "intent": { "type": "string", "minLength": 1, "maxLength": 500 },
+      "manuscript": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "slides"],
+        "properties": {
+          "language": { "type": "string", "minLength": 2, "maxLength": 32, "description": "BCP-47 presentation language, for example zh-CN or en-US." },
+          "title": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "creativeBrief": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "audience": { "type": "string", "minLength": 1, "maxLength": 600 },
+              "purpose": { "type": "string", "minLength": 1, "maxLength": 600 },
+              "targetDuration": { "type": "string", "minLength": 1, "maxLength": 120 }
+            }
+          },
+          "narrative": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "opening": { "type": "string", "minLength": 1, "maxLength": 800 },
+              "development": { "type": "string", "minLength": 1, "maxLength": 800 },
+              "closing": { "type": "string", "minLength": 1, "maxLength": 800 }
+            }
+          },
+          "slides": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 60,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["slideId", "title", "coreClaim", "visibleCopy", "evidenceAndSources", "visualDirection", "speakingObjective"],
+              "properties": {
+                "slideId": { "type": "string", "pattern": "^p[0-9]{2,3}$", "description": "Stable ordered identity: p01, p02, and so on." },
+                "title": { "type": "string", "minLength": 1, "maxLength": 240, "description": "Exact audience-facing slide title, never a page-role label." },
+                "coreClaim": { "type": "string", "minLength": 1, "maxLength": 600 },
+                "visibleCopy": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 24,
+                  "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+                },
+                "evidenceAndSources": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 24,
+                  "items": { "type": "string", "minLength": 1, "maxLength": 1200 }
+                },
+                "visualDirection": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["pageRole", "recipe", "visualMode", "evidenceObject", "exportStrategy", "artDirection"],
+                  "properties": {
+                    "pageRole": { "type": "string", "enum": ["cover", "section", "statement", "evidence", "comparison", "process", "architecture", "media", "closing"] },
+                    "recipe": { "type": "string", "minLength": 1, "maxLength": 128 },
+                    "visualMode": { "type": "string", "enum": ["native", "diagram", "chart", "media", "custom-vector"] },
+                    "evidenceObject": { "type": "string", "minLength": 1, "maxLength": 1000 },
+                    "exportStrategy": { "type": "string", "enum": ["native", "native-shapes", "native-chart", "svg", "image"] },
+                    "artDirection": { "type": "string", "minLength": 1, "maxLength": 1600 }
+                  }
+                },
+                "speakingObjective": { "type": "string", "minLength": 1, "maxLength": 1000 }
+              }
+            }
+          }
+        }
+      },
+      "speakerScript": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slides"],
+        "properties": {
+          "language": { "type": "string", "minLength": 2, "maxLength": 32 },
+          "targetDurationMinutes": { "type": "number", "minimum": 0, "maximum": 600 },
+          "slides": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 60,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["slideId", "readAloudScript", "transition"],
+              "properties": {
+                "slideId": { "type": "string", "pattern": "^p[0-9]{2,3}$", "description": "Binds notes to the manuscript by stable identity, not duplicated title text." },
+                "suggestedTime": { "type": "string", "minLength": 1, "maxLength": 16 },
+                "speakingObjective": { "type": "string", "minLength": 1, "maxLength": 1000 },
+                "readAloudScript": { "type": "string", "minLength": 1, "maxLength": 12000 },
+                "stageCues": {
+                  "type": "array",
+                  "maxItems": 24,
+                  "items": { "type": "string", "minLength": 1, "maxLength": 240 }
+                },
+                "transition": { "type": "string", "minLength": 1, "maxLength": 2000 }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/commit_presentation_manuscript.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 60000,
+  "maxOutputBytes": 300000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "ppt-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "detailed",
+      "displayName": "Commit manuscript",
+      "icon": "FileText",
+      "title": "Commit presentation manuscript",
+      "summary": {
+        "preparing": "Preparing structured manuscript",
+        "running": "Validating canonical Manuscript",
+        "completed": "Canonical Manuscript ready",
+        "failed": "Manuscript contract validation failed"
+      },
+      "locales": {
+        "zh-CN": {
+          "displayName": "提交演示文稿",
+          "title": "提交演示文稿",
+          "summary": {
+            "preparing": "正在准备结构化文稿",
+            "running": "正在校验规范文稿",
+            "completed": "规范文稿已就绪",
+            "failed": "文稿契约校验失败"
+          },
+          "fields": [
+            { "label": "页数" },
+            { "label": "文稿修订" }
+          ]
+        }
+      },
+      "fields": [
+        { "label": "Slides", "resultPath": ["bridge", "output", "manuscript", "slides", "length"] },
+        { "label": "Manuscript revision", "resultPath": ["bridge", "output", "manuscript", "revision"] }
+      ]
+    }
+  }
+}

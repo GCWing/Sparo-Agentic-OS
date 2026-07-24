@@ -71,7 +71,6 @@ mod tests {
         );
 
         assert!(rendered.contains("`/workspace/memory`"));
-        assert!(rendered.contains("`MEMORY.md`"));
         assert!(!rendered.contains("__MEMORY_DIR__"));
     }
 

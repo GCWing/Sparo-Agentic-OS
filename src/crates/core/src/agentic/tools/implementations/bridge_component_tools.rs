@@ -116,6 +116,11 @@ impl Tool for BridgeComponentRuntimeToolAdapter {
                 .unwrap_or_else(|| "bridge-component-tool".to_string()),
             session_id: context.session_id.clone(),
             turn_id: context.dialog_turn_id.clone(),
+            work_id: context.product_app_work_id().map(str::to_string),
+            work_title: None,
+            runtime_instance_id: context
+                .product_app_runtime_instance_id()
+                .map(str::to_string),
         };
         let result = BridgeComponentManager::start_run(
             &self.component_id,

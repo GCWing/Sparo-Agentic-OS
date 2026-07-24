@@ -241,7 +241,7 @@ Do not use this tool for:
             session_id,
         };
 
-        let journal_path = memory_journal_file_path_for_date(target, now.date_naive());
+        let journal_path = memory_journal_file_path_for_date(target, now.date_naive())?;
         if let Some(parent) = journal_path.parent() {
             fs::create_dir_all(parent).await.map_err(|e| {
                 CoreError::tool(format!(

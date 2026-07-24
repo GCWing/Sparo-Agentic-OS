@@ -4,7 +4,8 @@
 //! a Product App Work to the host surface adapter that can execute it.
 
 use crate::api::app_release_runtime::{
-    resolve_authorized_app_release, validate_product_app_ref, ReleaseExecutionPurpose,
+    inspect_product_app_work_compatibility, register_authoritative_agent_release,
+    resolve_current_app_release_for_work, ProductAppWorkCompatibility,
 };
 use crate::api::app_state::AppState;
 use crate::api::product_app_runtime_host_adapter as host_adapter;
@@ -13,17 +14,15 @@ use crate::api::product_app_runtime_host_adapter::{
     HostAdapterAiChatStartedResponse, HostAdapterAiCompleteRequest, HostAdapterAiCompleteResponse,
     HostAdapterAiListModelsRequest, HostAdapterAiModelInfo, HostAdapterAiUsage,
     HostAdapterBackendCallRequest, HostAdapterBackendCallResponse, HostAdapterBackendRunRequest,
-    HostAdapterCancelStalePptRunsRequest, HostAdapterCancelStalePptRunsResponse,
-    HostAdapterClearRuntimeIssuesRequest, HostAdapterCoreBackendActionBinding,
-    HostAdapterCoreBackendBinding, HostAdapterCoreBackendKind, HostAdapterCoreBackendMemoryScope,
-    HostAdapterCoreBackendSessionPolicy, HostAdapterCoreIframePermissions,
-    HostAdapterCoreInteraction, HostAdapterCoreInteractionChat, HostAdapterCoreInteractionMode,
-    HostAdapterCoreInteractionTab, HostAdapterCoreInteractionTabSidecar,
-    HostAdapterCoreInteractionText, HostAdapterCoreManager, HostAdapterCoreNetPermissions,
-    HostAdapterCorePermissions, HostAdapterCoreSurface, HostAdapterCoreSurfaceMeta,
-    HostAdapterGetRequest, HostAdapterInstallResult, HostAdapterPptTurnTextRequest,
-    HostAdapterPptTurnTextResponse, HostAdapterRecompileRequest, HostAdapterRecompileResult,
-    HostAdapterRecordRecentRequest, HostAdapterRenderSlidePageRequest,
+    HostAdapterClearRuntimeIssuesRequest, HostAdapterCoreAgentWorkspace,
+    HostAdapterCoreBackendActionBinding, HostAdapterCoreBackendBinding, HostAdapterCoreBackendKind,
+    HostAdapterCoreBackendMemoryScope, HostAdapterCoreBackendSessionPolicy,
+    HostAdapterCoreFlowChatCard, HostAdapterCoreIframePermissions, HostAdapterCoreInteraction,
+    HostAdapterCoreInteractionChat, HostAdapterCoreInteractionMode, HostAdapterCoreInteractionTab,
+    HostAdapterCoreInteractionTabSidecar, HostAdapterCoreInteractionText, HostAdapterCoreManager,
+    HostAdapterCoreNetPermissions, HostAdapterCorePermissions, HostAdapterCoreSurface,
+    HostAdapterCoreSurfaceMeta, HostAdapterGetRequest, HostAdapterInstallResult,
+    HostAdapterRecompileRequest, HostAdapterRecompileResult, HostAdapterRecordRecentRequest,
     HostAdapterRuntimeIssueRequest, HostAdapterRuntimeIssueSeverity, HostAdapterRuntimeLogLevel,
     HostAdapterRuntimeLogRequest, HostAdapterRuntimeState, HostAdapterRuntimeStatus,
     HostAdapterWorkerCallRequest,
@@ -34,13 +33,14 @@ use sparo_core::agentic::agents::{get_agent_registry, AgentCategory};
 use sparo_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
 use sparo_core::agentic_os::work::{
     default_work_store, RuntimeInstanceRef, WorkAppIntent, WorkAppRef, WorkId, WorkKind,
-    WorkRecord, WorkScope, WorkStore, WorkSubject, WorkSurfaceRef, WorkVisibility,
+    WorkLocator, WorkRecord, WorkScope, WorkStore, WorkSubject, WorkSurfaceRef, WorkVisibility,
 };
 use sparo_core::app_platform::{
     private_component_source_dir, register_private_product_app_runtime_components, AppComponentRef,
-    AppDefinition, AppIconSpec, AppRuntimeInteractionText, AppSurfaceMode, AppTruthSource,
-    ComponentDefinition, ComponentKind, ProductAppEvolutionStore, ProductAppRuntimeIssueSeverity,
-    ProductAppRuntimeLogLevel, ProductAppRuntimeState, ResolvedProductApp,
+    AppDefinition, AppIconSpec, AppRuntimeInteractionText, AppRuntimeWorkspaceAccess,
+    AppSurfaceMode, AppTruthSource, AppWorkMultiplicity, ComponentDefinition, ComponentKind,
+    ProductAppEvolutionStore, ProductAppRuntimeIssueSeverity, ProductAppRuntimeLogLevel,
+    ProductAppRuntimeState, ResolvedProductApp,
 };
 use sparo_core::bridge_component::BridgeComponentRunResult;
 use std::collections::{BTreeMap, HashSet};
@@ -50,18 +50,19 @@ use tauri::{AppHandle, State};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolveProductAppRuntimeInstanceRequest {
-    pub work_id: String,
+    pub locator: WorkLocator,
     pub slot_id: String,
     pub app_id: String,
-    pub release_id: String,
-    pub config_revision: String,
-    pub data_schema_version: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub runtime_instance_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub product_app_surface_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub surface_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrepareProductAppWorkRequest {
+    pub locator: WorkLocator,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -80,7 +81,7 @@ pub struct ProductAppRuntimeHost {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProductAppRuntimeContext {
-    pub work_id: String,
+    pub work_locator: WorkLocator,
     pub runtime_instance_id: String,
     pub slot_id: String,
     pub app_id: String,
@@ -95,10 +96,12 @@ pub struct ProductAppRuntimeContext {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedProductAppRuntimeInstance {
-    pub work_id: String,
+    pub work_locator: WorkLocator,
     pub runtime_instance_id: String,
     pub slot_id: String,
     pub app_id: String,
+    pub app_name: String,
+    pub work_multiplicity: AppWorkMultiplicity,
     pub release_id: String,
     pub config_revision: String,
     pub data_schema_version: String,
@@ -297,6 +300,8 @@ pub struct ProductAppRuntimeBackendCallRequest {
     pub idempotency_key: Option<String>,
     #[serde(default)]
     pub workspace_path: Option<String>,
+    #[serde(default)]
+    pub session_id: Option<String>,
     pub runtime_context: ProductAppRuntimeContext,
 }
 
@@ -326,48 +331,6 @@ pub struct ProductAppRuntimeBackendRunRequest {
     pub session_id: Option<String>,
     #[serde(default)]
     pub turn_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProductAppRuntimeCancelStalePptRunsRequest {
-    pub app_id: String,
-    pub runtime_context: ProductAppRuntimeContext,
-    pub workspace_path: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProductAppRuntimeCancelStalePptRunsResponse {
-    pub cancelled_sessions: usize,
-    pub cancelled_turns: usize,
-    pub cleared_queues: usize,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProductAppRuntimePptTurnTextRequest {
-    pub app_id: String,
-    pub runtime_context: ProductAppRuntimeContext,
-    pub session_id: String,
-    pub turn_id: String,
-    #[serde(default)]
-    pub workspace_path: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProductAppRuntimePptTurnTextResponse {
-    pub text: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProductAppRuntimeRenderSlidePageRequest {
-    pub html: String,
-    pub format: String,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -499,7 +462,9 @@ struct ProductAppRuntimeInteraction {
     mode: ProductAppRuntimeInteractionMode,
     profile: Option<String>,
     chat: Option<ProductAppRuntimeInteractionChat>,
+    agent_workspace: Option<HostAdapterCoreAgentWorkspace>,
     tabs: Vec<ProductAppRuntimeInteractionTab>,
+    flow_chat_cards: Vec<HostAdapterCoreFlowChatCard>,
 }
 
 fn product_app_runtime_host_surface_meta_from_host_adapter(
@@ -618,13 +583,20 @@ pub(crate) async fn create_draft_runtime_preview(
         surface_id,
     };
     let now = chrono::Utc::now().timestamp_millis();
-    let scope = workspace_path
+    let normalized_workspace_path = workspace_path
         .map(str::trim)
         .filter(|path| !path.is_empty())
-        .map(|workspace_path| WorkScope::Workspace {
-            workspace_path: workspace_path.to_string(),
-        })
-        .unwrap_or(WorkScope::System);
+        .map(str::to_string);
+    let scope = match normalized_workspace_path.as_deref() {
+        Some(workspace_path) => WorkScope::Workspace {
+            workspace_id: state
+                .workspace_service
+                .path_manager()
+                .workspace_id(std::path::Path::new(workspace_path))
+                .map_err(|error| error.to_string())?,
+        },
+        None => WorkScope::Global,
+    };
     let mut work = WorkRecord::new(
         work_id.clone(),
         WorkKind::AppWorkflow,
@@ -640,6 +612,7 @@ pub(crate) async fn create_draft_runtime_preview(
         surface.clone(),
         now,
     );
+    work.workspace_path = normalized_workspace_path;
     work.system_managed = true;
     work.system_process_kind = Some("intelligent_app_draft_preview".to_string());
     let runtime_instance =
@@ -699,7 +672,7 @@ pub(crate) async fn create_draft_runtime_preview(
             .await
             .map_err(|error| error.to_string())?;
         let runtime_context = ProductAppRuntimeContext {
-            work_id: work_id.as_str().to_string(),
+            work_locator: work.locator(),
             runtime_instance_id: runtime_instance.id.clone(),
             slot_id: slot_id.to_string(),
             app_id: resolved_app.app.id.clone(),
@@ -727,7 +700,7 @@ pub(crate) async fn create_draft_runtime_preview(
             .product_app_runtime_host_manager
             .delete(&runtime_instance.id)
             .await;
-        let _ = store.delete(&work_id).await;
+        let _ = store.delete(&work.locator()).await;
     }
     preview_result
 }
@@ -740,7 +713,10 @@ pub(crate) async fn close_draft_runtime_preview(
         WorkId::parse(preview_session_id.to_string()).map_err(|error| error.to_string())?;
     let store = default_work_store().map_err(|error| error.to_string())?;
     let work = store
-        .get(&work_id)
+        .get(&WorkLocator {
+            scope: WorkScope::Global,
+            work_id,
+        })
         .await
         .map_err(|error| error.to_string())?
         .ok_or_else(|| format!("Draft preview not found: {}", preview_session_id))?;
@@ -760,7 +736,7 @@ pub(crate) async fn close_draft_runtime_preview(
             .map_err(|error| error.to_string())?;
     }
     store
-        .delete(&work_id)
+        .delete(&work.locator())
         .await
         .map_err(|error| error.to_string())?;
     Ok(())
@@ -794,7 +770,7 @@ pub(crate) async fn cleanup_draft_runtime_previews(state: &AppState) -> Result<u
             }
         }
         store
-            .delete(&preview.id)
+            .delete(&preview.locator())
             .await
             .map_err(|error| error.to_string())?;
     }
@@ -1081,6 +1057,7 @@ fn backend_call_request_from_product_app_runtime(
         entity_id: request.entity_id,
         idempotency_key: request.idempotency_key,
         workspace_path: request.workspace_path,
+        session_id: request.session_id,
         runtime_context: request.runtime_context,
     }
 }
@@ -1114,55 +1091,35 @@ fn backend_run_request_from_product_app_runtime(
     }
 }
 
-fn cancel_stale_ppt_runs_request_from_product_app_runtime(
-    request: ProductAppRuntimeCancelStalePptRunsRequest,
-) -> HostAdapterCancelStalePptRunsRequest {
-    HostAdapterCancelStalePptRunsRequest {
-        app_id: request.app_id,
-        runtime_context: request.runtime_context,
-        workspace_path: request.workspace_path,
+#[tauri::command]
+pub async fn prepare_product_app_work(
+    state: State<'_, AppState>,
+    request: PrepareProductAppWorkRequest,
+) -> Result<ProductAppWorkCompatibility, String> {
+    let store = default_work_store().map_err(|error| error.to_string())?;
+    let work = store
+        .get(&request.locator)
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("Work not found: {}", request.locator.work_id))?;
+    let app_ref = primary_product_app_ref(&work).ok_or_else(|| {
+        format!(
+            "Work {} does not have a primary Product App binding",
+            work.id
+        )
+    })?;
+    let mut compatibility = inspect_product_app_work_compatibility(&state, app_ref).await?;
+    if !compatibility.is_compatible() {
+        return Ok(compatibility);
     }
-}
-
-fn product_app_runtime_cancel_stale_ppt_runs_response_from_host_adapter(
-    response: HostAdapterCancelStalePptRunsResponse,
-) -> ProductAppRuntimeCancelStalePptRunsResponse {
-    ProductAppRuntimeCancelStalePptRunsResponse {
-        cancelled_sessions: response.cancelled_sessions,
-        cancelled_turns: response.cancelled_turns,
-        cleared_queues: response.cleared_queues,
+    let (authoritative, _) = resolve_current_app_release_for_work(&state, app_ref).await?;
+    if authoritative.validate_existing_work_runtime(&work).is_err() {
+        compatibility.status =
+            crate::api::app_release_runtime::ProductAppWorkCompatibilityStatus::VersionIncompatible;
+        return Ok(compatibility);
     }
-}
-
-fn ppt_turn_text_request_from_product_app_runtime(
-    request: ProductAppRuntimePptTurnTextRequest,
-) -> HostAdapterPptTurnTextRequest {
-    HostAdapterPptTurnTextRequest {
-        app_id: request.app_id,
-        runtime_context: request.runtime_context,
-        session_id: request.session_id,
-        turn_id: request.turn_id,
-        workspace_path: request.workspace_path,
-    }
-}
-
-fn product_app_runtime_ppt_turn_text_response_from_host_adapter(
-    response: HostAdapterPptTurnTextResponse,
-) -> ProductAppRuntimePptTurnTextResponse {
-    ProductAppRuntimePptTurnTextResponse {
-        text: response.text,
-    }
-}
-
-fn render_slide_page_request_from_product_app_runtime(
-    request: ProductAppRuntimeRenderSlidePageRequest,
-) -> HostAdapterRenderSlidePageRequest {
-    HostAdapterRenderSlidePageRequest {
-        html: request.html,
-        format: request.format,
-        width: request.width,
-        height: request.height,
-    }
+    register_authoritative_agent_release(&state, &authoritative).await?;
+    Ok(compatibility)
 }
 
 #[tauri::command]
@@ -1171,15 +1128,14 @@ pub async fn resolve_product_app_runtime_instance(
     request: ResolveProductAppRuntimeInstanceRequest,
 ) -> Result<ResolvedProductAppRuntimeInstance, String> {
     validate_runtime_binding_request(&request)?;
-    let work_id = WorkId::parse(request.work_id.clone()).map_err(|error| error.to_string())?;
     let store = default_work_store().map_err(|error| error.to_string())?;
     let mut work = store
-        .get(&work_id)
+        .get(&request.locator)
         .await
         .map_err(|error| error.to_string())?
-        .ok_or_else(|| format!("Work not found: {}", work_id))?;
+        .ok_or_else(|| format!("Work not found: {}", request.locator.work_id))?;
 
-    let app_ref = work_product_app_ref(&work, &request.slot_id, &request.app_id)
+    let historical_app_ref = work_product_app_ref(&work, &request.slot_id, &request.app_id)
         .ok_or_else(|| {
             format!(
                 "Work {} does not bind slot {} to App {}",
@@ -1187,33 +1143,12 @@ pub async fn resolve_product_app_runtime_instance(
             )
         })?
         .clone();
-    validate_requested_app_ref(&request, &app_ref)?;
-    let authoritative = resolve_authorized_app_release(
-        &state,
-        &app_ref.app_id,
-        &app_ref.release_id,
-        ReleaseExecutionPurpose::ExistingWorkRuntime,
-    )
-    .await?;
-    validate_product_app_ref(&app_ref, &authoritative)?;
+    let (authoritative, current_app_ref) =
+        resolve_current_app_release_for_work(&state, &historical_app_ref).await?;
 
-    let surface = work_application_surface(&work, &request, &app_ref.app_id)?.clone();
-    let runtime_instance = ensure_work_runtime_instance(&store, &mut work, &app_ref, &surface)
-        .await
-        .map_err(|error| error.to_string())?;
-
-    if let Some(expected_id) = request
-        .runtime_instance_id
-        .as_deref()
-        .filter(|id| !id.trim().is_empty())
-    {
-        if runtime_instance.id != expected_id {
-            return Err(format!(
-                "Work {} runtime instance mismatch: requested {}, resolved {}",
-                work.id, expected_id, runtime_instance.id
-            ));
-        }
-    }
+    let surface = work_application_surface(&work, &request, &current_app_ref.app_id)?.clone();
+    let runtime_instance =
+        ensure_work_runtime_instance(&state, &store, &mut work, &current_app_ref, &surface).await?;
 
     if authoritative.resolved_release.release.config_revision != runtime_instance.config_revision {
         return Err(format!(
@@ -1234,7 +1169,13 @@ pub async fn resolve_product_app_runtime_instance(
         &runtime_instance.product_app_surface_id,
         &runtime_instance.surface_id,
     )?;
+    let resolved_work_multiplicity = authoritative
+        .resolved_release
+        .release
+        .runtime
+        .work_multiplicity;
     let app = authoritative.package;
+    let resolved_app_name = app.app.name.clone();
 
     let product_app_surface = app
         .components
@@ -1267,7 +1208,7 @@ pub async fn resolve_product_app_runtime_instance(
     )
     .await?;
 
-    let resolved_work_id = work.id.into_string();
+    let resolved_work_locator = work.locator();
     let resolved_runtime_instance_id = runtime_instance.id;
     let resolved_slot_id = runtime_instance.slot_id;
     let resolved_app_id = runtime_instance.app_id;
@@ -1278,10 +1219,12 @@ pub async fn resolve_product_app_runtime_instance(
     let resolved_surface_id = runtime_instance.surface_id;
 
     let response = ResolvedProductAppRuntimeInstance {
-        work_id: resolved_work_id.clone(),
+        work_locator: resolved_work_locator.clone(),
         runtime_instance_id: resolved_runtime_instance_id.clone(),
         slot_id: resolved_slot_id.clone(),
         app_id: resolved_app_id.clone(),
+        app_name: resolved_app_name,
+        work_multiplicity: resolved_work_multiplicity,
         release_id: resolved_release_id.clone(),
         config_revision: resolved_config_revision.clone(),
         data_schema_version: resolved_data_schema_version.clone(),
@@ -1293,7 +1236,7 @@ pub async fn resolve_product_app_runtime_instance(
             surface_id: host_surface_id.clone(),
         },
         runtime_context: ProductAppRuntimeContext {
-            work_id: resolved_work_id,
+            work_locator: resolved_work_locator,
             runtime_instance_id: resolved_runtime_instance_id,
             slot_id: resolved_slot_id,
             app_id: resolved_app_id,
@@ -1320,6 +1263,137 @@ pub async fn resolve_product_app_runtime_instance(
         log::warn!("Failed to record minimized App evolution signal: {}", error);
     }
     Ok(response)
+}
+
+pub(crate) async fn prune_stale_product_app_runtime_instances(
+    state: &AppState,
+    activation: &sparo_core::app_platform::ActivationRecord,
+) -> Result<usize, String> {
+    let keep = activation.enabled.then_some((
+        activation.selected_app_id.as_str(),
+        activation.active_release_id.as_str(),
+    ));
+    prune_product_app_runtime_instances_for_slot(state, &activation.slot_id, keep).await
+}
+
+pub(crate) async fn delete_product_app_runtime_instances_for_slot(
+    state: &AppState,
+    slot_id: &str,
+) -> Result<usize, String> {
+    prune_product_app_runtime_instances_for_slot(state, slot_id, None).await
+}
+
+pub(crate) async fn cleanup_orphan_product_app_runtime_hosts(
+    state: &AppState,
+) -> Result<usize, String> {
+    let store = default_work_store().map_err(|error| error.to_string())?;
+    let activations = state
+        .app_revision_store
+        .list_activations(None)
+        .await
+        .into_iter()
+        .map(|activation| (activation.slot_id.clone(), activation))
+        .collect::<BTreeMap<_, _>>();
+    let mut works = store.list().await.map_err(|error| error.to_string())?;
+    let mut removed = 0;
+    for work in &mut works {
+        let stale = work
+            .runtime_instances
+            .iter()
+            .filter(|instance| {
+                activations.get(&instance.slot_id).is_none_or(|activation| {
+                    !activation.enabled
+                        || activation.selected_app_id != instance.app_id
+                        || activation.active_release_id != instance.release_id
+                })
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        for instance in &stale {
+            if let Some(pool) = &state.js_worker_pool {
+                pool.stop(&instance.id).await;
+            }
+            state
+                .product_app_runtime_host_manager
+                .delete(&instance.id)
+                .await
+                .map_err(|error| error.to_string())?;
+        }
+        if !stale.is_empty() {
+            work.runtime_instances
+                .retain(|instance| !stale.iter().any(|candidate| candidate.id == instance.id));
+            store.put(work).await.map_err(|error| error.to_string())?;
+            removed += stale.len();
+        }
+    }
+    let referenced = works
+        .into_iter()
+        .flat_map(|work| {
+            work.runtime_instances
+                .into_iter()
+                .map(|instance| instance.id)
+        })
+        .collect::<HashSet<_>>();
+    for host in state
+        .product_app_runtime_host_manager
+        .list()
+        .await
+        .map_err(|error| error.to_string())?
+    {
+        if !host.id.starts_with("runtime_") || referenced.contains(&host.id) {
+            continue;
+        }
+        if let Some(pool) = &state.js_worker_pool {
+            pool.stop(&host.id).await;
+        }
+        state
+            .product_app_runtime_host_manager
+            .delete(&host.id)
+            .await
+            .map_err(|error| error.to_string())?;
+        removed += 1;
+    }
+    Ok(removed)
+}
+
+async fn prune_product_app_runtime_instances_for_slot(
+    state: &AppState,
+    slot_id: &str,
+    keep: Option<(&str, &str)>,
+) -> Result<usize, String> {
+    let store = default_work_store().map_err(|error| error.to_string())?;
+    let mut removed = 0;
+    for mut work in store.list().await.map_err(|error| error.to_string())? {
+        let stale = work
+            .runtime_instances
+            .iter()
+            .filter(|instance| {
+                instance.slot_id == slot_id
+                    && keep.is_none_or(|(app_id, release_id)| {
+                        instance.app_id != app_id || instance.release_id != release_id
+                    })
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        if stale.is_empty() {
+            continue;
+        }
+        for instance in &stale {
+            if let Some(pool) = &state.js_worker_pool {
+                pool.stop(&instance.id).await;
+            }
+            state
+                .product_app_runtime_host_manager
+                .delete(&instance.id)
+                .await
+                .map_err(|error| error.to_string())?;
+        }
+        work.runtime_instances
+            .retain(|instance| !stale.iter().any(|candidate| candidate.id == instance.id));
+        store.put(&work).await.map_err(|error| error.to_string())?;
+        removed += stale.len();
+    }
+    Ok(removed)
 }
 
 #[tauri::command]
@@ -1575,48 +1649,6 @@ pub async fn product_app_runtime_backend_cancel_run(
     .await
 }
 
-#[tauri::command]
-pub async fn product_app_runtime_cancel_stale_ppt_runs(
-    coordinator: State<'_, Arc<ConversationCoordinator>>,
-    scheduler: State<'_, Arc<DialogScheduler>>,
-    state: State<'_, AppState>,
-    request: ProductAppRuntimeCancelStalePptRunsRequest,
-) -> Result<ProductAppRuntimeCancelStalePptRunsResponse, String> {
-    let response = host_adapter::cancel_stale_ppt_runs(
-        coordinator,
-        scheduler,
-        state,
-        cancel_stale_ppt_runs_request_from_product_app_runtime(request),
-    )
-    .await?;
-    Ok(product_app_runtime_cancel_stale_ppt_runs_response_from_host_adapter(response))
-}
-
-#[tauri::command]
-pub async fn product_app_runtime_ppt_turn_assistant_text(
-    state: State<'_, AppState>,
-    request: ProductAppRuntimePptTurnTextRequest,
-) -> Result<ProductAppRuntimePptTurnTextResponse, String> {
-    let response = host_adapter::ppt_turn_assistant_text(
-        state,
-        ppt_turn_text_request_from_product_app_runtime(request),
-    )
-    .await?;
-    Ok(product_app_runtime_ppt_turn_text_response_from_host_adapter(response))
-}
-
-#[tauri::command]
-pub async fn product_app_runtime_render_slide_page(
-    app: AppHandle,
-    request: ProductAppRuntimeRenderSlidePageRequest,
-) -> Result<String, String> {
-    host_adapter::render_slide_page(
-        app,
-        render_slide_page_request_from_product_app_runtime(request),
-    )
-    .await
-}
-
 fn work_product_app_ref<'a>(
     work: &'a WorkRecord,
     slot_id: &str,
@@ -1635,41 +1667,25 @@ fn work_product_app_ref<'a>(
         .map(|relation| &relation.app)
 }
 
-fn validate_requested_app_ref(
-    request: &ResolveProductAppRuntimeInstanceRequest,
-    app_ref: &WorkAppRef,
-) -> Result<(), String> {
-    if app_ref.release_id != request.release_id {
-        return Err(format!(
-            "Work slot {} pins Release {}, but runtime request used {}",
-            app_ref.slot_id, app_ref.release_id, request.release_id
-        ));
-    }
-    if app_ref.config_revision != request.config_revision {
-        return Err(format!(
-            "Work slot {} pins config revision {}, but runtime request used {}",
-            app_ref.slot_id, app_ref.config_revision, request.config_revision
-        ));
-    }
-    if app_ref.data_schema_version != request.data_schema_version {
-        return Err(format!(
-            "Work slot {} pins data schema {}, but runtime request used {}",
-            app_ref.slot_id, app_ref.data_schema_version, request.data_schema_version
-        ));
-    }
-    Ok(())
+fn primary_product_app_ref(work: &WorkRecord) -> Option<&WorkAppRef> {
+    work.subject
+        .app_ref()
+        .filter(|app| app.kind == sparo_core::agentic_os::work::WorkAppKind::ProductApp)
+        .or_else(|| {
+            work.app_refs
+                .iter()
+                .map(|relation| &relation.app)
+                .find(|app| app.kind == sparo_core::agentic_os::work::WorkAppKind::ProductApp)
+        })
 }
 
 fn validate_runtime_binding_request(
     request: &ResolveProductAppRuntimeInstanceRequest,
 ) -> Result<(), String> {
     for (field, value) in [
-        ("workId", request.work_id.as_str()),
+        ("workId", request.locator.work_id.as_str()),
         ("slotId", request.slot_id.as_str()),
         ("appId", request.app_id.as_str()),
-        ("releaseId", request.release_id.as_str()),
-        ("configRevision", request.config_revision.as_str()),
-        ("dataSchemaVersion", request.data_schema_version.as_str()),
     ] {
         if value.trim().is_empty() {
             return Err(format!("{} is required", field));
@@ -1732,11 +1748,12 @@ fn application_surface_matches(
 }
 
 async fn ensure_work_runtime_instance(
+    state: &AppState,
     store: &std::sync::Arc<dyn WorkStore>,
     work: &mut WorkRecord,
     app_ref: &WorkAppRef,
     surface: &WorkSurfaceRef,
-) -> sparo_core::error::CoreResult<RuntimeInstanceRef> {
+) -> Result<RuntimeInstanceRef, String> {
     if let Some(instance) = work
         .runtime_instances
         .iter()
@@ -1746,16 +1763,56 @@ async fn ensure_work_runtime_instance(
         return Ok(instance);
     }
 
+    // A Work may persist a RuntimeInstance from the Release that originally
+    // created it. Once the installed App advances, that instance is stale and
+    // must be replaced rather than used to resolve historical code.
+    let stale_instances = work
+        .runtime_instances
+        .iter()
+        .filter(|instance| runtime_instance_targets_logical_surface(instance, app_ref, surface))
+        .cloned()
+        .collect::<Vec<_>>();
+    for instance in &stale_instances {
+        if let Some(pool) = &state.js_worker_pool {
+            pool.stop(&instance.id).await;
+        }
+        state
+            .product_app_runtime_host_manager
+            .delete(&instance.id)
+            .await
+            .map_err(|error| error.to_string())?;
+    }
+    work.runtime_instances
+        .retain(|instance| !stale_instances.iter().any(|stale| stale.id == instance.id));
+
     let Some(instance) =
         RuntimeInstanceRef::product_app_application_surface(&work.id, app_ref, surface)
     else {
-        return Err(sparo_core::error::CoreError::validation(
-            "application_surface is required for Product App runtime instance",
-        ));
+        return Err("application_surface is required for Product App runtime instance".to_string());
     };
     work.bind_runtime_instance(instance.clone(), chrono::Utc::now().timestamp_millis());
-    store.put(work).await?;
+    store.put(work).await.map_err(|error| error.to_string())?;
     Ok(instance)
+}
+
+fn runtime_instance_targets_logical_surface(
+    instance: &RuntimeInstanceRef,
+    app_ref: &WorkAppRef,
+    surface: &WorkSurfaceRef,
+) -> bool {
+    let WorkSurfaceRef::ApplicationSurface {
+        product_app_id,
+        product_app_surface_id,
+        surface_id,
+    } = surface
+    else {
+        return false;
+    };
+    instance.slot_id == app_ref.slot_id
+        && instance.app_id == app_ref.app_id
+        && instance.app_id == *product_app_id
+        && instance.product_app_surface_id == *product_app_surface_id
+        && instance.surface_id == *surface_id
 }
 
 fn runtime_instance_matches(
@@ -2016,6 +2073,23 @@ fn build_product_app_runtime_interaction(
     product_app_surface: &ComponentDefinition,
     components: &[ComponentDefinition],
 ) -> Result<ProductAppRuntimeInteraction, String> {
+    let flow_chat_cards = build_product_app_runtime_flow_chat_cards(app)?;
+    let agent_workspace = app.runtime_interaction.as_ref().and_then(|interaction| {
+        interaction
+            .agent_workspace
+            .as_ref()
+            .map(|workspace| HostAdapterCoreAgentWorkspace {
+                managed_root: workspace.managed_root.clone(),
+                workspace_access: match workspace.workspace_access {
+                    AppRuntimeWorkspaceAccess::None => "none",
+                    AppRuntimeWorkspaceAccess::ReadOnly => "readOnly",
+                    AppRuntimeWorkspaceAccess::ReadWrite => "readWrite",
+                }
+                .to_string(),
+                document_roots: workspace.document_roots.clone(),
+                private_roots: workspace.private_roots.clone(),
+            })
+    });
     match app.primary_surface_mode {
         Some(AppSurfaceMode::SidecarLinked) => {
             let declared_tabs = app
@@ -2125,7 +2199,9 @@ fn build_product_app_runtime_interaction(
                 mode: ProductAppRuntimeInteractionMode::Composite,
                 profile: Some("product-app-runtime".to_string()),
                 chat: build_product_app_runtime_chat(product_app_surface, components),
+                agent_workspace,
                 tabs,
+                flow_chat_cards,
             })
         }
         Some(AppSurfaceMode::ChatPrimary)
@@ -2135,9 +2211,71 @@ fn build_product_app_runtime_interaction(
             mode: ProductAppRuntimeInteractionMode::Standalone,
             profile: Some("product-app-runtime".to_string()),
             chat: None,
+            agent_workspace,
             tabs: Vec::new(),
+            flow_chat_cards,
         }),
     }
+}
+
+fn build_product_app_runtime_flow_chat_cards(
+    app: &AppDefinition,
+) -> Result<Vec<HostAdapterCoreFlowChatCard>, String> {
+    let declared_cards = app
+        .runtime_interaction
+        .as_ref()
+        .map(|interaction| interaction.flow_chat_cards.as_slice())
+        .unwrap_or_default();
+    let mut ids = HashSet::new();
+    declared_cards
+        .iter()
+        .map(|declared| {
+            let id = declared.id.trim();
+            let valid_id = !id.is_empty()
+                && id
+                    .chars()
+                    .enumerate()
+                    .all(|(index, character)| {
+                        character.is_ascii_lowercase()
+                            || character.is_ascii_digit() && index > 0
+                            || character == '-' && index > 0
+                    });
+            if !valid_id || id.ends_with('-') {
+                return Err(format!(
+                    "runtimeInteraction FlowChat card id '{id}' must use lowercase letters, digits, and internal hyphens"
+                ));
+            }
+            if !ids.insert(id.to_string()) {
+                return Err(format!("Duplicate runtimeInteraction FlowChat card id: {id}"));
+            }
+            let ui = declared.ui.as_object().ok_or_else(|| {
+                format!("runtimeInteraction FlowChat card '{id}' requires an object ui manifest")
+            })?;
+            let card = ui.get("card").and_then(Value::as_object).ok_or_else(|| {
+                format!("runtimeInteraction FlowChat card '{id}' requires ui.card")
+            })?;
+            if card
+                .get("kind")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .is_none_or(str::is_empty)
+            {
+                return Err(format!(
+                    "runtimeInteraction FlowChat card '{id}' requires ui.card.kind"
+                ));
+            }
+            Ok(HostAdapterCoreFlowChatCard {
+                id: id.to_string(),
+                description: declared
+                    .description
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(ToOwned::to_owned),
+                ui: declared.ui.clone(),
+            })
+        })
+        .collect()
 }
 
 fn build_product_app_runtime_chat(
@@ -2159,7 +2297,9 @@ fn build_product_app_runtime_chat(
         .filter(|agent_type| !agent_type.is_empty())
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| dependency.component_id.clone());
-    let agent_type = if matches!(
+    // The public FlowChat session owns presentation only; Product App operations
+    // continue to use the declared backend agent through the runtime adapter.
+    let public_chat_agent_type = if matches!(
         get_agent_registry().get_agent_category(&backend_agent_type, None),
         Some(AgentCategory::Hidden)
     ) {
@@ -2170,7 +2310,7 @@ fn build_product_app_runtime_chat(
     Some(ProductAppRuntimeInteractionChat {
         backend_id: Some(backend_binding_id(dependency)),
         agent_component_id: Some(dependency.component_id.clone()),
-        agent_type: Some(agent_type),
+        agent_type: Some(public_chat_agent_type),
         backend_agent_type: Some(backend_agent_type),
         session_policy: Some(ProductAppRuntimeBackendSessionPolicy::PerEntity),
         memory_scope: Some(ProductAppRuntimeBackendMemoryScope::AppInstance),
@@ -2258,11 +2398,13 @@ fn host_adapter_interaction_from_product_app_runtime(
         chat: interaction
             .chat
             .map(host_adapter_interaction_chat_from_product_app_runtime),
+        agent_workspace: interaction.agent_workspace,
         tabs: interaction
             .tabs
             .into_iter()
             .map(host_adapter_interaction_tab_from_product_app_runtime)
             .collect(),
+        flow_chat_cards: interaction.flow_chat_cards,
     }
 }
 
@@ -2330,7 +2472,7 @@ mod tests {
     use super::*;
     use sparo_core::app_platform::{
         AppCatalogVisibility, AppDataLifecyclePolicy, AppIconSpec, AppInstallScope,
-        AppInteractionModel, AppPermissionSummary, AppRuntimeInteraction,
+        AppInteractionModel, AppPermissionSummary, AppRuntimeFlowChatCard, AppRuntimeInteraction,
         AppRuntimeInteractionSidecar, AppRuntimeInteractionTab, AppRuntimeInteractionText,
         AppRuntimeSidecarIcon, AppRuntimeSidecarTargetGroup, AppSurfaceMode, AppTruthSource,
         AppWorkMultiplicity, CapabilityRef, ComponentLock, ComponentOwnerApp,
@@ -2340,39 +2482,31 @@ mod tests {
 
     fn runtime_request() -> ResolveProductAppRuntimeInstanceRequest {
         ResolveProductAppRuntimeInstanceRequest {
-            work_id: "work_release_runtime".to_string(),
+            locator: WorkLocator {
+                scope: WorkScope::Global,
+                work_id: WorkId::parse("work_release_runtime").expect("Work ID"),
+            },
             slot_id: "primary".to_string(),
             app_id: "sample-app".to_string(),
-            release_id: "release-sample-4".to_string(),
-            config_revision: "config-2".to_string(),
-            data_schema_version: "1".to_string(),
-            runtime_instance_id: None,
             product_app_surface_id: None,
             surface_id: None,
         }
     }
 
     #[test]
-    fn runtime_request_requires_complete_release_binding() {
+    fn runtime_request_requires_complete_logical_binding() {
         let mut request = runtime_request();
-        request.release_id.clear();
+        request.app_id.clear();
 
         let error = validate_runtime_binding_request(&request)
-            .expect_err("release identity must be explicit");
+            .expect_err("logical App identity must be explicit");
 
-        assert_eq!(error, "releaseId is required");
+        assert_eq!(error, "appId is required");
     }
 
     #[test]
-    fn runtime_request_cannot_override_work_config_revision() {
-        let request = runtime_request();
-        let app_ref =
-            WorkAppRef::product_app("primary", "sample-app", "release-sample-4", "config-1", "1");
-
-        let error = validate_requested_app_ref(&request, &app_ref)
-            .expect_err("runtime must use Work-pinned config");
-
-        assert!(error.contains("pins config revision config-1"));
+    fn runtime_request_does_not_accept_historical_release_coordinates() {
+        assert!(validate_runtime_binding_request(&runtime_request()).is_ok());
     }
 
     fn test_app() -> AppDefinition {
@@ -2674,6 +2808,7 @@ mod tests {
     fn app_declared_manuscript_tab_is_appended_with_explicit_sidecar_metadata() {
         let mut app = test_app();
         app.runtime_interaction = Some(AppRuntimeInteraction {
+            agent_workspace: None,
             tabs: vec![AppRuntimeInteractionTab {
                 id: "manuscript".to_string(),
                 tab_type: "product-app-runtime".to_string(),
@@ -2701,6 +2836,7 @@ mod tests {
                     "viewMode": "edit-preview"
                 }),
             }],
+            flow_chat_cards: Vec::new(),
         });
 
         let interaction = build_product_app_runtime_interaction(
@@ -2723,19 +2859,53 @@ mod tests {
     }
 
     #[test]
-    fn hidden_backend_agent_is_not_used_as_the_visible_chat_shell() {
-        let mut hidden_agent = test_agent_component();
-        hidden_agent.implementation_ref = Some("agent://PptLiveAgent".to_string());
+    fn app_declared_flow_chat_cards_are_validated_and_forwarded_as_ui_only_manifests() {
+        let mut app = test_app();
+        app.runtime_interaction = Some(AppRuntimeInteraction {
+            agent_workspace: None,
+            tabs: Vec::new(),
+            flow_chat_cards: vec![AppRuntimeFlowChatCard {
+                id: "workflow-status".to_string(),
+                description: Some("App-defined workflow status".to_string()),
+                ui: serde_json::json!({
+                    "card": {
+                        "kind": "appDefined",
+                        "family": "sample-app"
+                    }
+                }),
+            }],
+        });
+
+        let interaction = build_product_app_runtime_interaction(
+            &app,
+            &test_surface(),
+            &[test_surface(), test_agent_component()],
+        )
+        .expect("FlowChat card declaration should resolve");
+
+        assert_eq!(interaction.flow_chat_cards.len(), 1);
+        assert_eq!(interaction.flow_chat_cards[0].id, "workflow-status");
+        assert_eq!(
+            interaction.flow_chat_cards[0].ui["card"]["kind"],
+            "appDefined"
+        );
+    }
+
+    #[test]
+    fn app_private_agent_owns_the_product_app_chat_session() {
+        let mut private_agent = test_agent_component();
+        private_agent.implementation_ref =
+            Some("app://sample-app@1.0.0/agents/sample-agent".to_string());
 
         let interaction = build_product_app_runtime_interaction(
             &test_app(),
             &test_surface(),
-            &[test_surface(), hidden_agent],
+            &[test_surface(), private_agent],
         )
         .expect("runtime interaction");
         let chat = interaction.chat.expect("chat binding");
 
-        assert_eq!(chat.agent_type.as_deref(), Some("Runno"));
-        assert_eq!(chat.backend_agent_type.as_deref(), Some("PptLiveAgent"));
+        assert_eq!(chat.agent_type.as_deref(), Some("sample-agent"));
+        assert_eq!(chat.backend_agent_type.as_deref(), Some("sample-agent"));
     }
 }

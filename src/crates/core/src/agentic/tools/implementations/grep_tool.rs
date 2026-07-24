@@ -1,4 +1,5 @@
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
+use crate::agentic::tools::ToolPathOperation;
 use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
@@ -455,6 +456,7 @@ Usage:
         // Remote workspace: use shell-based grep/rg
         let search_path = input.get("path").and_then(|v| v.as_str()).unwrap_or(".");
         let resolved = context.resolve_tool_path(search_path)?;
+        context.enforce_path_operation(ToolPathOperation::Search, &resolved)?;
 
         if resolved.uses_remote_workspace_backend() {
             return self.call_remote(input, context).await;

@@ -37,7 +37,7 @@ async function attachSettingsSession(identity: SettingsFlowSessionIdentity): Pro
         sessionKind: 'internal',
         isTransient: true,
       },
-      identity.storageScope,
+      identity.domain,
     );
   }
 
@@ -50,8 +50,8 @@ async function attachSettingsSession(identity: SettingsFlowSessionIdentity): Pro
     await flowChatStore.loadSessionHistory(
       identity.sessionId,
       identity.workspacePath ?? '',
+      identity.domain,
       undefined,
-      identity.storageScope,
     );
   }
 }

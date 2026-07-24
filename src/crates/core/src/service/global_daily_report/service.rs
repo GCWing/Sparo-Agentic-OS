@@ -3,8 +3,8 @@ use super::prompt::{
     global_daily_report_allowed_tools,
 };
 use super::state::{
-    load_global_daily_report_state, save_global_daily_report_state, GlobalDailyReportAttemptStatus,
-    GlobalDailyReportState,
+    global_daily_report_runtime_dir, load_global_daily_report_state,
+    save_global_daily_report_state, GlobalDailyReportAttemptStatus, GlobalDailyReportState,
 };
 use crate::agentic::coordination::ConversationCoordinator;
 use crate::agentic::tools::{ToolPathPolicy, ToolRuntimeRestrictions};
@@ -199,7 +199,7 @@ impl GlobalDailyReportService {
                 continue;
             }
 
-            let output_path = global_daily_report_output_path(&target_date);
+            let output_path = global_daily_report_output_path(&target_date)?;
             let request_id = format!("global-daily-report-{}", Uuid::new_v4());
             let prompt =
                 build_global_daily_report_user_prompt(&target_date, &output_path, &source_paths);
@@ -210,6 +210,7 @@ impl GlobalDailyReportService {
                     write_roots: vec![output_path.to_string_lossy().to_string()],
                     edit_roots: vec![output_path.to_string_lossy().to_string()],
                     delete_roots: Vec::new(),
+                    ..ToolPathPolicy::default()
                 },
                 disable_snapshot_tracking: true,
             };
@@ -353,12 +354,11 @@ fn next_date_key(date_key: &str) -> String {
         .unwrap_or_else(|_| previous_local_date_key())
 }
 
-fn global_daily_report_output_path(date_key: &str) -> PathBuf {
+fn global_daily_report_output_path(date_key: &str) -> CoreResult<PathBuf> {
     let year = date_key.split('-').next().unwrap_or("unknown");
-    get_path_manager_arc()
-        .agentic_os_daily_reports_dir()
+    Ok(global_daily_report_runtime_dir()?
         .join(year)
-        .join(format!("{date_key}.md"))
+        .join(format!("{date_key}.md")))
 }
 
 fn is_stale_global_daily_report_run(state: &GlobalDailyReportState) -> bool {
@@ -413,40 +413,51 @@ async fn collect_session_daily_summary_sources(report_date: &str) -> CoreResult<
 async fn collect_all_daily_summary_files() -> CoreResult<Vec<PathBuf>> {
     let path_manager = get_path_manager_arc();
     collect_all_daily_summary_files_with_roots(
-        &path_manager.agentic_os_runtime_root().join("sessions"),
-        &path_manager.workspaces_runtime_root(),
+        &path_manager.session_domain_root(&crate::agentic::core::SessionDomain::OsAgent)?,
+        &path_manager.session_domain_root(&crate::agentic::core::SessionDomain::Global)?,
+        &path_manager.sessions_root().join("workspaces"),
     )
     .await
 }
 
 async fn collect_all_daily_summary_files_with_roots(
-    agentic_sessions_dir: &Path,
-    workspaces_runtime_root: &Path,
+    os_agent_sessions_dir: &Path,
+    global_sessions_dir: &Path,
+    workspace_session_domains_root: &Path,
 ) -> CoreResult<Vec<PathBuf>> {
     let mut result = Vec::new();
 
-    collect_daily_summary_files_under(agentic_sessions_dir, &mut result).await?;
+    collect_daily_summary_files_under(os_agent_sessions_dir, &mut result).await?;
+    collect_daily_summary_files_under(global_sessions_dir, &mut result).await?;
 
-    if workspaces_runtime_root.exists() {
-        let mut entries = fs::read_dir(workspaces_runtime_root)
+    if workspace_session_domains_root.exists() {
+        let mut entries = fs::read_dir(workspace_session_domains_root)
             .await
             .map_err(|error| {
                 crate::error::CoreError::service(format!(
-                    "Failed to read workspaces runtime root {}: {}",
-                    workspaces_runtime_root.display(),
+                    "Failed to read workspace session domains root {}: {}",
+                    workspace_session_domains_root.display(),
                     error
                 ))
             })?;
 
         while let Some(entry) = entries.next_entry().await.map_err(|error| {
             crate::error::CoreError::service(format!(
-                "Failed to iterate workspaces runtime root {}: {}",
-                workspaces_runtime_root.display(),
+                "Failed to iterate workspace session domains root {}: {}",
+                workspace_session_domains_root.display(),
                 error
             ))
         })? {
-            let sessions_dir = entry.path().join("sessions");
-            collect_daily_summary_files_under(&sessions_dir, &mut result).await?;
+            let file_type = entry.file_type().await.map_err(|error| {
+                crate::error::CoreError::service(format!(
+                    "Failed to inspect workspace session domain {}: {}",
+                    entry.path().display(),
+                    error
+                ))
+            })?;
+            if file_type.is_dir() {
+                collect_daily_summary_files_under(&entry.path(), &mut result).await?;
+            }
         }
     }
 
@@ -534,26 +545,30 @@ mod tests {
             Self { root }
         }
 
-        fn agentic_session_daily_summary(&self, session_id: &str, date_key: &str) -> PathBuf {
+        fn domain_session_daily_summary(
+            &self,
+            domain: &str,
+            session_id: &str,
+            date_key: &str,
+        ) -> PathBuf {
             self.root
-                .join("core")
-                .join("agentic_os")
                 .join("sessions")
+                .join(domain)
                 .join(session_id)
                 .join("daily_summaries")
                 .join(format!("{date_key}.md"))
         }
 
-        fn project_session_daily_summary(
+        fn workspace_session_daily_summary(
             &self,
-            project_slug: &str,
+            workspace_id: &str,
             session_id: &str,
             date_key: &str,
         ) -> PathBuf {
             self.root
-                .join("projects")
-                .join(project_slug)
                 .join("sessions")
+                .join("workspaces")
+                .join(workspace_id)
                 .join(session_id)
                 .join("daily_summaries")
                 .join(format!("{date_key}.md"))
@@ -564,13 +579,14 @@ mod tests {
     async fn collects_daily_summary_files_from_agentic_and_workspace_sessions() {
         let workspace = TestWorkspace::new();
         let target_date = "2026-05-17";
-        let agentic_path = workspace.agentic_session_daily_summary("global-1", target_date);
+        let agentic_path = workspace.domain_session_daily_summary("os_agent", "os-1", target_date);
+        let global_path = workspace.domain_session_daily_summary("global", "global-1", target_date);
         let project_path =
-            workspace.project_session_daily_summary("workspace-a", "session-1", target_date);
+            workspace.workspace_session_daily_summary("ws_a", "session-1", target_date);
         let other_date_path =
-            workspace.project_session_daily_summary("workspace-a", "session-2", "2026-05-16");
+            workspace.workspace_session_daily_summary("ws_a", "session-2", "2026-05-16");
 
-        for path in [&agentic_path, &project_path, &other_date_path] {
+        for path in [&agentic_path, &global_path, &project_path, &other_date_path] {
             fs::create_dir_all(path.parent().expect("parent"))
                 .await
                 .expect("create parent");
@@ -580,18 +596,16 @@ mod tests {
         }
 
         let sources = collect_all_daily_summary_files_with_roots(
-            &workspace
-                .root
-                .join("core")
-                .join("agentic_os")
-                .join("sessions"),
-            &workspace.root.join("projects"),
+            &workspace.root.join("sessions").join("os_agent"),
+            &workspace.root.join("sessions").join("global"),
+            &workspace.root.join("sessions").join("workspaces"),
         )
         .await
         .expect("collect sources");
 
-        assert_eq!(sources.len(), 3);
+        assert_eq!(sources.len(), 4);
         assert!(sources.contains(&agentic_path));
+        assert!(sources.contains(&global_path));
         assert!(sources.contains(&project_path));
         assert!(sources.contains(&other_date_path));
         assert_eq!(

@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Mail, Maximize2 } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import {
   Button,
+  FullOpenIcon,
   IconButton,
   Panel,
   PanelBody,
-  SparoAgentIcon,
+  SparoHubIcon,
   useDialogFocusTrap,
 } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
@@ -191,7 +192,7 @@ const WorkspaceFooterActions: React.FC = () => {
         openWorkspaceScene(
           openTarget.sceneId,
           'systemScope' in openTarget && openTarget.systemScope
-            ? { scope: systemRuntimeScope() }
+            ? { scope: systemRuntimeScope('os_agent') }
             : {},
         );
     }
@@ -281,7 +282,7 @@ const WorkspaceFooterActions: React.FC = () => {
           onKeyDown={(event) => handleGroupKeyDown(event, HUB_PREVIEW_ITEM_IDS, index, 2)}
         >
           <span className="sparo-workspace-hub__item-icon" aria-hidden="true">
-            {renderWorkspaceHubItemIcon(itemId, 16)}
+            {renderWorkspaceHubItemIcon(itemId)}
             {unread && <span className="sparo-workspace-hub__unread-dot" />}
           </span>
           <span className="sparo-workspace-hub__item-copy">
@@ -307,7 +308,12 @@ const WorkspaceFooterActions: React.FC = () => {
             tooltipPlacement="top"
             onClick={() => { void openItem(itemId); }}
           >
-            <Maximize2 size={12} strokeWidth={2.2} aria-hidden="true" />
+            <FullOpenIcon
+              size={14}
+              strokeWidth={1.8}
+              absoluteStrokeWidth
+              aria-hidden="true"
+            />
           </IconButton>
         )}
       </div>
@@ -335,7 +341,7 @@ const WorkspaceFooterActions: React.FC = () => {
         )}
       >
         <span className="sparo-workspace-hub__item-icon" aria-hidden="true">
-          {renderWorkspaceHubItemIcon(itemId, 16)}
+          {renderWorkspaceHubItemIcon(itemId)}
         </span>
         <span className="sparo-workspace-hub__item-label">{labels[itemId]}</span>
       </Button>
@@ -362,7 +368,12 @@ const WorkspaceFooterActions: React.FC = () => {
           data-testid="workspace-footer-more-button"
           onClick={toggleHub}
         >
-          <SparoAgentIcon size={17} aria-hidden="true" />
+          <SparoHubIcon
+            size={25}
+            strokeWidth={1.9}
+            absoluteStrokeWidth
+            aria-hidden="true"
+          />
           {hasUnreadDailyLetter && (
             <span className="sparo-workspace-hub__letter-badge" aria-hidden="true">
               <Mail size={10} strokeWidth={2.4} />
@@ -424,17 +435,7 @@ const WorkspaceFooterActions: React.FC = () => {
                               className="sparo-workspace-hub__preview-tracks"
                               aria-label={t('nav.menuPanel.hub.aria.preview')}
                             >
-                              {HUB_PREVIEW_ITEM_ROWS.map((row, rowIndex) => (
-                                <div
-                                  key={row.join('-')}
-                                  className="sparo-workspace-hub__preview-track"
-                                >
-                                  {row.map((itemId, columnIndex) => renderPreviewItem(
-                                    itemId,
-                                    rowIndex * 2 + columnIndex,
-                                  ))}
-                                </div>
-                              ))}
+                              {HUB_PREVIEW_ITEM_IDS.map(renderPreviewItem)}
                             </nav>
                           </section>
 

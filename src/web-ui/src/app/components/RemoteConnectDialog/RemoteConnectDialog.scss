@@ -1439,9 +1439,11 @@
   position: relative;
   width: 88px;
   height: 88px;
+  color: var(--ds-color-text-secondary, var(--color-text-secondary));
   border: 0;
   background: transparent;
-  transition: color 140ms ease;
+  opacity: 0.42;
+  transition: color 140ms ease, opacity 140ms ease;
 }
 
 .sparo-device-network__connection-mode {
@@ -1450,7 +1452,13 @@
   flex-direction: column;
   gap: var(--ds-space-2, 8px);
   padding: 0;
-  color: var(--ds-color-accent-500, var(--color-accent-500));
+  color: var(--ds-color-text-secondary, var(--color-text-secondary));
+
+  &--active {
+    .sparo-device-network__shield {
+      opacity: 1;
+    }
+  }
 
   &:hover:not(:disabled),
   &:focus-visible,
@@ -1459,6 +1467,7 @@
     background: transparent;
 
     .sparo-device-network__shield {
+      opacity: 1;
       color: var(--ds-color-accent-600, var(--ds-color-accent-500, var(--color-accent-500)));
     }
 

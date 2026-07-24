@@ -4,6 +4,7 @@ import type { AppDefinedToolCardSpec, ToolCardConfig } from '../types/flow-chat'
 import { AppDefinedToolCard } from './AppDefinedToolCard';
 import {
   batchToolCardRegistryUpdates,
+  getAppDefinedFamilyRenderer,
   hasToolCardConfig,
   registerToolCardConfig,
   registerToolUiRenderer,
@@ -12,7 +13,7 @@ import {
 
 const log = createLogger('ToolManifestSync');
 
-interface BackendToolInfo {
+export interface DynamicToolCardManifest {
   name: string;
   description?: string;
   input_schema?: unknown;
@@ -26,6 +27,13 @@ interface BackendToolInfo {
   };
 }
 
+export interface ToolCardManifestSource {
+  owns: (toolName: string) => boolean;
+  resolve: (
+    toolName: string,
+  ) => DynamicToolCardManifest | null | Promise<DynamicToolCardManifest | null>;
+}
+
 let syncPromise: Promise<void> | null = null;
 let scheduledSyncTimer: ReturnType<typeof setTimeout> | null = null;
 const unregisterBackendConfigs = new Map<string, () => void>();
@@ -34,8 +42,10 @@ const pendingToolManifestLoads = new Map<string, Promise<boolean>>();
 const backendEntryRevisions = new Map<string, number>();
 let backendManifestRevision = 0;
 const LATE_BOUND_TOOL_PREFIXES = ['agentcomponent__', 'bridgecomponent__'];
+const UI_ONLY_TOOL_PREFIXES = ['productapp__'];
 const LATE_BOUND_RETRY_DELAYS_MS = [200, 800];
 const LATE_BOUND_WATCH_RETRY_DELAYS_MS = [2_000, 4_000, 5_000, 10_000, 30_000, 60_000];
+const manifestSources = new Map<string, ToolCardManifestSource>();
 
 interface ToolManifestWatch {
   retainCount: number;
@@ -44,6 +54,38 @@ interface ToolManifestWatch {
 }
 
 const lateBoundManifestWatches = new Map<string, ToolManifestWatch>();
+
+function isLateBoundToolName(toolName: string): boolean {
+  return [...LATE_BOUND_TOOL_PREFIXES, ...UI_ONLY_TOOL_PREFIXES]
+    .some(prefix => toolName.startsWith(prefix));
+}
+
+function isUiOnlyToolName(toolName: string): boolean {
+  return UI_ONLY_TOOL_PREFIXES.some(prefix => toolName.startsWith(prefix));
+}
+
+export function registerToolCardManifestSource(
+  sourceId: string,
+  source: ToolCardManifestSource,
+): () => void {
+  const normalizedId = sourceId.trim();
+  if (!normalizedId) {
+    throw new Error('Tool card manifest source id must not be empty');
+  }
+
+  manifestSources.set(normalizedId, source);
+  for (const [toolName, watch] of lateBoundManifestWatches) {
+    if (source.owns(toolName)) {
+      probeWatchedToolManifest(toolName, watch);
+    }
+  }
+
+  return () => {
+    if (manifestSources.get(normalizedId) === source) {
+      manifestSources.delete(normalizedId);
+    }
+  };
+}
 
 function titleFromToolName(toolName: string): string {
   return toolName
@@ -55,7 +97,7 @@ function titleFromToolName(toolName: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase()) || toolName;
 }
 
-function inferToolCardConfig(info: BackendToolInfo): ToolCardConfig {
+function inferToolCardConfig(info: DynamicToolCardManifest): ToolCardConfig {
   const isReadonly = info.isReadonly ?? info.is_readonly ?? false;
   const needsPermissions = info.needsPermissions ?? info.needs_permissions ?? false;
   const extensionCard = info.ui?.card;
@@ -73,16 +115,20 @@ function inferToolCardConfig(info: BackendToolInfo): ToolCardConfig {
   };
 }
 
-function registerExtensionRenderer(info: BackendToolInfo): (() => void) | undefined {
+function registerExtensionRenderer(info: DynamicToolCardManifest): (() => void) | undefined {
   const card = info.ui?.card;
-  if (!card || card.kind !== 'appDefined') {
+  if (!card) {
     return undefined;
   }
 
+  if (card.kind !== 'appDefined') return undefined;
+
+  const familyRenderer = getAppDefinedFamilyRenderer(card.family);
+
   return registerToolUiRenderer(info.name, {
-    component: AppDefinedToolCard,
-    template: card.template === 'detail' ? 'detail' : 'compact',
-    family: card.family,
+    component: familyRenderer?.component ?? AppDefinedToolCard,
+    template: familyRenderer?.template ?? (card.template === 'detail' ? 'detail' : 'compact'),
+    family: familyRenderer?.family ?? card.family,
   });
 }
 
@@ -99,7 +145,7 @@ function unregisterBackendTool(toolName: string): void {
 }
 
 function registerBackendTool(
-  info: BackendToolInfo,
+  info: DynamicToolCardManifest,
   source: 'full' | 'exact' = 'exact',
   fullSyncStartedAtRevision?: number,
 ): boolean {
@@ -136,6 +182,93 @@ function registerBackendTool(
   return true;
 }
 
+const unregisterDeclaredConfigs = new Map<string, () => void>();
+const unregisterDeclaredRenderers = new Map<string, () => void>();
+const declaredManifestSignatures = new Map<string, string>();
+
+/**
+ * Register a UI-only card declaration from a Product App. This deliberately
+ * shares the dynamic card registry while remaining outside the model ToolAPI.
+ */
+export function registerDeclaredToolCardManifest(info: DynamicToolCardManifest): boolean {
+  if (
+    !info?.name
+    || (TOOL_CARD_CONFIGS[info.name] && !declaredManifestSignatures.has(info.name))
+  ) return false;
+  const signature = JSON.stringify(info);
+  if (declaredManifestSignatures.get(info.name) === signature) return false;
+
+  batchToolCardRegistryUpdates(() => {
+    unregisterDeclaredConfigs.get(info.name)?.();
+    unregisterDeclaredConfigs.set(info.name, registerToolCardConfig(info.name, inferToolCardConfig(info)));
+    unregisterDeclaredRenderers.get(info.name)?.();
+    const unregisterRenderer = registerExtensionRenderer(info);
+    if (unregisterRenderer) {
+      unregisterDeclaredRenderers.set(info.name, unregisterRenderer);
+    } else {
+      unregisterDeclaredRenderers.delete(info.name);
+    }
+    declaredManifestSignatures.set(info.name, signature);
+  });
+  return true;
+}
+
+export function unregisterDeclaredToolCardManifest(toolName: string): boolean {
+  if (!declaredManifestSignatures.has(toolName)) return false;
+
+  batchToolCardRegistryUpdates(() => {
+    unregisterDeclaredConfigs.get(toolName)?.();
+    unregisterDeclaredConfigs.delete(toolName);
+    unregisterDeclaredRenderers.get(toolName)?.();
+    unregisterDeclaredRenderers.delete(toolName);
+    declaredManifestSignatures.delete(toolName);
+  });
+  return true;
+}
+
+function matchingManifestSources(toolName: string): Array<[string, ToolCardManifestSource]> {
+  return [...manifestSources].filter(([, source]) => source.owns(toolName));
+}
+
+async function resolveDeclaredToolCardManifest(
+  toolName: string,
+  sources: Array<[string, ToolCardManifestSource]>,
+): Promise<{
+  owned: boolean;
+  registered: boolean;
+  error?: unknown;
+}> {
+  let lastError: unknown;
+
+  for (const [sourceId, source] of sources) {
+    try {
+      const manifest = await source.resolve(toolName);
+      if (!manifest) continue;
+      if (manifest.name !== toolName) {
+        log.warn('Tool card manifest source returned a mismatched name', {
+          sourceId,
+          requestedToolName: toolName,
+          returnedToolName: manifest.name,
+        });
+        continue;
+      }
+      registerDeclaredToolCardManifest(manifest);
+      if (hasToolCardConfig(toolName)) {
+        return { owned: true, registered: true };
+      }
+    } catch (error) {
+      lastError = error;
+      log.warn('Tool card manifest source failed to resolve an entry', {
+        sourceId,
+        toolName,
+        error,
+      });
+    }
+  }
+
+  return { owned: sources.length > 0, registered: false, error: lastError };
+}
+
 export async function syncToolCardRegistryFromBackendManifest(): Promise<void> {
   if (syncPromise) {
     return syncPromise;
@@ -144,7 +277,7 @@ export async function syncToolCardRegistryFromBackendManifest(): Promise<void> {
   const syncStartedAtRevision = backendManifestRevision;
   const operation = (async () => {
     try {
-      const tools = await toolAPI.getAllToolsInfo() as BackendToolInfo[];
+      const tools = await toolAPI.getAllToolsInfo() as DynamicToolCardManifest[];
       const backendToolNames = new Set<string>();
 
       batchToolCardRegistryUpdates(() => {
@@ -200,20 +333,29 @@ async function loadToolCardRegistryEntry(
 
   const load = (async () => {
     const retryDelays = retryLateBound
-      && LATE_BOUND_TOOL_PREFIXES.some(prefix => normalizedName.startsWith(prefix))
+      && isLateBoundToolName(normalizedName)
       ? LATE_BOUND_RETRY_DELAYS_MS
       : [];
     let lastError: unknown;
 
     for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
-      try {
-        const info = await toolAPI.getToolInfo(normalizedName) as BackendToolInfo | null;
-        if (info?.name) {
-          registerBackendTool(info);
-          return hasToolCardConfig(normalizedName);
+      const sources = matchingManifestSources(normalizedName);
+      const declared = sources.length > 0
+        ? await resolveDeclaredToolCardManifest(normalizedName, sources)
+        : { owned: false, registered: false };
+      if (declared.registered) return true;
+      lastError = declared.error ?? lastError;
+
+      if (!declared.owned && !isUiOnlyToolName(normalizedName)) {
+        try {
+          const info = await toolAPI.getToolInfo(normalizedName) as DynamicToolCardManifest | null;
+          if (info?.name) {
+            registerBackendTool(info);
+            return hasToolCardConfig(normalizedName);
+          }
+        } catch (error) {
+          lastError = error;
         }
-      } catch (error) {
-        lastError = error;
       }
 
       const retryDelay = retryDelays[attempt];
@@ -294,7 +436,7 @@ export function watchToolCardRegistryEntry(toolName: string): () => void {
     return () => {};
   }
 
-  if (!LATE_BOUND_TOOL_PREFIXES.some(prefix => normalizedName.startsWith(prefix))) {
+  if (!isLateBoundToolName(normalizedName)) {
     void ensureToolCardRegistryEntry(normalizedName);
     return () => {};
   }

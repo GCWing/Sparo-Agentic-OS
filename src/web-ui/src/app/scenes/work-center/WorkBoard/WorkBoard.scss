@@ -534,6 +534,9 @@ $wc-ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   &__kind {
+    display: inline-flex;
+    align-items: center;
+    gap: $size-gap-1;
     font-size: 10px;
     font-weight: $font-weight-medium;
     color: var(--ds-color-text-muted);

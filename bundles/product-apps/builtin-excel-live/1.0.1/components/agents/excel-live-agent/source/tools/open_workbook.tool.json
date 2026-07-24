@@ -1,0 +1,67 @@
+{
+  "name": "open_workbook",
+  "description": "Open a CSV, XLSX, or Sparo workbook JSON file into an in-memory Excel Live session and persist the store under .sparo_os/excel-live.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "path"
+    ],
+    "properties": {
+      "path": {
+        "type": "string",
+        "pattern": "^(?![A-Za-z]:)(?![/\\\\])(?!.*(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)).+\\.(?:xlsx|xlsm|csv)$",
+        "description": "Workbook file path relative to the active workspace. Absolute paths and parent traversal are not allowed."
+      },
+      "title": {
+        "type": "string"
+      },
+      "workbookId": {
+        "type": "string",
+        "description": "Optional workbook id to reuse."
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/open_workbook.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 60000,
+  "maxOutputBytes": 120000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "excel-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "detailed",
+      "primaryColor": "var(--ds-tool-family-agent-component-fg)",
+      "displayName": "Open Workbook",
+      "icon": "FolderOpen",
+      "title": "Open Workbook",
+      "summary": {
+        "preparing": "Opening workbook",
+        "running": "Opening {{input.path}}",
+        "completed": "Workbook opened",
+        "failed": "Open failed"
+      },
+      "fields": [
+        {
+          "label": "Path",
+          "inputPath": [
+            "path"
+          ]
+        },
+        {
+          "label": "Meta",
+          "resultPath": [
+            "bridge",
+            "output",
+            "meta"
+          ],
+          "format": "json"
+        }
+      ]
+    }
+  }
+}

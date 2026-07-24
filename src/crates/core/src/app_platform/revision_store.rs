@@ -287,8 +287,6 @@ pub struct ActivationRecord {
     pub slot_id: String,
     pub selected_app_id: String,
     pub active_release_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub previous_release_id: Option<String>,
     pub enabled: bool,
 }
 
@@ -296,6 +294,13 @@ pub struct ActivationRecord {
 pub enum SystemReleaseInitializationOutcome {
     Created,
     Preserved,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum SystemReleaseSyncOutcome {
+    Added,
+    Reused,
+    Replaced,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -412,7 +417,7 @@ pub struct CreatedApp {
 pub struct ArchivedApp {
     pub app: AppRecord,
     pub removed_draft_ids: Vec<String>,
-    pub retained_release_ids: Vec<String>,
+    pub removed_release_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -506,10 +511,20 @@ impl AppRevisionStore {
         let root = app_root.as_ref().join(STORE_DIRECTORY);
         fs::create_dir_all(root.join("drafts")).await?;
         fs::create_dir_all(root.join("artifacts")).await?;
-        cleanup_staging_directories(&root, ".publish-staging-").await?;
-        cleanup_staging_directories(&root, ".system-seed-").await?;
-        cleanup_staging_directories(&root.join("drafts"), ".staging-").await?;
-        cleanup_staging_directories(&root.join("artifacts"), ".staging-").await?;
+        for (directory, prefix) in [
+            (root.clone(), ".publish-staging-"),
+            (root.join("drafts"), ".staging-"),
+            (root.join("artifacts"), ".staging-"),
+        ] {
+            if let Err(error) = cleanup_staging_directories(&directory, prefix).await {
+                log::warn!(
+                    "Failed to clean Intelligent App staging entries while opening revision store: directory={}, prefix={}, error={}",
+                    directory.display(),
+                    prefix,
+                    error
+                );
+            }
+        }
         let registry_path = root.join(REGISTRY_FILE);
         recover_atomic_json(&registry_path).await?;
         let registry = if registry_path.is_file() {
@@ -522,6 +537,13 @@ impl AppRevisionStore {
             persist_registry(&root, &registry).await?;
             registry
         };
+        if let Err(error) = cleanup_unreferenced_artifacts(&root, &registry).await {
+            log::warn!(
+                "Failed to clean unreferenced Intelligent App artifacts while opening revision store: root={}, error={}",
+                root.display(),
+                error
+            );
+        }
 
         Ok(Self {
             root,
@@ -1106,6 +1128,9 @@ impl AppRevisionStore {
         Ok(published_release)
     }
 
+    // Retained as the strict import primitive for non-System publishing and
+    // contract tests; built-in snapshots use the specialized synchronizer.
+    #[allow(dead_code)]
     pub(super) async fn import_release_from_package(
         &self,
         package_dir: &Path,
@@ -1155,6 +1180,7 @@ impl AppRevisionStore {
             if existing.release_id == release.release_id {
                 return Ok(existing.clone());
             }
+            cleanup_unreferenced_artifacts(&self.root, &current).await?;
             return Err(CoreError::validation(format!(
                 "Intelligent App {} version {} is already bound to immutable Release {}; publish changed content under a new version",
                 release.app_id, release.version, existing.release_id
@@ -1180,6 +1206,163 @@ impl AppRevisionStore {
             .insert(release.release_id.clone(), release.clone());
         self.commit_registry(next).await?;
         Ok(release)
+    }
+
+    /// Synchronizes the current System-owned App snapshot without weakening the
+    /// immutable publishing contract used by user, organization, and generated
+    /// Releases. A changed system package may retain its declared version; its
+    /// content-addressed Release is replaced atomically together with official
+    /// routing and current-version-only registry cleanup.
+    pub(super) async fn sync_system_release_from_package(
+        &self,
+        package_dir: &Path,
+        request: ImportReleaseFromPackageRequest,
+    ) -> CoreResult<(
+        ReleaseRecord,
+        SystemReleaseSyncOutcome,
+        SystemReleaseInitializationOutcome,
+    )> {
+        let _mutation = self.mutation_lock.lock().await;
+        if request.owner != AppOwner::system()
+            || request.metadata.provenance != ReleaseProvenanceKind::System
+        {
+            return Err(CoreError::validation(
+                "System snapshot synchronization only accepts System-owned Releases",
+            ));
+        }
+        request.owner.validate()?;
+        validate_app_fields(&request.app_id, &request.slot_id, &request.display_name)?;
+        let description = normalize_description(request.description.clone())?;
+        validate_release_metadata(&request.metadata)?;
+        validate_release_provenance(request.owner.kind, request.metadata.provenance)?;
+        if !package_dir.is_dir() {
+            return Err(CoreError::NotFound(format!(
+                "Intelligent App package {}",
+                package_dir.display()
+            )));
+        }
+
+        let current = self.registry.read().await.clone();
+        if let Some(existing) = current.apps.get(&request.app_id) {
+            if existing.owner != request.owner || existing.slot_id != request.slot_id {
+                return Err(CoreError::validation(format!(
+                    "App {} already exists with different ownership or slot",
+                    request.app_id
+                )));
+            }
+        } else {
+            ensure_app_id_available(&current, &request.app_id)?;
+        }
+        validate_parent_release(
+            &current,
+            &request.app_id,
+            request.parent_release_id.as_deref(),
+        )?;
+        validate_upstream_release(&current, &request.metadata)?;
+
+        let artifact_digest = commit_artifact(&self.root, package_dir).await?;
+        let release = match build_release_record(
+            &request.app_id,
+            &request.slot_id,
+            request.parent_release_id,
+            artifact_digest,
+            request.metadata,
+        ) {
+            Ok(release) => release,
+            Err(error) => {
+                cleanup_unreferenced_artifacts(&self.root, &current).await?;
+                return Err(error);
+            }
+        };
+
+        let had_release = current.releases.contains_key(&release.release_id);
+        let had_other_release = current.releases.values().any(|existing| {
+            existing.app_id == release.app_id && existing.release_id != release.release_id
+        });
+        let sync_outcome = if had_release {
+            SystemReleaseSyncOutcome::Reused
+        } else if had_other_release {
+            SystemReleaseSyncOutcome::Replaced
+        } else {
+            SystemReleaseSyncOutcome::Added
+        };
+
+        let mut next = current.clone();
+        match next.apps.get_mut(&request.app_id) {
+            Some(app) => {
+                app.display_name = request.display_name.clone();
+                app.description = description;
+            }
+            None => {
+                next.apps.insert(
+                    request.app_id.clone(),
+                    AppRecord {
+                        app_id: request.app_id.clone(),
+                        slot_id: request.slot_id.clone(),
+                        display_name: request.display_name.clone(),
+                        description,
+                        owner: request.owner,
+                        derived_from: None,
+                        created_at_ms: now_ms(),
+                    },
+                );
+            }
+        }
+        next.releases
+            .insert(release.release_id.clone(), release.clone());
+
+        let activation_request = ActivateReleaseRequest {
+            scope: AppActivationScope::System,
+            slot_id: release.slot_id.clone(),
+            app_id: release.app_id.clone(),
+            release_id: release.release_id.clone(),
+        };
+        if let Err(error) =
+            validate_activation_target(&next, &activation_request, env!("CARGO_PKG_VERSION"))
+        {
+            cleanup_unreferenced_artifacts(&self.root, &current).await?;
+            return Err(error);
+        }
+        let activation_key = activation_key(&activation_request.scope, &activation_request.slot_id);
+        let activation_outcome = match next.activations.get(&activation_key) {
+            Some(existing) if existing.selected_app_id != release.app_id => {
+                SystemReleaseInitializationOutcome::Preserved
+            }
+            Some(existing)
+                if existing.enabled && existing.active_release_id == release.release_id =>
+            {
+                SystemReleaseInitializationOutcome::Preserved
+            }
+            _ => {
+                next.activations.insert(
+                    activation_key,
+                    ActivationRecord {
+                        scope: activation_request.scope,
+                        slot_id: activation_request.slot_id,
+                        selected_app_id: activation_request.app_id,
+                        active_release_id: activation_request.release_id,
+                        enabled: true,
+                    },
+                );
+                SystemReleaseInitializationOutcome::Created
+            }
+        };
+
+        retain_only_app_release(&mut next, &release.app_id, &release.release_id)?;
+        if let Err(error) = self.commit_registry(next).await {
+            cleanup_unreferenced_artifacts(&self.root, &current).await?;
+            return Err(error);
+        }
+        let committed = self.registry.read().await.clone();
+        if let Err(error) = cleanup_unreferenced_artifacts(&self.root, &committed).await {
+            log::warn!(
+                "Failed to clean replaced system App artifacts: app_id={}, release_id={}, error={}",
+                release.app_id,
+                release.release_id,
+                error
+            );
+        }
+        Ok((release, sync_outcome, activation_outcome))
     }
 
     pub async fn resolve_draft(&self, draft_id: &str) -> CoreResult<ResolvedDraft> {
@@ -1347,15 +1530,11 @@ impl AppRevisionStore {
                 return Ok(existing.clone());
             }
         }
-        let previous_release_id = effective_activation(&current, &request.scope, &request.slot_id)
-            .map(|activation| activation.active_release_id.clone())
-            .filter(|release_id| release_id != &request.release_id);
         let activation = ActivationRecord {
             scope: request.scope,
             slot_id: request.slot_id,
             selected_app_id: request.app_id,
             active_release_id: request.release_id,
-            previous_release_id,
             enabled: true,
         };
         let mut next = current;
@@ -1367,6 +1546,7 @@ impl AppRevisionStore {
     /// Initializes an empty system slot from a bundled Release while preserving
     /// every existing selection. Startup discovers updates; only an explicit
     /// user activation may switch an installed slot to a newer Release.
+    #[allow(dead_code)]
     pub(super) async fn initialize_system_release(
         &self,
         request: ActivateReleaseRequest,
@@ -1389,10 +1569,18 @@ impl AppRevisionStore {
 
         let key = activation_key(&request.scope, &request.slot_id);
         if let Some(existing) = current.activations.get(&key) {
-            return Ok((
-                existing.clone(),
-                SystemReleaseInitializationOutcome::Preserved,
-            ));
+            if existing.selected_app_id != request.app_id {
+                return Ok((
+                    existing.clone(),
+                    SystemReleaseInitializationOutcome::Preserved,
+                ));
+            }
+            if existing.enabled && existing.active_release_id == request.release_id {
+                return Ok((
+                    existing.clone(),
+                    SystemReleaseInitializationOutcome::Preserved,
+                ));
+            }
         }
 
         let activation = ActivationRecord {
@@ -1400,13 +1588,32 @@ impl AppRevisionStore {
             slot_id: request.slot_id,
             selected_app_id: request.app_id,
             active_release_id: request.release_id,
-            previous_release_id: None,
             enabled: true,
         };
         let mut next = current;
         next.activations.insert(key, activation.clone());
         self.commit_registry(next).await?;
         Ok((activation, SystemReleaseInitializationOutcome::Created))
+    }
+
+    /// Keeps exactly one executable Release for an App and removes every older
+    /// artifact. Draft source directories survive, but are rebased onto the
+    /// retained Release so no mutable authoring state depends on deleted code.
+    pub async fn prune_app_releases_except(
+        &self,
+        app_id: &str,
+        keep_release_id: &str,
+    ) -> CoreResult<Vec<ReleaseRecord>> {
+        let _mutation = self.mutation_lock.lock().await;
+        let mut next = self.registry.read().await.clone();
+        let removed = retain_only_app_release(&mut next, app_id, keep_release_id)?;
+        if removed.is_empty() {
+            return Ok(Vec::new());
+        }
+        self.commit_registry(next).await?;
+        let committed = self.registry.read().await.clone();
+        cleanup_unreferenced_artifacts(&self.root, &committed).await?;
+        Ok(removed)
     }
 
     pub async fn deactivate(
@@ -1447,97 +1654,8 @@ impl AppRevisionStore {
         Ok(result)
     }
 
-    pub(super) async fn rollback_activation_if_current(
-        &self,
-        scope: &AppActivationScope,
-        slot_id: &str,
-        expected_active_release_id: &str,
-    ) -> CoreResult<ActivationRecord> {
-        self.rollback_activation_internal(scope, slot_id, Some(expected_active_release_id))
-            .await
-    }
-
-    async fn rollback_activation_internal(
-        &self,
-        scope: &AppActivationScope,
-        slot_id: &str,
-        expected_active_release_id: Option<&str>,
-    ) -> CoreResult<ActivationRecord> {
-        let _mutation = self.mutation_lock.lock().await;
-        scope.validate()?;
-        validate_identifier("slotId", slot_id)?;
-        if let Some(expected_active_release_id) = expected_active_release_id {
-            validate_identifier("expectedActiveReleaseId", expected_active_release_id)?;
-        }
-        let mut next = self.registry.read().await.clone();
-        let key = activation_key(scope, slot_id);
-        let current_activation = effective_activation(&next, scope, slot_id)
-            .cloned()
-            .ok_or_else(|| {
-                CoreError::NotFound(format!(
-                    "App activation for scope={}, slot={slot_id}",
-                    scope.registry_key()
-                ))
-            })?;
-        if let Some(expected_active_release_id) = expected_active_release_id {
-            if current_activation.active_release_id.as_str() != expected_active_release_id {
-                return Err(CoreError::validation(format!(
-                    "App activation for scope={}, slot={slot_id} changed before rollback: expected active Release {expected_active_release_id}, found {}",
-                    scope.registry_key(),
-                    current_activation.active_release_id
-                )));
-            }
-        }
-        let previous_release_id =
-            current_activation
-                .previous_release_id
-                .clone()
-                .ok_or_else(|| {
-                    CoreError::validation(format!(
-                        "App activation for scope={}, slot={slot_id} has no rollback release",
-                        scope.registry_key()
-                    ))
-                })?;
-        let previous_release = next.releases.get(&previous_release_id).ok_or_else(|| {
-            CoreError::NotFound(format!("Rollback app release {previous_release_id}"))
-        })?;
-        let previous_app = next.apps.get(&previous_release.app_id).ok_or_else(|| {
-            CoreError::NotFound(format!("Rollback app {}", previous_release.app_id))
-        })?;
-        if previous_app.slot_id != slot_id {
-            return Err(CoreError::validation(format!(
-                "Rollback release {previous_release_id} belongs to slot {}, not {slot_id}",
-                previous_app.slot_id
-            )));
-        }
-        validate_activation_target(
-            &next,
-            &ActivateReleaseRequest {
-                scope: scope.clone(),
-                slot_id: slot_id.to_string(),
-                app_id: previous_release.app_id.clone(),
-                release_id: previous_release_id.clone(),
-            },
-            env!("CARGO_PKG_VERSION"),
-        )?;
-        let activation = ActivationRecord {
-            scope: scope.clone(),
-            slot_id: slot_id.to_string(),
-            selected_app_id: previous_release.app_id.clone(),
-            active_release_id: previous_release_id,
-            previous_release_id: Some(current_activation.active_release_id),
-            enabled: true,
-        };
-        next.activations.insert(key, activation.clone());
-        self.commit_registry(next).await?;
-        Ok(activation)
-    }
-
-    /// Removes a user- or organization-owned app from discovery without deleting releases.
-    ///
-    /// Releases and artifacts remain resolvable for historical Work. System apps must be
-    /// deactivated instead. Disabled selections and rollback pointers are detached
-    /// atomically so a removed variant cannot remain routable.
+    /// Permanently removes a user- or organization-owned app, its Releases, and
+    /// its unreferenced artifacts. System apps must be deactivated instead.
     pub async fn archive_app(&self, app_id: &str) -> CoreResult<ArchivedApp> {
         // Draft tools do not take the registry mutation lock, so collect and lock every
         // current Draft before committing the archive. A Draft may be created while locks
@@ -1592,63 +1710,87 @@ impl AppRevisionStore {
             .filter(|draft| draft.app_id == app_id)
             .cloned()
             .collect::<Vec<_>>();
-        let retained_release_ids = current
+        let removed_releases = current
             .releases
             .values()
             .filter(|release| release.app_id == app_id)
+            .cloned()
+            .collect::<Vec<_>>();
+        let removed_release_ids = removed_releases
+            .iter()
             .map(|release| release.release_id.clone())
             .collect::<Vec<_>>();
+        let removed_release_id_set = removed_release_ids.iter().cloned().collect::<BTreeSet<_>>();
         let mut next = current;
         let activation_keys = next.activations.keys().cloned().collect::<Vec<_>>();
         for key in activation_keys {
             let Some(mut activation) = next.activations.get(&key).cloned() else {
                 continue;
             };
-            let rollback_release = activation
-                .previous_release_id
-                .as_deref()
-                .and_then(|release_id| next.releases.get(release_id))
+            let replacement_release = next
+                .releases
+                .values()
+                .filter(|release| release.app_id != app_id && release.slot_id == app.slot_id)
                 .filter(|release| {
-                    release.app_id != app_id
-                        && next
-                            .apps
-                            .get(&release.app_id)
-                            .is_some_and(|candidate| candidate.slot_id == app.slot_id)
+                    next.apps
+                        .get(&release.app_id)
+                        .is_some_and(|candidate| candidate.owner.kind == AppOwnerKind::System)
                 })
-                .cloned()
-                .or_else(|| {
-                    app.derived_from
-                        .as_ref()
-                        .and_then(|derived| next.releases.get(&derived.release_id))
-                        .filter(|release| {
-                            release.app_id != app_id
-                                && next
-                                    .apps
-                                    .get(&release.app_id)
-                                    .is_some_and(|candidate| candidate.slot_id == app.slot_id)
-                        })
-                        .cloned()
-                });
+                .min_by(|left, right| compare_releases_descending(left, right))
+                .cloned();
             if activation.selected_app_id == app_id {
-                if let Some(previous) = rollback_release {
-                    activation.selected_app_id = previous.app_id.clone();
-                    activation.active_release_id = previous.release_id.clone();
-                    activation.previous_release_id = None;
+                if let Some(replacement) = replacement_release {
+                    activation.selected_app_id = replacement.app_id.clone();
+                    activation.active_release_id = replacement.release_id.clone();
                     next.activations.insert(key, activation);
                 } else {
                     next.activations.remove(&key);
                 }
-            } else if activation
-                .previous_release_id
-                .as_deref()
-                .and_then(|release_id| next.releases.get(release_id))
-                .is_some_and(|release| release.app_id == app_id)
-            {
-                activation.previous_release_id = None;
-                next.activations.insert(key, activation);
             }
         }
         next.apps.remove(app_id);
+        next.releases.retain(|_, release| release.app_id != app_id);
+        for remaining_app in next.apps.values_mut() {
+            if remaining_app
+                .derived_from
+                .as_ref()
+                .is_some_and(|derived| derived.app_id == app_id)
+            {
+                remaining_app.derived_from = None;
+            }
+        }
+        for release in next.releases.values_mut() {
+            if release
+                .parent_release_id
+                .as_ref()
+                .is_some_and(|release_id| removed_release_id_set.contains(release_id))
+            {
+                release.parent_release_id = None;
+            }
+            if release
+                .upstream_base_release_id
+                .as_ref()
+                .is_some_and(|release_id| removed_release_id_set.contains(release_id))
+            {
+                release.upstream_app_id = None;
+                release.upstream_base_release_id = None;
+            }
+        }
+        for draft in next.drafts.values_mut() {
+            if draft
+                .base_release_id
+                .as_ref()
+                .is_some_and(|release_id| removed_release_id_set.contains(release_id))
+            {
+                draft.base_release_id = None;
+                draft.rebase_context = None;
+            } else if draft.rebase_context.as_ref().is_some_and(|context| {
+                removed_release_id_set.contains(&context.base_release_id)
+                    || removed_release_id_set.contains(&context.target_release_id)
+            }) {
+                draft.rebase_context = None;
+            }
+        }
         next.retired_app_ids.insert(app_id.to_string());
         for draft in &drafts {
             next.drafts.remove(&draft.draft_id);
@@ -1659,10 +1801,12 @@ impl AppRevisionStore {
             let path = resolve_store_relative_path(&self.root, &draft.path)?;
             remove_draft_directory(draft, &path).await;
         }
+        let committed = self.registry.read().await.clone();
+        cleanup_unreferenced_artifacts(&self.root, &committed).await?;
         Ok(ArchivedApp {
             app,
             removed_draft_ids: drafts.into_iter().map(|draft| draft.draft_id).collect(),
-            retained_release_ids,
+            removed_release_ids,
         })
     }
 
@@ -1672,6 +1816,90 @@ impl AppRevisionStore {
         *self.registry.write().await = next;
         Ok(())
     }
+}
+
+fn retain_only_app_release(
+    registry: &mut Registry,
+    app_id: &str,
+    keep_release_id: &str,
+) -> CoreResult<Vec<ReleaseRecord>> {
+    let keep = registry
+        .releases
+        .get(keep_release_id)
+        .ok_or_else(|| CoreError::NotFound(format!("Intelligent App release {keep_release_id}")))?;
+    if keep.app_id != app_id {
+        return Err(CoreError::validation(format!(
+            "Release {keep_release_id} belongs to App {}, not {app_id}",
+            keep.app_id
+        )));
+    }
+    let removed = registry
+        .releases
+        .values()
+        .filter(|release| release.app_id == app_id && release.release_id != keep_release_id)
+        .cloned()
+        .collect::<Vec<_>>();
+    if removed.is_empty() {
+        return Ok(Vec::new());
+    }
+    let removed_ids = removed
+        .iter()
+        .map(|release| release.release_id.clone())
+        .collect::<BTreeSet<_>>();
+    registry
+        .releases
+        .retain(|release_id, _| !removed_ids.contains(release_id));
+    if let Some(retained) = registry.releases.get_mut(keep_release_id) {
+        retained.parent_release_id = None;
+        if retained
+            .upstream_base_release_id
+            .as_ref()
+            .is_some_and(|release_id| removed_ids.contains(release_id))
+        {
+            retained.upstream_app_id = None;
+            retained.upstream_base_release_id = None;
+        }
+    }
+    for release in registry.releases.values_mut() {
+        if release
+            .parent_release_id
+            .as_ref()
+            .is_some_and(|release_id| removed_ids.contains(release_id))
+        {
+            release.parent_release_id = None;
+        }
+        if release
+            .upstream_base_release_id
+            .as_ref()
+            .is_some_and(|release_id| removed_ids.contains(release_id))
+        {
+            release.upstream_app_id = None;
+            release.upstream_base_release_id = None;
+        }
+    }
+    for app in registry.apps.values_mut() {
+        if let Some(derived) = app.derived_from.as_mut() {
+            if derived.app_id == app_id && removed_ids.contains(&derived.release_id) {
+                derived.release_id = keep_release_id.to_string();
+            }
+        }
+    }
+    for draft in registry.drafts.values_mut() {
+        if draft
+            .base_release_id
+            .as_ref()
+            .is_some_and(|release_id| removed_ids.contains(release_id))
+        {
+            draft.base_release_id = (draft.app_id == app_id).then(|| keep_release_id.to_string());
+            draft.rebase_context = None;
+        } else if draft.rebase_context.as_ref().is_some_and(|context| {
+            removed_ids.contains(&context.base_release_id)
+                || removed_ids.contains(&context.target_release_id)
+        }) {
+            draft.rebase_context = None;
+        }
+    }
+    Ok(removed)
 }
 
 fn new_draft_record(
@@ -2230,24 +2458,6 @@ fn validate_registry(root: &Path, registry: &Registry) -> CoreResult<()> {
                 activation.slot_id
             )));
         }
-        if let Some(previous_release_id) = activation.previous_release_id.as_deref() {
-            let previous = registry.releases.get(previous_release_id).ok_or_else(|| {
-                CoreError::validation(format!(
-                    "Activation references missing previous release {previous_release_id}"
-                ))
-            })?;
-            let previous_app = registry.apps.get(&previous.app_id).ok_or_else(|| {
-                CoreError::validation(format!(
-                    "Previous release references missing app {}",
-                    previous.app_id
-                ))
-            })?;
-            if previous_app.slot_id != activation.slot_id {
-                return Err(CoreError::validation(format!(
-                    "Previous release {previous_release_id} belongs to a different slot"
-                )));
-            }
-        }
     }
     Ok(())
 }
@@ -2367,6 +2577,41 @@ fn resolve_store_relative_path(root: &Path, relative: &str) -> CoreResult<PathBu
 fn artifact_path_for_digest(root: &Path, digest: &str) -> CoreResult<PathBuf> {
     validate_sha256_digest("artifactDigest", digest)?;
     Ok(root.join("artifacts").join(&digest["sha256:".len()..]))
+}
+
+async fn cleanup_unreferenced_artifacts(root: &Path, registry: &Registry) -> CoreResult<()> {
+    let artifacts_root = root.join("artifacts");
+    if !artifacts_root.exists() {
+        return Ok(());
+    }
+    let referenced = registry
+        .releases
+        .values()
+        .filter_map(|release| release.artifact_digest.strip_prefix("sha256:"))
+        .map(str::to_string)
+        .collect::<BTreeSet<_>>();
+    let mut entries = fs::read_dir(&artifacts_root).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.len() != 64
+            || !name
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+            || referenced.contains(&name)
+        {
+            continue;
+        }
+        let path = entry.path();
+        let metadata = fs::symlink_metadata(&path).await?;
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err(CoreError::validation(format!(
+                "Unsafe Intelligent App artifact entry: {}",
+                path.display()
+            )));
+        }
+        remove_tree_force(&path).await?;
+    }
+    Ok(())
 }
 
 async fn create_draft_directory(
@@ -3496,6 +3741,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn open_treats_staging_cleanup_failure_as_non_fatal_maintenance() {
+        let root = test_root("non-fatal-staging-cleanup");
+        let store_root = root.join(STORE_DIRECTORY);
+        fs::create_dir_all(&store_root).await.unwrap();
+        let blocked_entry = store_root.join(".publish-staging-blocked");
+        fs::write(&blocked_entry, b"unexpected file").await.unwrap();
+
+        let store = AppRevisionStore::open(&root)
+            .await
+            .expect("staging cleanup must not prevent opening the store");
+
+        assert!(store.list_apps().await.is_empty());
+        assert!(blocked_entry.is_file());
+        let _ = fs::remove_dir_all(&root).await;
+    }
+
+    #[tokio::test]
     async fn system_release_can_be_forked_published_activated_and_rolled_back() {
         let root = test_root("fork");
         let package = root.join("official-package");
@@ -3531,7 +3793,6 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(official_activation.previous_release_id, None);
 
         let fork = store
             .fork_release(ForkReleaseRequest {
@@ -3588,7 +3849,7 @@ mod tests {
             serde_json::Value::String("system.writer".to_string())
         );
 
-        let custom_activation = store
+        let _custom_activation = store
             .activate_for_runtime(
                 ActivateReleaseRequest {
                     scope: AppActivationScope::System,
@@ -3601,10 +3862,6 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(
-            custom_activation.previous_release_id.as_deref(),
-            Some(official.release_id.as_str())
-        );
         let stale_activation = store
             .activate_if_current(
                 ActivateReleaseRequest {
@@ -3620,17 +3877,6 @@ mod tests {
         assert!(stale_activation
             .to_string()
             .contains("changed after authorization"));
-        let stale_rollback = store
-            .rollback_activation_if_current(
-                &AppActivationScope::System,
-                "writer",
-                &official.release_id,
-            )
-            .await
-            .unwrap_err();
-        assert!(stale_rollback
-            .to_string()
-            .contains("changed before rollback"));
         assert_eq!(
             store
                 .get_active(&AppActivationScope::System, "writer")
@@ -3656,24 +3902,13 @@ mod tests {
         assert!(!preserved.enabled);
         assert_eq!(preserved.selected_app_id, "user.writer");
 
-        let rolled_back = store
-            .rollback_activation_if_current(
-                &AppActivationScope::System,
-                "writer",
-                &custom.release_id,
-            )
-            .await
-            .unwrap();
-        assert_eq!(rolled_back.selected_app_id, "system.writer");
-        assert_eq!(rolled_back.active_release_id, official.release_id);
-
         let reopened = AppRevisionStore::open(&root).await.unwrap();
         assert_eq!(
             reopened
                 .get_active(&AppActivationScope::System, "writer")
                 .await
                 .unwrap(),
-            rolled_back
+            preserved
         );
         reopened
             .verify_release_artifact(&custom.release_id)
@@ -4114,7 +4349,6 @@ mod tests {
             )
             .await
             .unwrap();
-
         assert_ne!(first.artifact_digest, second.artifact_digest);
         assert_ne!(first.release_id, second.release_id);
         let first_resolved = store
@@ -4276,7 +4510,7 @@ mod tests {
         let _store = AppRevisionStore::open(&root).await.unwrap();
 
         assert!(!publish_staging.exists());
-        assert!(!system_seed_staging.exists());
+        assert!(system_seed_staging.join("sentinel").is_file());
         assert!(!draft_staging.exists());
         assert!(!artifact_staging.exists());
         assert!(formal_artifact.join("sentinel").is_file());
@@ -4390,7 +4624,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn archive_removes_user_drafts_but_retains_release_history() {
+    async fn archive_removes_user_drafts_releases_and_artifacts() {
         let root = test_root("archive");
         let store = AppRevisionStore::open(&root).await.unwrap();
         let created = store
@@ -4429,15 +4663,15 @@ mod tests {
         let archived = store.archive_app("user.archive").await.unwrap();
         assert_eq!(archived.removed_draft_ids, vec![extra_draft.draft_id]);
         assert_eq!(
-            archived.retained_release_ids,
+            archived.removed_release_ids,
             vec![release.release_id.clone()]
         );
         assert!(store.get_app("user.archive").await.is_none());
         assert!(store.list_drafts(Some("user.archive")).await.is_empty());
-        store
+        assert!(store
             .resolve_release("user.archive", &release.release_id)
             .await
-            .unwrap();
+            .is_err());
 
         let error = store
             .create_intelligent_app(CreateIntelligentAppRequest {
@@ -4521,7 +4755,79 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn system_initialization_preserves_an_existing_release_selection() {
+    async fn system_snapshot_sync_replaces_same_version_without_weakening_strict_import() {
+        let root = test_root("system-snapshot-replacement");
+        let store = AppRevisionStore::open(&root).await.unwrap();
+        let first_package = root.join("system-snapshot-first");
+        fs::create_dir_all(&first_package).await.unwrap();
+        fs::write(first_package.join("content.txt"), b"first snapshot")
+            .await
+            .unwrap();
+        let request = || ImportReleaseFromPackageRequest {
+            app_id: "system.snapshot".to_string(),
+            slot_id: "system-snapshot".to_string(),
+            display_name: "System Snapshot".to_string(),
+            description: Some("Current development snapshot".to_string()),
+            owner: AppOwner::system(),
+            parent_release_id: None,
+            metadata: system_metadata("1.0.0"),
+        };
+
+        let (first, first_sync, first_activation) = store
+            .sync_system_release_from_package(&first_package, request())
+            .await
+            .unwrap();
+        assert_eq!(first_sync, SystemReleaseSyncOutcome::Added);
+        assert_eq!(
+            first_activation,
+            SystemReleaseInitializationOutcome::Created
+        );
+
+        let second_package = root.join("system-snapshot-second");
+        fs::create_dir_all(&second_package).await.unwrap();
+        fs::write(second_package.join("content.txt"), b"changed snapshot")
+            .await
+            .unwrap();
+        let strict_error = store
+            .import_release_from_package(&second_package, request())
+            .await
+            .expect_err("ordinary immutable import must still reject changed bytes");
+        assert!(strict_error
+            .to_string()
+            .contains("publish changed content under a new version"));
+
+        let (second, second_sync, second_activation) = store
+            .sync_system_release_from_package(&second_package, request())
+            .await
+            .unwrap();
+        assert_eq!(second_sync, SystemReleaseSyncOutcome::Replaced);
+        assert_eq!(
+            second_activation,
+            SystemReleaseInitializationOutcome::Created
+        );
+        assert_ne!(first.release_id, second.release_id);
+        assert!(store
+            .resolve_release("system.snapshot", &first.release_id)
+            .await
+            .is_err());
+        assert_eq!(
+            store.list_releases(Some("system.snapshot")).await,
+            vec![second.clone()]
+        );
+        assert_eq!(
+            store
+                .get_active(&AppActivationScope::System, "system-snapshot")
+                .await
+                .unwrap()
+                .active_release_id,
+            second.release_id
+        );
+
+        remove_tree_force(&root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn system_initialization_replaces_an_existing_official_release() {
         let root = test_root("system-initialization-policy");
         let store = AppRevisionStore::open(&root).await.unwrap();
         let first_package = root.join("system-v1");
@@ -4564,6 +4870,7 @@ mod tests {
             )
             .await
             .unwrap();
+        let first_artifact = artifact_path_for_digest(&root, &first.artifact_digest).unwrap();
         store
             .activate(ActivateReleaseRequest {
                 scope: AppActivationScope::System,
@@ -4574,23 +4881,33 @@ mod tests {
             .await
             .unwrap();
 
-        let (preserved, outcome) = store
+        let (activated, outcome) = store
             .initialize_system_release(ActivateReleaseRequest {
                 scope: AppActivationScope::System,
                 slot_id: "system-policy".to_string(),
                 app_id: "system.policy".to_string(),
-                release_id: second.release_id,
+                release_id: second.release_id.clone(),
             })
             .await
             .unwrap();
-        assert_eq!(outcome, SystemReleaseInitializationOutcome::Preserved);
-        assert_eq!(preserved.active_release_id, first.release_id);
+        assert_eq!(outcome, SystemReleaseInitializationOutcome::Created);
+        assert_eq!(activated.active_release_id, second.release_id);
+        let removed = store
+            .prune_app_releases_except("system.policy", &second.release_id)
+            .await
+            .unwrap();
+        assert_eq!(removed, vec![first.clone()]);
+        assert!(store
+            .resolve_release("system.policy", &first.release_id)
+            .await
+            .is_err());
+        assert!(!first_artifact.exists());
 
         remove_tree_force(&root).await.unwrap();
     }
 
     #[tokio::test]
-    async fn archive_atomically_detaches_active_routing_without_deleting_release() {
+    async fn archive_atomically_detaches_active_routing_and_deletes_release() {
         let root = test_root("archive-active-app");
         let store = AppRevisionStore::open(&root).await.unwrap();
         let created = store
@@ -4633,16 +4950,16 @@ mod tests {
             .get_active(&AppActivationScope::System, "active-archive")
             .await
             .is_none());
-        store
+        assert!(store
             .resolve_release("user.active-archive", &release.release_id)
             .await
-            .expect("historical release retained");
+            .is_err());
 
         remove_tree_force(&root).await.unwrap();
     }
 
     #[tokio::test]
-    async fn archive_clears_a_rollback_pointer_to_the_removed_app() {
+    async fn archive_preserves_an_active_official_selection() {
         let root = test_root("archive-rollback-pointer");
         let store = AppRevisionStore::open(&root).await.unwrap();
         let system_package = root.join("system-package");
@@ -4709,7 +5026,6 @@ mod tests {
             .await
             .expect("official selection remains active");
         assert_eq!(activation.active_release_id, official.release_id);
-        assert_eq!(activation.previous_release_id, None);
 
         remove_tree_force(&root).await.unwrap();
     }

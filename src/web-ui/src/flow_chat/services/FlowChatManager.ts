@@ -72,7 +72,6 @@ interface FlowChatInitializationResult {
 
 interface EnsureWorkspaceSessionOptions {
   preferredDescriptor?: SessionDescriptor;
-  storageScope?: import('@/shared/types/session-history').SessionStorageScope;
   skipAutoSelectSession?: boolean;
   createDefaultSession?: boolean;
   defaultSessionConfig?: SessionConfig;
@@ -85,6 +84,8 @@ export class FlowChatManager {
   private agentService: AgentService;
   private eventListenerInitialized = false;
   private eventListenerCleanup: (() => void) | null = null;
+  private sessionRuntimeInitialization: Promise<void> | null = null;
+  private persistUnreadCompletionRegistered = false;
 
   private constructor() {
     this.context = {
@@ -119,26 +120,20 @@ export class FlowChatManager {
   }
 
   async initialize(
-    workspacePath: string,
+    workspace: PreloadWorkspaceScope,
     preferredDescriptor?: SessionDescriptor,
-    storageScope?: import('@/shared/types/session-history').SessionStorageScope,
     options?: {
       skipAutoSelectSession?: boolean;
     }
   ): Promise<FlowChatInitializationResult> {
+    const workspacePath = workspace.rootPath;
     try {
-      scheduleToolCardRegistrySyncFromBackendManifest();
-      await this.initializeEventListeners();
+      await this.initializeSessionRuntime();
 
-      this.context.flowChatStore.registerPersistUnreadCompletionCallback(
-        (sessionId, value) => {
-          updateSessionMetadata(this.context, sessionId).catch(err => {
-            log.warn('Failed to persist unread completion change', { sessionId, value, err });
-          });
-        }
+      await this.context.flowChatStore.initializeFromDisk(
+        workspacePath,
+        { kind: 'workspace', workspace_id: workspace.id },
       );
-
-      await this.context.flowChatStore.initializeFromDisk(workspacePath, storageScope);
 
       const state = this.context.flowChatStore.getState();
       const workspaceSessions = Array.from(state.sessions.values()).filter(session =>
@@ -176,8 +171,8 @@ export class FlowChatManager {
           await this.context.flowChatStore.loadSessionHistory(
             latestSession.sessionId,
             workspacePath,
+            latestSession.domain,
             undefined,
-            latestSession.storageScope
           );
         }
 
@@ -195,13 +190,13 @@ export class FlowChatManager {
   }
 
   async initializeWorkspaceSessionState(
-    workspacePath: string,
+    workspace: PreloadWorkspaceScope,
     options?: EnsureWorkspaceSessionOptions
   ): Promise<FlowChatInitializationResult & { createdSessionId?: string }> {
+    const workspacePath = workspace.rootPath;
     const result = await this.initialize(
-      workspacePath,
+      workspace,
       options?.preferredDescriptor,
-      options?.storageScope,
       { skipAutoSelectSession: options?.skipAutoSelectSession }
     );
 
@@ -225,6 +220,42 @@ export class FlowChatManager {
     }
 
     return result;
+  }
+
+  /**
+   * Initializes FlowChat infrastructure shared by system and workspace sessions.
+   *
+   * Agentic OS is system-scoped, so this lifecycle must not depend on a project
+   * workspace being open. The shared promise also prevents concurrent startup
+   * paths from registering duplicate backend event listeners.
+   */
+  public async initializeSessionRuntime(): Promise<void> {
+    if (!this.sessionRuntimeInitialization) {
+      this.sessionRuntimeInitialization = (async () => {
+        scheduleToolCardRegistrySyncFromBackendManifest();
+        await this.initializeEventListeners();
+
+        if (!this.persistUnreadCompletionRegistered) {
+          this.context.flowChatStore.registerPersistUnreadCompletionCallback(
+            (sessionId, value) => {
+              updateSessionMetadata(this.context, sessionId).catch(err => {
+                log.warn('Failed to persist unread completion change', {
+                  sessionId,
+                  value,
+                  err,
+                });
+              });
+            }
+          );
+          this.persistUnreadCompletionRegistered = true;
+        }
+      })().catch(error => {
+        this.sessionRuntimeInitialization = null;
+        throw error;
+      });
+    }
+
+    await this.sessionRuntimeInitialization;
   }
 
   private sessionMatchesWorkspaceRow(
@@ -301,11 +332,13 @@ export class FlowChatManager {
 
       try {
         const { sessionAPI } = await import('@/infrastructure/api');
-        const metadata = await sessionAPI.listSessions(workspace.rootPath, 'workspace');
+        const metadata = await sessionAPI.listSessions({
+          kind: 'workspace',
+          workspace_id: workspace.id,
+        });
         const inserted = await this.context.flowChatStore.hydrateWorkspaceSessionsMetadata(
           metadata,
           workspace.rootPath,
-          'workspace'
         );
         metadataLoadedCount += inserted;
       } catch (error) {
@@ -345,8 +378,8 @@ export class FlowChatManager {
             await this.context.flowChatStore.loadSessionHistory(
               session.sessionId,
               workspacePath,
+              session.domain,
               undefined,
-              session.storageScope
             );
             warmedSessionCount += 1;
           } catch (error) {
@@ -379,8 +412,8 @@ export class FlowChatManager {
             await this.context.flowChatStore.loadSessionHistory(
               session.sessionId,
               workspacePath,
+              session.domain,
               undefined,
-              session.storageScope
             );
             warmedAgenticOsCount += 1;
           } catch (error) {
@@ -408,11 +441,10 @@ export class FlowChatManager {
   }): Promise<{ metadataLoadedCount: number; warmedAgenticOsCount: number }> {
     const warmAgenticOsCount = options?.warmAgenticOsCount ?? WARM_AGENTIC_OS_SESSION_LIMIT;
     const { sessionAPI } = await import('@/infrastructure/api');
-    const metadata = await sessionAPI.listSessions(undefined, 'agentic_os');
+    const metadata = await sessionAPI.listSessions({ kind: 'os_agent' });
     const metadataLoadedCount = await this.context.flowChatStore.hydrateWorkspaceSessionsMetadata(
       metadata,
       '',
-      'agentic_os'
     );
     if (warmAgenticOsCount <= 0) {
       return { metadataLoadedCount, warmedAgenticOsCount: 0 };
@@ -431,8 +463,8 @@ export class FlowChatManager {
         await this.context.flowChatStore.loadSessionHistory(
           session.sessionId,
           session.workspacePath || '',
+          session.domain,
           undefined,
-          'agentic_os'
         );
         warmedAgenticOsCount += 1;
       })
@@ -445,6 +477,7 @@ export class FlowChatManager {
       this.eventListenerCleanup();
       this.eventListenerCleanup = null;
       this.eventListenerInitialized = false;
+      this.sessionRuntimeInitialization = null;
     }
   }
 
@@ -537,7 +570,9 @@ export class FlowChatManager {
       return;
     }
 
-    await this.initializeWorkspaceSessionState(workspacePath, {
+    await this.initializeWorkspaceSessionState(
+      { ...workspace, name: workspace.id },
+      {
       preferredDescriptor: options.preferredDescriptor,
       createDefaultSession: true,
       defaultSessionConfig: {
@@ -545,7 +580,8 @@ export class FlowChatManager {
         workspaceId: workspace.id,
       },
       defaultSessionDescriptor: options.preferredDescriptor,
-    });
+      },
+    );
   }
 
   async retargetEmptySessionWorkspace(

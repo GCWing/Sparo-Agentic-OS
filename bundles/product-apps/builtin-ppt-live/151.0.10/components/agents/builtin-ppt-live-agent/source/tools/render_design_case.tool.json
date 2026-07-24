@@ -1,0 +1,42 @@
+{
+  "name": "render_design_case",
+  "description": "Render exactly three AI-authored visual pages based on the current Manuscript and PresentationSystem. The AI owns each page's content adaptation and layout; Runtime validates only slide identity, visual structure, tokens, assets, and revisions.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["expectedManuscriptRevision", "expectedSystemRevision", "slides"],
+    "properties": {
+      "expectedManuscriptRevision": { "type": "integer", "minimum": 1 },
+      "expectedSystemRevision": { "type": "integer", "minimum": 0 },
+      "slides": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/slide" } }
+    },
+    "$defs": {
+      "slide": {
+        "type": "object",
+        "required": ["id", "title", "claim", "pageRole", "recipeId", "layoutMode", "visualMode", "visualPlan", "evidenceObject", "exportStrategy", "composition"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^p[0-9]{2,3}$" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "claim": { "type": "string", "minLength": 1, "maxLength": 600 },
+          "pageRole": { "type": "string", "enum": ["cover", "section", "statement", "evidence", "comparison", "process", "architecture", "media", "closing"] },
+          "recipeId": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "layoutMode": { "const": "recipe" },
+          "visualMode": { "type": "string", "enum": ["native", "diagram", "chart", "media", "custom-vector"] },
+          "visualPlan": { "type": "string", "minLength": 1, "maxLength": 1200 },
+          "evidenceObject": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "exportStrategy": { "type": "string", "enum": ["native", "native-shapes", "native-chart", "svg", "image"] },
+          "sourceNote": { "type": "string", "maxLength": 500 },
+          "notes": { "type": "string", "maxLength": 8000 },
+          "composition": { "type": "object", "required": ["slots"], "properties": { "slots": { "type": "array", "minItems": 1, "maxItems": 40, "items": { "type": "object" } } } }
+        }
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/render_design_case.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 120000,
+  "maxOutputBytes": 1600000,
+  "ui": { "card": { "kind": "appDefined", "family": "ppt-live", "template": "compact", "displayMode": "compact", "resultDisplayType": "detailed", "displayName": "Render Design Case", "icon": "GalleryHorizontal", "title": "Generate design proposal", "summary": { "preparing": "Preparing three real pages", "running": "Rendering Design Case", "completed": "Design Case ready for decision", "failed": "Design Case failed" }, "locales": { "zh-CN": { "displayName": "生成设计样稿", "title": "生成设计方案", "summary": { "preparing": "正在准备三张真实页面", "running": "正在渲染设计样稿", "completed": "设计样稿已可供判断", "failed": "设计样稿生成失败" }, "fields": [ { "label": "状态" }, { "label": "密度" }, { "label": "样稿页面" } ] } }, "fields": [ { "label": "Status", "resultPath": ["bridge", "output", "status"] }, { "label": "Density", "resultPath": ["bridge", "output", "density"] }, { "label": "Pages", "resultPath": ["bridge", "output", "sampleSlides"], "format": "json" } ] } }
+}

@@ -48,7 +48,7 @@ const SurfaceRenderer: React.FC<SurfaceRendererProps> = ({
   const sessionScope = useFlowChatStoreSelector(
     (state) => {
       if (surface.kind === 'agentic-os-home') {
-        return systemRuntimeScope();
+        return systemRuntimeScope('os_agent');
       }
       if (surface.kind !== 'session') {
         return null;

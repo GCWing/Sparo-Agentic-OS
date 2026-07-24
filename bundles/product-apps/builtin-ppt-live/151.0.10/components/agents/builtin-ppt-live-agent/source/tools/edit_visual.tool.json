@@ -1,0 +1,84 @@
+{
+  "name": "edit_visual",
+    "description": "Apply a direct, revision-bound layout override to the canonical VisualDocument, or persist the current selection. AI-authored content or composition revisions use generate_slide_visual and are checked against Manuscript by whole-deck AI review.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["expectedRevision", "operation", "intent"],
+    "properties": {
+      "expectedRevision": { "type": "integer", "minimum": 0 },
+      "expectedSlideRevision": { "type": "integer", "minimum": 1 },
+      "expectedVisualRevision": { "type": "integer", "minimum": 1 },
+      "operation": { "type": "string", "enum": ["updateNode", "setSelection"] },
+      "intent": { "type": "string", "minLength": 1, "maxLength": 500 },
+      "slideId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$" },
+      "nodeId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$" },
+      "nodePatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "box": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "x": { "type": "number", "minimum": 0, "maximum": 100 },
+              "y": { "type": "number", "minimum": 0, "maximum": 100 },
+              "w": { "type": "number", "minimum": 2, "maximum": 100 },
+              "h": { "type": "number", "minimum": 2, "maximum": 100 }
+            }
+          },
+          "locked": { "type": "boolean" }
+        },
+        "minProperties": 1
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/edit_visual.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 45000,
+  "maxOutputBytes": 120000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "ppt-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "detailed",
+      "displayName": "Edit visual",
+      "icon": "Palette",
+      "title": "Edit visual",
+      "summary": {
+        "preparing": "Preparing visual edit",
+        "running": "Applying {{input.operation}}",
+        "completed": "Visual edit applied",
+        "failed": "Visual edit failed"
+      },
+      "locales": {
+        "zh-CN": {
+          "displayName": "编辑视觉稿",
+          "title": "编辑视觉稿",
+          "summary": {
+            "preparing": "正在准备视觉编辑",
+            "running": "正在执行 {{input.operation}}",
+            "completed": "视觉编辑已应用",
+            "failed": "视觉编辑失败"
+          },
+          "fields": [
+            { "label": "操作" },
+            { "label": "意图" },
+            { "label": "幻灯片" },
+            { "label": "修订" }
+          ]
+        }
+      },
+      "fields": [
+        { "label": "Operation", "inputPath": ["operation"] },
+        { "label": "Intent", "inputPath": ["intent"] },
+        { "label": "Slide", "inputPath": ["slideId"] },
+        { "label": "Revision", "resultPath": ["bridge", "output", "deck", "revision"] }
+      ]
+    }
+  }
+}

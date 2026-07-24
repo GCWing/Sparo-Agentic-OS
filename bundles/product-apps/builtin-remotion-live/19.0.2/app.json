@@ -1,0 +1,227 @@
+{
+  "id": "builtin-remotion-live",
+  "version": "19.0.2",
+  "name": "Remotion Live",
+  "description": "A Remotion video workbench for previewing, adjusting, fixing, and exporting motion projects.",
+  "authors": [
+    {
+      "name": "GCWing",
+      "url": "https://github.com/GCWing"
+    }
+  ],
+  "i18n": {
+    "locales": {
+      "en-US": {
+        "name": "Remotion Live",
+        "description": "A Remotion video workbench for previewing, adjusting, fixing, and exporting motion projects.",
+        "tags": [
+          "built-in",
+          "remotion",
+          "video",
+          "render"
+        ]
+      },
+      "zh-CN": {
+        "name": "Remotion Live",
+        "description": "面向 Remotion 视频项目的创作工作台，用来预览、调整、修复和导出动态作品。",
+        "tags": [
+          "内置",
+          "remotion",
+          "视频",
+          "渲染"
+        ]
+      }
+    }
+  },
+  "interactionModel": "interactiveWorkspace",
+  "workMultiplicity": "multiple",
+  "workObjectKinds": [
+    {
+      "id": "composition",
+      "label": "Composition",
+      "scope": "runtime",
+      "identitySchema": {
+        "type": "object",
+        "required": [
+          "compositionId"
+        ],
+        "properties": {
+          "compositionId": {
+            "type": "string"
+          },
+          "entryPoint": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "frame": {
+            "type": "number"
+          },
+          "durationInFrames": {
+            "type": "number"
+          },
+          "fps": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "id": "preview-context",
+      "label": "Preview Context",
+      "scope": "runtime",
+      "identitySchema": {
+        "type": "object",
+        "required": [
+          "workspacePath"
+        ],
+        "properties": {
+          "workspacePath": {
+            "type": "string"
+          },
+          "previewHostId": {
+            "type": "string"
+          }
+        }
+      },
+      "contextSchema": {
+        "type": "object",
+        "properties": {
+          "playerHost": {
+            "type": "object"
+          },
+          "selectedLayer": {
+            "type": "object"
+          },
+          "diagnostics": {
+            "type": "array"
+          }
+        }
+      }
+    }
+  ],
+  "truthSource": "runtimeFact",
+  "primarySurface": {
+    "componentId": "builtin-remotion-live-surface",
+    "surfaceId": "primary"
+  },
+  "primarySurfaceMode": "sidecarLinked",
+  "components": [
+    {
+      "componentId": "builtin-remotion-live-surface",
+      "kind": "surface",
+      "source": "private",
+      "role": "primarySurface",
+      "capabilities": [
+        "interactiveSurface"
+      ],
+      "usesCapabilities": [
+        "session.read",
+        "component.run"
+      ]
+    },
+    {
+      "componentId": "remotion-video-agent",
+      "kind": "agent",
+      "source": "private",
+      "role": "assistant",
+      "capabilities": [
+        "understandVideoProject",
+        "reviseVideoComposition",
+        "renderReviewArtifact"
+      ],
+      "usesCapabilities": [
+        "filesystem.read",
+        "filesystem.write",
+        "terminal.run",
+        "process.spawn",
+        "workspace.inspect",
+        "workspace.modify",
+        "session.read",
+        "model.invoke",
+        "tool.invoke",
+        "component.run"
+      ]
+    },
+    {
+      "componentId": "builtin-remotion-runtime",
+      "kind": "bridge",
+      "source": "private",
+      "role": "runtime",
+      "capabilities": [
+        "sparo.videoEngine"
+      ],
+      "usesCapabilities": [
+        "filesystem.read",
+        "filesystem.write",
+        "terminal.run",
+        "process.spawn",
+        "workspace.inspect",
+        "component.run"
+      ]
+    },
+    {
+      "componentId": "product-app-runtime-host",
+      "kind": "runtime",
+      "source": "shared",
+      "role": "runtimeHost",
+      "version": "^1.0.0",
+      "capabilities": [
+        "uiWorker"
+      ],
+      "usesCapabilities": [
+        "component.run"
+      ]
+    }
+  ],
+  "componentLockId": "",
+  "permissions": {
+    "fs": true,
+    "net": true,
+    "shell": true,
+    "gui": false,
+    "secrets": false,
+    "ai": true
+  },
+  "installScope": "system",
+  "catalogVisibility": "discoverable",
+  "enabled": true,
+  "icon": {
+    "kind": "packageAsset",
+    "path": "assets/icon.png"
+  },
+  "category": "creative",
+  "tags": [
+    "built-in",
+    "remotion",
+    "video",
+    "render"
+  ],
+  "launch": {
+    "kind": "applicationSurface",
+    "targetId": "builtin-remotion-live",
+    "scopeRequirement": "workspaceRequired",
+    "surfaceId": "primary"
+  },
+  "osCapabilities": [
+    "session.read",
+    "component.run",
+    "filesystem.read",
+    "filesystem.write",
+    "terminal.run",
+    "process.spawn",
+    "workspace.inspect",
+    "workspace.modify",
+    "model.invoke",
+    "tool.invoke"
+  ],
+  "dataLifecycle": {
+    "retention": "userManaged",
+    "deletion": "deleteOnUserRequest",
+    "migration": "exportImport",
+    "share": "declaredWorkObjectsOnly"
+  }
+}

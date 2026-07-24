@@ -21,6 +21,7 @@ export default defineConfig(({ mode, command }) => {
       dedupe: ['react', 'react-dom'],
       alias: {
         ...(isTest ? { "monaco-editor": path.resolve(__dirname, "./src/test/mocks/monaco-editor.ts") } : {}),
+        "@sparo/icons": path.resolve(__dirname, "../packages/icons/src/index.ts"),
         "@": path.resolve(__dirname, "./src"),
         "@/shared": path.resolve(__dirname, "./src/shared"),
         "@/core": path.resolve(__dirname, "./src/core"),

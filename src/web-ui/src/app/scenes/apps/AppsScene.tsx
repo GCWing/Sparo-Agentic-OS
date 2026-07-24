@@ -87,7 +87,7 @@ import './app-detail/AppDetailScene.scss';
 import { useProductAppRuntimeStore } from './product-app-runtime/productAppRuntimeStore';
 import { productAppRuntimeHostAPI } from '@/infrastructure/api/service-api/ProductAppRuntimeHostAPI';
 import { mergeProductAppLibrary, productAppLibraryKey } from './productAppLibrary';
-import { AppIcon } from './AppIcon';
+import { AppIcon } from '@/app/components/AppIcon';
 import { launchActiveIntelligentApp } from './intelligentAppLaunchService';
 import { createAndOpenAppBuilder, openAppBuilderSession } from './app-builder/openAppBuilderSession';
 import { selectOpenAppWorkActivities } from './appWorkActivity';
@@ -862,7 +862,10 @@ export const AppsScene: React.FC = () => {
     return () => window.cancelAnimationFrame(frame);
   }, [page]);
 
-  const handleLaunchApp = useCallback(async (app: ProductAppCatalogEntry) => {
+  const handleLaunchApp = useCallback(async (
+    app: ProductAppCatalogEntry,
+    workMode: 'resume' | 'create' = 'resume',
+  ) => {
     if (app.installed !== true) {
       notificationService.error(t('productSystem.messages.installBeforeLaunch', { name: app.name }));
       return;
@@ -882,6 +885,7 @@ export const AppsScene: React.FC = () => {
           scope: workAppScope,
           title: app.name,
           objective: app.description || app.name,
+          workMode,
         });
         return;
       }
@@ -956,7 +960,7 @@ export const AppsScene: React.FC = () => {
       const action = work.status === 'running' || work.status === 'waiting_user' || work.status === 'blocked'
         ? 'cancel_current_execution'
         : 'archive';
-      await controlWork({ workId: work.id, action });
+      await controlWork({ locator: { scope: work.scope, workId: work.id }, action });
     } catch (error) {
       log.error('Failed to close running app work', { workId: work.id, error });
       notificationService.error(t('productSystem.messages.closeWorkFailed', {
@@ -1123,19 +1127,6 @@ export const AppsScene: React.FC = () => {
     }
   }, [closeAppDetail, loadProductAppLibrary, loadProductHomeCatalog, workAppScope]);
 
-  const handleRollbackApp = useCallback(async (productApp: ProductAppCatalogEntry) => {
-    setManagingAppId(productApp.id);
-    try {
-      await intelligentAppAPI.rollbackActivation(productApp.slotId);
-      await loadCatalog({ force: true });
-      notificationService.success(t('productSystem.messages.rolledBack', { name: productApp.name }));
-    } catch (error) {
-      notificationService.error(error instanceof Error ? error.message : String(error));
-    } finally {
-      setManagingAppId(null);
-    }
-  }, [loadCatalog, t]);
-
   const handleSyncUpstream = useCallback(async (productApp: ProductAppCatalogEntry) => {
     if (!productApp.upstreamLatestReleaseId) return;
     setManagingAppId(productApp.id);
@@ -1272,7 +1263,6 @@ export const AppsScene: React.FC = () => {
         managing={selectedApp ? managingAppId === selectedApp.id : false}
         onInstall={() => selectedApp && void handleInstallProductApp(selectedApp)}
         onCustomize={() => selectedApp && void handleCustomizeApp(selectedApp)}
-        onRollback={() => selectedApp && void handleRollbackApp(selectedApp)}
         onSyncUpstream={() => selectedApp && void handleSyncUpstream(selectedApp)}
       />
     );
@@ -1546,6 +1536,7 @@ export const AppsScene: React.FC = () => {
                             flipped={flippedAppId === app.id}
                             onToggleFlip={() => toggleCardFlip(app.id)}
                             onLaunch={() => void handleLaunchApp(app)}
+                            onCreateNew={() => void handleLaunchApp(app, 'create')}
                             onStop={() => void handleStopApp(app)}
                             onContinue={(work) => void openWork(work)}
                             onOpenDetails={() => openAppDetail(app.id)}
@@ -2215,6 +2206,7 @@ function ProductAppCard({
   flipped,
   onToggleFlip,
   onLaunch,
+  onCreateNew,
   onStop,
   onContinue,
   onOpenDetails,
@@ -2229,6 +2221,7 @@ function ProductAppCard({
   flipped: boolean;
   onToggleFlip: () => void;
   onLaunch: () => void;
+  onCreateNew: () => void;
   onStop: () => void;
   onContinue: (work: WorkRecord) => void;
   onOpenDetails: () => void;
@@ -2276,7 +2269,7 @@ function ProductAppCard({
                   running={running}
                   launching={launching}
                   stopping={stopping}
-                  onLaunch={onLaunch}
+                  onLaunch={supportsMultipleWorks ? onCreateNew : onLaunch}
                   onStop={onStop}
                   t={t}
                 />
@@ -2301,7 +2294,7 @@ function ProductAppCard({
               relatedWorks={relatedWorks}
               onBack={onToggleFlip}
               onSelect={onContinue}
-              onCreateNew={onLaunch}
+              onCreateNew={onCreateNew}
               t={t}
             />
           ) : null}

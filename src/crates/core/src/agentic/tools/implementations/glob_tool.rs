@@ -1,4 +1,5 @@
 use crate::agentic::tools::framework::{Tool, ToolResult, ToolUseContext};
+use crate::agentic::tools::ToolPathOperation;
 use crate::error::{CoreError, CoreResult};
 use async_trait::async_trait;
 use globset::{GlobBuilder, GlobMatcher};
@@ -431,6 +432,7 @@ impl Tool for GlobTool {
                 }
             }
         };
+        context.enforce_path_operation(ToolPathOperation::Search, &resolved)?;
         let limit = input
             .get("limit")
             .and_then(|v| v.as_u64())

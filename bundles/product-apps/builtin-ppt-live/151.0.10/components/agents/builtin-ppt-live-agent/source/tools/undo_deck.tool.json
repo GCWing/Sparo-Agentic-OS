@@ -1,0 +1,57 @@
+{
+  "name": "undo_deck",
+  "description": "Undo the latest committed PresentationSystem, semantic deck, or VisualDocument mutation. Markdown notes are not changed by this tool.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["expectedDeckRevision", "expectedSystemRevision"],
+    "properties": {
+      "expectedDeckRevision": { "type": "integer", "minimum": 0 },
+      "expectedSystemRevision": { "type": "integer", "minimum": 0 }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/undo_deck.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 30000,
+  "maxOutputBytes": 80000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "ppt-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "summary",
+      "displayName": "Undo visual change",
+      "icon": "Undo2",
+      "title": "Undo visual change",
+      "summary": {
+        "preparing": "Finding previous revision",
+        "running": "Restoring visual presentation",
+        "completed": "Visual change undone",
+        "failed": "Undo failed"
+      },
+      "locales": {
+        "zh-CN": {
+          "displayName": "撤销视觉更改",
+          "title": "撤销视觉更改",
+          "summary": {
+            "preparing": "正在查找上一修订",
+            "running": "正在恢复演示文稿视觉稿",
+            "completed": "视觉更改已撤销",
+            "failed": "撤销失败"
+          },
+          "fields": [
+            { "label": "演示文稿修订" },
+            { "label": "设计系统修订" }
+          ]
+        }
+      },
+      "fields": [
+        { "label": "Deck revision", "resultPath": ["bridge", "output", "deck", "revision"] },
+        { "label": "System revision", "resultPath": ["bridge", "output", "presentationSystem", "revision"] }
+      ]
+    }
+  }
+}

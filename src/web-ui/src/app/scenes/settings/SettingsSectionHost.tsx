@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
+  FormSection,
   LoadingSkeleton,
   SettingsSection,
 } from '@/design-system';
@@ -34,6 +41,18 @@ function humanizeId(value: string): string {
   return value
     .replace(/[-_.]+/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function getSectionFallback(
+  sectionId: string,
+  translate: (key: string, options: { defaultValue: string }) => string,
+): string {
+  const advancedTabId = sectionId.startsWith('advanced-')
+    ? sectionId.slice('advanced-'.length)
+    : null;
+  return advancedTabId
+    ? translate(`tabs.${advancedTabId}`, { defaultValue: humanizeId(advancedTabId) })
+    : humanizeId(sectionId);
 }
 
 export function SettingsSectionHost({
@@ -142,10 +161,10 @@ export function SettingsSectionHost({
           className="sparo-settings-section-host__section"
           data-setting-section={group.ref.sectionId}
           title={tCenter(`sections.${group.ref.sectionId}`, {
-            defaultValue: humanizeId(group.ref.sectionId),
+            defaultValue: getSectionFallback(group.ref.sectionId, tCenter),
           })}
         >
-          <div className="sparo-settings-section-host__fields">
+          <FormSection className="sparo-settings-section-host__fields">
             {group.descriptors.map((descriptor) => (
               <div
                 key={descriptor.id}
@@ -159,7 +178,9 @@ export function SettingsSectionHost({
                 <SettingRenderer
                   settingId={descriptor.id}
                   translate={(key) => i18n.t(key, {
-                    defaultValue: humanizeId(descriptor.presentation.fieldId),
+                    defaultValue: tCenter(`fields.${descriptor.presentation.fieldId}`, {
+                      defaultValue: humanizeId(descriptor.presentation.fieldId),
+                    }),
                   })}
                   disabled={disabled}
                   onConfirmationRequired={async (confirmationError) => {
@@ -196,7 +217,7 @@ export function SettingsSectionHost({
                 />
               </div>
             ))}
-          </div>
+          </FormSection>
         </SettingsSection>
       ))}
     </div>

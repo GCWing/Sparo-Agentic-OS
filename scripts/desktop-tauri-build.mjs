@@ -27,7 +27,7 @@ async function main() {
 
   await ensureOpenSslWindows();
 
-  const bundleScript = join(ROOT, 'scripts', 'bundle-ppt-live-export-browser.mjs');
+  const bundleScript = join(ROOT, 'scripts', 'bundle-ppt-live-export.mjs');
   const bundle = spawnSync(process.execPath, [bundleScript], {
     cwd: ROOT,
     stdio: 'inherit',

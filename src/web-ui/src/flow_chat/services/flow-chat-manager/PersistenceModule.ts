@@ -61,20 +61,6 @@ function isTransientSession(session: { isTransient?: boolean } | undefined): boo
   return session?.isTransient === true;
 }
 
-function requireWorkspacePath(
-  sessionId: string,
-  workspacePath?: string,
-  storageScope?: import('@/shared/types/session-history').SessionStorageScope
-): string {
-  if (storageScope === 'agentic_os') {
-    return workspacePath || '';
-  }
-  if (!workspacePath) {
-    throw new Error(`Workspace path is required for session: ${sessionId}`);
-  }
-  return workspacePath;
-}
-
 async function runSerialDialogTurnSave(
   context: FlowChatContext,
   sessionId: string,
@@ -346,8 +332,6 @@ async function performSaveDialogTurnToDisk(
       return;
     }
 
-    const workspacePath = requireWorkspacePath(sessionId, session.workspacePath, session.storageScope);
-    
     const dialogTurn = session.dialogTurns.find(turn => turn.id === turnId);
     if (!dialogTurn) {
       log.debug('Dialog turn not found, skipping save', { sessionId, turnId });
@@ -358,8 +342,7 @@ async function performSaveDialogTurnToDisk(
     const turnData = convertDialogTurnToBackendFormat(dialogTurn, turnIndex);
     await sessionAPI.saveSessionTurn(
       turnData,
-      workspacePath,
-      session.storageScope
+      session.domain,
     );
     
     scheduleSessionMetadataUpdate(context, sessionId);
@@ -550,14 +533,10 @@ export async function updateSessionMetadata(
     if (!session) return;
     if (isTransientSession(session)) return;
 
-    const workspacePath = requireWorkspacePath(sessionId, session.workspacePath, session.storageScope);
-
     let existingMetadata: any = null;
     try {
       existingMetadata = await sessionAPI.loadSessionMetadata(
-        sessionId,
-        workspacePath,
-        session.storageScope
+        { session_id: sessionId, domain: session.domain },
       );
     } catch {
       // ignore
@@ -565,11 +544,7 @@ export async function updateSessionMetadata(
 
     const metadata = buildSessionMetadata(session, existingMetadata);
 
-    await sessionAPI.saveSessionMetadata(
-      metadata,
-      workspacePath,
-      session.storageScope
-    );
+    await sessionAPI.saveSessionMetadata(metadata);
   } catch (error) {
     log.warn('Failed to update session metadata', { sessionId, error });
   }
@@ -580,16 +555,12 @@ export async function updateSessionMetadata(
  */
 export async function touchSessionActivity(
   sessionId: string,
-  workspacePath?: string,
-  storageScope?: import('@/shared/types/session-history').SessionStorageScope
+  domain?: import('@/shared/types/session-history').SessionDomain,
 ): Promise<void> {
+  if (!domain) return;
   try {
     const { sessionAPI } = await import('@/infrastructure/api');
-    await sessionAPI.touchSessionActivity(
-      sessionId,
-      requireWorkspacePath(sessionId, workspacePath, storageScope),
-      storageScope
-    );
+    await sessionAPI.touchSessionActivity({ session_id: sessionId, domain });
   } catch (error) {
     log.debug('Failed to touch session activity', { sessionId, error });
   }

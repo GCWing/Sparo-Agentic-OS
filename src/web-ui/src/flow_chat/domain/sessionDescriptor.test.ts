@@ -47,13 +47,10 @@ describe('sessionDescriptor', () => {
     expect(descriptor.agentPolicy.activeAgentId).toBe('bitfun-plan');
   });
 
-  it('falls unknown agent type requests back to Runno', () => {
-    const descriptor = descriptorFromAgentType('Reviewer');
+  it('does not project unknown backend session events as Runno', () => {
+    const descriptor = descriptorFromBackendSessionCreated('Reviewer');
 
-    expect(descriptor.profileId).toBe('runno');
-    expect(descriptor.agentPolicy.defaultAgentId).toBe('Runno');
-    expect(descriptor.agentPolicy.activeAgentId).toBe('Runno');
-    expect(descriptor.agentPolicy.switchableAgentIds).toEqual(['Runno']);
+    expect(descriptor).toBeNull();
   });
 
   it('keeps the Product App profile separate from its execution agent', () => {
@@ -84,7 +81,7 @@ describe('sessionDescriptor', () => {
     expect(descriptor.hostKind).toBe('system-settings');
     expect(descriptor.profileId).toBe('settings');
     expect(descriptor.identityId).toBe('settings');
-    expect(descriptor.storageScope).toBe('agentic_os');
+    expect(descriptor.sessionDomainKind).toBe('global');
     expect(descriptor.agentPolicy).toEqual({
       defaultAgentId: 'SettingsAgent',
       activeAgentId: 'SettingsAgent',

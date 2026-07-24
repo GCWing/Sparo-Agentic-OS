@@ -87,7 +87,10 @@ impl ResetApplicationDataService {
         let reset_id = Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
         let plan = self.build_plan(&request)?;
         let backup_dir = if request.create_backup {
-            Some(self.create_reset_backup(&reset_id, request.mode).await?)
+            Some(
+                self.create_reset_backup(&reset_id, request.mode, &plan.delete_roots)
+                    .await?,
+            )
         } else {
             None
         };
@@ -136,6 +139,11 @@ impl ResetApplicationDataService {
                 delete_roots.push(self.path_manager.user_state_dir().join("ui"));
                 preserved_roots.extend([
                     self.path_manager.user_config_dir(),
+                    self.path_manager.sessions_root(),
+                    self.path_manager.works_root(),
+                    self.path_manager.runs_root(),
+                    self.path_manager.app_data_root(),
+                    self.path_manager.services_root(),
                     self.path_manager.workspaces_runtime_root(),
                     self.path_manager.agentic_os_runtime_root(),
                     self.path_manager.user_data_dir(),
@@ -146,10 +154,16 @@ impl ResetApplicationDataService {
                 delete_roots.extend([
                     self.path_manager.user_config_dir(),
                     self.path_manager.user_state_dir(),
+                    self.path_manager.sessions_root(),
+                    self.path_manager.works_root(),
+                    self.path_manager.runs_root(),
+                    self.path_manager.app_data_root(),
+                    self.path_manager.services_root(),
                     self.path_manager.workspaces_runtime_root(),
                     self.path_manager.agentic_os_runtime_root(),
                     self.path_manager.user_data_dir(),
                     self.path_manager.apps_dir(),
+                    self.path_manager.system_components_dir(),
                     self.path_manager.cache_root(),
                     self.path_manager.temp_dir(),
                 ]);
@@ -188,7 +202,12 @@ impl ResetApplicationDataService {
         })
     }
 
-    async fn create_reset_backup(&self, reset_id: &str, mode: ResetMode) -> CoreResult<PathBuf> {
+    async fn create_reset_backup(
+        &self,
+        reset_id: &str,
+        mode: ResetMode,
+        delete_roots: &[PathBuf],
+    ) -> CoreResult<PathBuf> {
         let backup_dir = self.path_manager.reset_backups_dir().join(reset_id);
         fs::create_dir_all(&backup_dir).await.map_err(|error| {
             CoreError::io(format!(
@@ -198,23 +217,35 @@ impl ResetApplicationDataService {
             ))
         })?;
 
-        Self::copy_dir_if_exists(
-            &self.path_manager.user_config_dir(),
-            &backup_dir.join("config"),
-        )
-        .await?;
-        Self::copy_dir_if_exists(
-            &self.path_manager.user_state_dir(),
-            &backup_dir.join("state"),
-        )
-        .await?;
-        Self::copy_dir_if_exists(&self.path_manager.user_data_dir(), &backup_dir.join("data"))
-            .await?;
+        let excluded_ephemeral_roots = [
+            self.path_manager.cache_root(),
+            self.path_manager.temp_dir(),
+            self.path_manager.logs_dir(),
+        ];
+        let mut backed_up_roots = Vec::new();
+        for (index, source) in delete_roots.iter().enumerate() {
+            if excluded_ephemeral_roots.iter().any(|root| root == source) {
+                continue;
+            }
+            let name = source
+                .file_name()
+                .and_then(|value| value.to_str())
+                .filter(|value| !value.is_empty())
+                .unwrap_or("root");
+            let target = backup_dir.join("roots").join(format!("{index:03}-{name}"));
+            if Self::copy_path_if_exists(source, &target).await? {
+                backed_up_roots.push(serde_json::json!({
+                    "source": source,
+                    "backupPath": target,
+                }));
+            }
+        }
 
         let manifest = serde_json::json!({
             "resetId": reset_id,
             "mode": mode,
             "createdAt": Utc::now().to_rfc3339(),
+            "roots": backed_up_roots,
         });
         fs::write(
             backup_dir.join("reset-backup.json"),
@@ -348,10 +379,32 @@ impl ResetApplicationDataService {
         Ok(())
     }
 
-    async fn copy_dir_if_exists(source: &Path, target: &Path) -> CoreResult<()> {
+    async fn copy_path_if_exists(source: &Path, target: &Path) -> CoreResult<bool> {
         if !source.exists() {
-            return Ok(());
+            return Ok(false);
         }
+        let source_metadata = fs::metadata(source).await.map_err(|error| {
+            CoreError::io(format!(
+                "Failed to stat backup source {}: {}",
+                source.display(),
+                error
+            ))
+        })?;
+        if source_metadata.is_file() {
+            if let Some(parent) = target.parent() {
+                fs::create_dir_all(parent).await?;
+            }
+            fs::copy(source, target).await.map_err(|error| {
+                CoreError::io(format!(
+                    "Failed to copy reset backup file {} -> {}: {}",
+                    source.display(),
+                    target.display(),
+                    error
+                ))
+            })?;
+            return Ok(true);
+        }
+
         let mut pending = vec![(source.to_path_buf(), target.to_path_buf())];
         while let Some((current_source, current_target)) = pending.pop() {
             fs::create_dir_all(&current_target).await.map_err(|error| {
@@ -396,11 +449,85 @@ impl ResetApplicationDataService {
                 }
             }
         }
-        Ok(())
+        Ok(true)
     }
 }
 
 struct ResetPlan {
     delete_roots: Vec<PathBuf>,
     preserved_roots: Vec<PathBuf>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ResetApplicationDataRequest, ResetApplicationDataService, ResetMode, RESET_CONFIRMATION,
+    };
+    use crate::infrastructure::PathManager;
+    use tempfile::tempdir;
+
+    fn request(mode: ResetMode) -> ResetApplicationDataRequest {
+        ResetApplicationDataRequest {
+            mode,
+            confirmation: RESET_CONFIRMATION.to_string(),
+            create_backup: false,
+            include_logs: false,
+            include_secrets: false,
+            include_browser_profiles: false,
+            include_project_local_sparo_dirs: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn soft_reset_preserves_all_authoritative_storage_roots() {
+        let temp = tempdir().expect("temp dir");
+        let paths = PathManager::with_user_root_for_tests(temp.path().join("user"));
+        let service = ResetApplicationDataService::new(paths.clone());
+        let plan = service
+            .build_plan(&request(ResetMode::Soft))
+            .expect("soft reset plan");
+
+        for root in [
+            paths.sessions_root(),
+            paths.works_root(),
+            paths.runs_root(),
+            paths.app_data_root(),
+            paths.services_root(),
+        ] {
+            assert!(
+                plan.preserved_roots.contains(&root),
+                "missing preserved root {}",
+                root.display()
+            );
+            assert!(!plan.delete_roots.contains(&root));
+        }
+    }
+
+    #[test]
+    fn app_data_reset_deletes_all_authoritative_storage_roots() {
+        let temp = tempdir().expect("temp dir");
+        let paths = PathManager::with_user_root_for_tests(temp.path().join("user"));
+        let service = ResetApplicationDataService::new(paths.clone());
+        let plan = service
+            .build_plan(&request(ResetMode::AppData))
+            .expect("app-data reset plan");
+
+        for root in [
+            paths.sessions_root(),
+            paths.works_root(),
+            paths.runs_root(),
+            paths.app_data_root(),
+            paths.services_root(),
+            paths.workspaces_runtime_root(),
+            paths.agentic_os_runtime_root(),
+            paths.apps_dir(),
+            paths.system_components_dir(),
+        ] {
+            assert!(
+                plan.delete_roots.contains(&root),
+                "missing deleted root {}",
+                root.display()
+            );
+        }
+    }
 }

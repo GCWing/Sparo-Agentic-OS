@@ -1,0 +1,354 @@
+[
+  {
+    "id": "sparo-hub",
+    "family": "system",
+    "componentName": "SparoHubIcon",
+    "label": "Sparo Hub",
+    "labelZh": "Sparo Hub",
+    "tags": ["home", "hub", "workspace", "首页", "工作区"]
+  },
+  {
+    "id": "work-center",
+    "family": "system",
+    "componentName": "WorkCenterIcon",
+    "label": "Work Center",
+    "labelZh": "工作中心",
+    "tags": ["work", "task", "folder", "工作", "任务"]
+  },
+  {
+    "id": "app-center",
+    "family": "system",
+    "componentName": "AppCenterIcon",
+    "label": "App Center",
+    "labelZh": "应用中心",
+    "tags": ["app", "grid", "product", "应用", "产品"]
+  },
+  {
+    "id": "daily-letter",
+    "family": "system",
+    "componentName": "DailyLetterIcon",
+    "label": "Daily Letter",
+    "labelZh": "每日来信",
+    "tags": ["mail", "letter", "daily", "邮件", "来信"]
+  },
+  {
+    "id": "memory",
+    "family": "system",
+    "componentName": "MemoryIcon",
+    "label": "Memory",
+    "labelZh": "记忆",
+    "tags": ["memory", "spiral", "context", "记忆", "上下文"]
+  },
+  {
+    "id": "files",
+    "family": "system",
+    "componentName": "FilesIcon",
+    "label": "Files",
+    "labelZh": "文件",
+    "tags": ["files", "folder", "workspace", "文件", "目录"]
+  },
+  {
+    "id": "terminal",
+    "family": "system",
+    "componentName": "TerminalIcon",
+    "label": "Terminal",
+    "labelZh": "终端",
+    "tags": ["terminal", "shell", "command", "终端", "命令"]
+  },
+  {
+    "id": "skills",
+    "family": "system",
+    "componentName": "SkillsIcon",
+    "label": "Skills",
+    "labelZh": "技能",
+    "tags": ["skill", "puzzle", "capability", "技能", "能力"]
+  },
+  {
+    "id": "tools",
+    "family": "system",
+    "componentName": "ToolsIcon",
+    "label": "Tools",
+    "labelZh": "工具",
+    "tags": ["tool", "wrench", "utility", "工具"]
+  },
+  {
+    "id": "subagent",
+    "family": "system",
+    "componentName": "SubagentIcon",
+    "label": "Subagent",
+    "labelZh": "子智能体",
+    "tags": ["agent", "subagent", "delegation", "智能体", "子智能体"]
+  },
+  {
+    "id": "settings",
+    "family": "system",
+    "componentName": "SettingsIcon",
+    "label": "Settings",
+    "labelZh": "设置",
+    "tags": ["settings", "gear", "preferences", "设置", "偏好"]
+  },
+  {
+    "id": "full-open",
+    "family": "system",
+    "componentName": "FullOpenIcon",
+    "label": "Open Full",
+    "labelZh": "完整打开",
+    "tags": ["open", "expand", "focus", "打开", "展开"]
+  },
+  {
+    "id": "normal-work",
+    "family": "work-type",
+    "componentName": "NormalWorkIcon",
+    "label": "Normal Work",
+    "labelZh": "普通工作",
+    "tags": ["work", "task", "normal", "standard", "普通", "工作"]
+  },
+  {
+    "id": "multi-step-work",
+    "family": "work-type",
+    "componentName": "MultiStepWorkIcon",
+    "label": "Multi-step Work",
+    "labelZh": "多步骤工作",
+    "tags": ["workflow", "steps", "sequence", "多步骤", "流程"]
+  },
+  {
+    "id": "long-running-work",
+    "family": "work-type",
+    "componentName": "LongRunningWorkIcon",
+    "label": "Long-running Work",
+    "labelZh": "长期工作",
+    "tags": ["long-running", "continuous", "infinity", "长期", "持续"]
+  },
+  {
+    "id": "topic-work",
+    "family": "work-type",
+    "componentName": "TopicWorkIcon",
+    "label": "Topic Work",
+    "labelZh": "主题工作",
+    "tags": ["topic", "folder", "bookmark", "主题", "专题"]
+  },
+  {
+    "id": "recurring-work",
+    "family": "work-type",
+    "componentName": "RecurringWorkIcon",
+    "label": "Recurring Work",
+    "labelZh": "周期工作",
+    "tags": ["recurring", "schedule", "calendar", "周期", "定时"]
+  },
+  {
+    "id": "intelligent-app-work",
+    "family": "work-type",
+    "componentName": "IntelligentAppWorkIcon",
+    "label": "Intelligent App Work",
+    "labelZh": "智能应用工作",
+    "tags": ["intelligent app", "product app", "agentic", "智能应用"]
+  },
+  {
+    "id": "delegated-work",
+    "family": "work-type",
+    "componentName": "DelegatedWorkIcon",
+    "label": "Delegated Work",
+    "labelZh": "委派工作",
+    "tags": ["delegated", "handoff", "transfer", "委派", "转交"]
+  },
+  {
+    "id": "system-work",
+    "family": "work-type",
+    "componentName": "SystemWorkIcon",
+    "label": "System Work",
+    "labelZh": "系统工作",
+    "tags": ["system", "background", "orbit", "系统", "后台"]
+  },
+  {
+    "id": "back",
+    "family": "navigation",
+    "componentName": "BackIcon",
+    "label": "Back",
+    "labelZh": "返回",
+    "tags": ["back", "previous", "left", "arrow", "返回", "后退", "导航"]
+  },
+  {
+    "id": "forward",
+    "family": "navigation",
+    "componentName": "ForwardIcon",
+    "label": "Forward / Enter",
+    "labelZh": "前进 / 进入",
+    "tags": ["forward", "next", "enter", "right", "arrow", "前进", "进入", "导航"]
+  },
+  {
+    "id": "external-open",
+    "family": "navigation",
+    "componentName": "ExternalOpenIcon",
+    "label": "Open Externally",
+    "labelZh": "外部打开",
+    "tags": ["external", "open", "outbound", "link", "外部打开", "新窗口", "导航"]
+  },
+  {
+    "id": "expand",
+    "family": "navigation",
+    "componentName": "ExpandIcon",
+    "label": "Expand",
+    "labelZh": "展开",
+    "tags": ["expand", "unfold", "down", "chevron", "展开", "下拉", "导航"]
+  },
+  {
+    "id": "collapse",
+    "family": "navigation",
+    "componentName": "CollapseIcon",
+    "label": "Collapse",
+    "labelZh": "收起",
+    "tags": ["collapse", "fold", "up", "chevron", "收起", "折叠", "导航"]
+  },
+  {
+    "id": "close",
+    "family": "navigation",
+    "componentName": "CloseIcon",
+    "label": "Close",
+    "labelZh": "关闭",
+    "tags": ["close", "dismiss", "remove", "x", "关闭", "退出", "导航"]
+  },
+  {
+    "id": "search",
+    "family": "search-filter",
+    "componentName": "SearchIcon",
+    "label": "Search",
+    "labelZh": "搜索",
+    "tags": ["search", "find", "magnifier", "lookup", "搜索", "查找", "检索"]
+  },
+  {
+    "id": "clear",
+    "family": "search-filter",
+    "componentName": "ClearIcon",
+    "label": "Clear",
+    "labelZh": "清除",
+    "tags": ["clear", "erase", "remove filter", "清除", "擦除", "清空"]
+  },
+  {
+    "id": "filter",
+    "family": "search-filter",
+    "componentName": "FilterIcon",
+    "label": "Filter",
+    "labelZh": "筛选",
+    "tags": ["filter", "funnel", "narrow", "筛选", "过滤", "条件"]
+  },
+  {
+    "id": "sort",
+    "family": "search-filter",
+    "componentName": "SortIcon",
+    "label": "Sort",
+    "labelZh": "排序",
+    "tags": ["sort", "order", "ascending", "descending", "排序", "升序", "降序"]
+  },
+  {
+    "id": "open-directory",
+    "family": "files-transfer",
+    "componentName": "OpenDirectoryIcon",
+    "label": "Open Directory",
+    "labelZh": "打开目录",
+    "tags": ["folder", "directory", "open", "文件夹", "目录", "打开"]
+  },
+  {
+    "id": "upload",
+    "family": "files-transfer",
+    "componentName": "UploadIcon",
+    "label": "Upload / Import",
+    "labelZh": "上传 / 导入",
+    "tags": ["upload", "import", "transfer", "上传", "导入", "传输"]
+  },
+  {
+    "id": "download",
+    "family": "files-transfer",
+    "componentName": "DownloadIcon",
+    "label": "Download / Install",
+    "labelZh": "下载 / 安装",
+    "tags": ["download", "install", "transfer", "下载", "安装", "传输"]
+  },
+  {
+    "id": "export",
+    "family": "files-transfer",
+    "componentName": "ExportIcon",
+    "label": "Export",
+    "labelZh": "导出",
+    "tags": ["export", "document", "transfer", "导出", "文件", "转换"]
+  },
+  {
+    "id": "copy",
+    "family": "files-transfer",
+    "componentName": "CopyIcon",
+    "label": "Copy",
+    "labelZh": "复制",
+    "tags": ["copy", "duplicate", "clipboard", "复制", "副本", "克隆"]
+  },
+  {
+    "id": "add",
+    "family": "edit-manage",
+    "componentName": "AddIcon",
+    "label": "Add",
+    "labelZh": "添加",
+    "tags": ["add", "create", "plus", "添加", "新建", "创建"]
+  },
+  {
+    "id": "edit",
+    "family": "edit-manage",
+    "componentName": "EditIcon",
+    "label": "Edit",
+    "labelZh": "编辑",
+    "tags": ["edit", "pencil", "modify", "编辑", "修改", "铅笔"]
+  },
+  {
+    "id": "delete",
+    "family": "edit-manage",
+    "componentName": "DeleteIcon",
+    "label": "Delete",
+    "labelZh": "删除",
+    "tags": ["delete", "trash", "remove", "删除", "垃圾桶", "移除"]
+  },
+  {
+    "id": "save-apply",
+    "family": "edit-manage",
+    "componentName": "SaveApplyIcon",
+    "label": "Save / Apply",
+    "labelZh": "保存 / 应用",
+    "tags": ["save", "apply", "confirm", "保存", "应用", "确认"]
+  },
+  {
+    "id": "cancel",
+    "family": "edit-manage",
+    "componentName": "CancelIcon",
+    "label": "Cancel",
+    "labelZh": "取消",
+    "tags": ["cancel", "dismiss", "x", "取消", "放弃", "关闭"]
+  },
+  {
+    "id": "reset",
+    "family": "edit-manage",
+    "componentName": "ResetIcon",
+    "label": "Reset",
+    "labelZh": "重置",
+    "tags": ["reset", "restore", "frame", "重置", "恢复", "重新设置"]
+  },
+  {
+    "id": "undo",
+    "family": "edit-manage",
+    "componentName": "UndoIcon",
+    "label": "Undo",
+    "labelZh": "撤销",
+    "tags": ["undo", "back", "history", "撤销", "回退", "历史"]
+  },
+  {
+    "id": "refresh",
+    "family": "edit-manage",
+    "componentName": "RefreshIcon",
+    "label": "Refresh",
+    "labelZh": "刷新",
+    "tags": ["refresh", "sync", "reload", "刷新", "同步", "重新加载"]
+  },
+  {
+    "id": "retry",
+    "family": "edit-manage",
+    "componentName": "RetryIcon",
+    "label": "Retry",
+    "labelZh": "重试",
+    "tags": ["retry", "again", "repeat", "重试", "再次", "重新执行"]
+  }
+]

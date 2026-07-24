@@ -1,4 +1,4 @@
-import { NumberField } from '@/design-system';
+import { FormField, NumberField } from '@/design-system';
 import { dispatchSettingChange, type SettingRendererFieldProps } from './types';
 
 export interface NumberSettingRendererProps extends SettingRendererFieldProps<number | null> {
@@ -28,9 +28,6 @@ export function NumberSettingRenderer({
   onError,
 }: NumberSettingRendererProps) {
   const commonProps = {
-    id,
-    label,
-    hint: description,
     min,
     max,
     step,
@@ -38,21 +35,31 @@ export function NumberSettingRenderer({
     placeholder,
     disabled: disabled || loading,
     error: Boolean(errorMessage),
-    errorMessage,
   };
 
-  return nullable ? (
-    <NumberField
-      {...commonProps}
-      nullable
-      value={value}
-      onChange={(nextValue) => dispatchSettingChange(onChange, nextValue, onError)}
-    />
-  ) : (
-    <NumberField
-      {...commonProps}
-      value={value as number}
-      onChange={(nextValue) => dispatchSettingChange(onChange, nextValue, onError)}
-    />
+  return (
+    <FormField
+      controlId={id}
+      label={label}
+      description={description}
+      error={errorMessage}
+      orientation="horizontal"
+      controlWidth="compact"
+    >
+      {nullable ? (
+        <NumberField
+          {...commonProps}
+          nullable
+          value={value}
+          onChange={(nextValue) => dispatchSettingChange(onChange, nextValue, onError)}
+        />
+      ) : (
+        <NumberField
+          {...commonProps}
+          value={value as number}
+          onChange={(nextValue) => dispatchSettingChange(onChange, nextValue, onError)}
+        />
+      )}
+    </FormField>
   );
 }

@@ -6,7 +6,6 @@ mod custom_subagents;
 mod delegates;
 mod internal;
 mod os_native;
-mod product_app_backends;
 mod prompt_builder;
 mod registry;
 mod system_builtin;
@@ -20,11 +19,10 @@ pub use delegates::{
 };
 pub use internal::{
     CodeReviewAgent, DailyLetterWriterAgent, FilerAgent, GenerateDocAgent, GlobalDailyReportAgent,
-    GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent, InitAgent, PptLiveAgent,
-    SettingsAgent, WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
+    GlobalMemoryConsolidatorAgent, GlobalMilestoneAgent, HostScanAgent, InitAgent, SettingsAgent,
+    WorkspaceMemoryConsolidatorAgent, WorkspaceOverviewRefresherAgent,
 };
 pub use os_native::{AppBuilderAgent, OsAgent, RunnoAgent};
-pub use product_app_backends::build_ppt_live_private_prompt;
 pub use prompt_builder::{
     PromptBuilder, PromptBuilderContext, RemoteExecutionHints, RequestContextPolicy,
     RequestContextSection,

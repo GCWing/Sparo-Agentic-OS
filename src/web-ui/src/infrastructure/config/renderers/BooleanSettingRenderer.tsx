@@ -1,4 +1,4 @@
-import { Switch } from '@/design-system';
+import { FormField, Switch } from '@/design-system';
 import { dispatchSettingChange, type SettingRendererFieldProps } from './types';
 
 export type BooleanSettingRendererProps = SettingRendererFieldProps<boolean>;
@@ -14,14 +14,19 @@ export function BooleanSettingRenderer({
   onError,
 }: BooleanSettingRendererProps) {
   return (
-    <Switch
-      id={id}
+    <FormField
+      controlId={id}
       label={label}
       description={description}
-      checked={value}
-      disabled={disabled}
-      loading={loading}
-      onChange={(event) => dispatchSettingChange(onChange, event.currentTarget.checked, onError)}
-    />
+      orientation="horizontal"
+      controlWidth="compact"
+    >
+      <Switch
+        checked={value}
+        disabled={disabled}
+        loading={loading}
+        onChange={(event) => dispatchSettingChange(onChange, event.currentTarget.checked, onError)}
+      />
+    </FormField>
   );
 }

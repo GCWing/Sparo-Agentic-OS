@@ -89,7 +89,11 @@ export const ChildSessionPanel: React.FC<ChildSessionPanelProps> = ({
     if (!pathValue) return;
 
     isLoadingRef.current = true;
-    flowChatStore.loadSessionHistory(childSessionId, pathValue).finally(() => {
+    flowChatStore.loadSessionHistory(
+      childSessionId,
+      pathValue,
+      childSession.domain,
+    ).finally(() => {
       isLoadingRef.current = false;
     });
   }, [childSessionId, childSession, workspacePath]);

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { Info, Trash2, XCircle } from 'lucide-react';
+import { Archive, Info, XCircle } from 'lucide-react';
 import { EmptyState, IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
@@ -7,10 +7,10 @@ import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { openWork, openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkStatus } from '@/app/agentic-os/work/domain/workTypes';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
+import { WorkIcon } from '@/app/agentic-os/work/presentation/WorkIcon';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
 import {
-  getWorkModeIcon,
   getWorkToneValue,
   isFocusStatus,
   isInstrumentedStatus,
@@ -97,7 +97,8 @@ const WorkList: React.FC<WorkListProps> = ({
 
   const handleOpen = useCallback(async (projection: WorkProjection) => {
     try {
-      const record = workById.get(projection.id) ?? await getWork(projection.id);
+      const record = workById.get(projection.id)
+        ?? await getWork({ scope: projection.scope, workId: projection.id });
       await openWork(record);
     } catch (openError) {
       log.error('Failed to open work', { workId: projection.id, error: openError });
@@ -107,7 +108,7 @@ const WorkList: React.FC<WorkListProps> = ({
 
   const handleCancel = useCallback(async (work: WorkProjection) => {
     try {
-      await controlWork({ workId: work.id, action: 'cancel_current_execution' });
+      await controlWork({ locator: { scope: work.scope, workId: work.id }, action: 'cancel_current_execution' });
     } catch (cancelError) {
       log.error('Failed to cancel work execution', { workId: work.id, error: cancelError });
       notificationService.error(t('nav.workDock.cancelFailed'));
@@ -116,7 +117,7 @@ const WorkList: React.FC<WorkListProps> = ({
 
   const handleRemove = useCallback(async (work: WorkProjection) => {
     try {
-      await controlWork({ workId: work.id, action: 'archive' });
+      await controlWork({ locator: { scope: work.scope, workId: work.id }, action: 'archive' });
     } catch (removeError) {
       log.error('Failed to remove work from Work Dock', { workId: work.id, error: removeError });
       notificationService.error(t('nav.workDock.removeFailed'));
@@ -183,7 +184,6 @@ const WorkList: React.FC<WorkListProps> = ({
             const selected = index === selectedResultIndex;
             const showCancelAction = isCancellableStatus(work.status);
             const showRemoveAction = !showCancelAction && work.status !== 'archived';
-            const ModeIcon = getWorkModeIcon(work);
             const statusClass = statusKey(work.status);
             const instrumented = isInstrumentedStatus(work.status);
             return (
@@ -208,7 +208,7 @@ const WorkList: React.FC<WorkListProps> = ({
                 >
                   <span className="work-list__item-icon" aria-hidden>
                     <span className="work-list__item-icon-glyph">
-                      <ModeIcon size={15} aria-hidden />
+                      <WorkIcon work={work} size={18} />
                     </span>
                     {instrumented ? <span className="work-list__item-state-mark" /> : null}
                   </span>
@@ -252,7 +252,7 @@ const WorkList: React.FC<WorkListProps> = ({
                       tooltip={t('nav.workDock.removeWork')}
                       onClick={() => void handleRemove(work)}
                     >
-                      <Trash2 className="work-list__item-action-icon" size={13} aria-hidden />
+                      <Archive className="work-list__item-action-icon" size={13} aria-hidden />
                     </IconButton>
                   ) : null}
                 </div>

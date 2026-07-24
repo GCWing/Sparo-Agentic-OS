@@ -99,6 +99,18 @@ impl CoreAgentAdapter {
             .current_workspace_path()
             .or_else(|| std::env::current_dir().ok())
             .map(|path| path.to_string_lossy().to_string());
+        let domain = match workspace_path.as_deref() {
+            Some(workspace_path) => {
+                let path_manager = sparo_core::infrastructure::try_get_path_manager_arc()?;
+                sparo_core::agentic::core::SessionDomain::Workspace {
+                    workspace_id: path_manager
+                        .workspace_id(std::path::Path::new(workspace_path))?,
+                }
+            }
+            None => sparo_core::agentic::core::SessionDomain::Global,
+        };
+        let mut config = SessionConfig::new(domain);
+        config.workspace_path = workspace_path;
 
         let session = self
             .coordinator
@@ -108,10 +120,7 @@ impl CoreAgentAdapter {
                     chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
                 ),
                 self.current_agent_type(),
-                SessionConfig {
-                    workspace_path,
-                    ..Default::default()
-                },
+                config,
             )
             .await?;
 
@@ -131,7 +140,6 @@ impl Agent for CoreAgentAdapter {
     ) -> Result<AgentResponse> {
         let session_id = self.ensure_session().await?;
         let agent_type = self.current_agent_type();
-        let workspace_path = self.current_workspace_path();
         tracing::info!("Processing message: {}", message);
 
         let _ = event_tx.send(AgentEvent::Thinking);
@@ -143,7 +151,6 @@ impl Agent for CoreAgentAdapter {
                 None,
                 agent_type,
                 None,
-                workspace_path.as_ref().map(|p| p.display().to_string()),
                 DialogSubmissionPolicy::for_source(DialogTriggerSource::Cli)
                     .with_skip_tool_confirmation(self.skip_tool_confirmation),
                 None,

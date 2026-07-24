@@ -1,8 +1,6 @@
-import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
-import { sessionAPI } from '@/infrastructure/api/service-api/SessionAPI';
+import { productAppSessionAPI } from '@/infrastructure/api/service-api/ProductAppSessionAPI';
 import { openWorkspaceScene, openWorkspaceSession } from '@/app/navigation/workspaceNavigation';
 import type { WorkspaceSceneId } from '@/app/navigation/workspaceSceneTypes';
-import { flowChatManager } from '@/flow_chat/services/FlowChatManager';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import {
   getBackendAgentType,
@@ -12,10 +10,8 @@ import {
 } from '@/flow_chat/domain/sessionDescriptor';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
-import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
-import type { ProductAppRuntimeSessionMetadata, SessionMetadata } from '@/shared/types/session-history';
+import type { ProductAppRuntimeSessionMetadata } from '@/shared/types/session-history';
 import {
-  appScopeIdentity,
   normalizeAppScope,
   workspacePathFromAppScope,
 } from '@/shared/types/app-scope';
@@ -23,7 +19,7 @@ import {
   buildProductAppRuntimeMetadata,
   isCompositeProductAppRuntimeHost,
 } from './productAppRuntimeInteraction';
-import type { Session } from '@/flow_chat/types/flow-chat';
+import { registerProductAppRuntimeToolCardManifests } from './productAppRuntimeToolCardManifests';
 import type {
   OpenProductAppRuntimeOptions,
   ProductAppRuntimeHostTarget,
@@ -35,11 +31,46 @@ import type {
 
 const log = createLogger('ProductAppRuntimeHostService');
 
-function createOptimisticSessionId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
+function assertProductAppSessionContract(
+  opened: Awaited<ReturnType<typeof productAppSessionAPI.open>>,
+  expected: ProductAppRuntimeSessionMetadata,
+  expectedAgentType: string,
+): void {
+  const actual = opened.metadata.customMetadata?.productAppRuntime;
+  const expectedWorkId = expected.runtimeContext?.workLocator.workId;
+  const actualWorkId =
+    actual?.workId ?? actual?.runtimeContext?.workLocator.workId;
+  const expectedChannelId = expected.hostSurfaceId;
+  const actualChannelId = actual?.sessionChannel?.channelId;
+  const violations = [
+    opened.metadata.sessionId !== opened.sessionId
+      ? `metadata session ${opened.metadata.sessionId} does not match ${opened.sessionId}`
+      : null,
+    opened.history.locator.session_id !== opened.sessionId
+      ? `history locator ${opened.history.locator.session_id} does not match ${opened.sessionId}`
+      : null,
+    opened.metadata.agentType !== expectedAgentType
+      ? `agent type is ${opened.metadata.agentType}, expected ${expectedAgentType}`
+      : null,
+    actual?.profile !== 'product-app-runtime'
+      ? `profile is ${actual?.profile ?? 'missing'}, expected product-app-runtime`
+      : null,
+    actual?.appId !== expected.appId
+      ? `app is ${actual?.appId ?? 'missing'}, expected ${expected.appId}`
+      : null,
+    actualWorkId !== expectedWorkId
+      ? `Work is ${actualWorkId ?? 'missing'}, expected ${expectedWorkId ?? 'missing'}`
+      : null,
+    actualChannelId !== expectedChannelId
+      ? `channel is ${actualChannelId ?? 'missing'}, expected ${expectedChannelId ?? 'missing'}`
+      : null,
+    actual?.sessionChannel?.role !== 'surface_chat'
+      ? `channel role is ${actual?.sessionChannel?.role ?? 'missing'}, expected surface_chat`
+      : null,
+  ].filter((violation): violation is string => violation != null);
+  if (violations.length > 0) {
+    throw new Error(`Product App session contract violation: ${violations.join('; ')}`);
   }
-  return `product-app-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function navigationIsCurrent(options: OpenProductAppRuntimeOptions): boolean {
@@ -50,149 +81,6 @@ function productAppRuntimeDescriptor(metadata?: ProductAppRuntimeSessionMetadata
   return getProductAppRuntimeSessionDescriptor(
     getProductAppRuntimeAgentType(metadata),
   );
-}
-
-function runtimeKey(
-  metadata: Pick<ProductAppRuntimeSessionMetadata, 'profile' | 'appId' | 'hostSurfaceId' | 'entityId' | 'scope' | 'runtimeContext'>
-): string {
-  return [
-    'product-app-runtime',
-    metadata.profile,
-    metadata.appId,
-    metadata.hostSurfaceId,
-    metadata.entityId || 'default',
-    appScopeIdentity(metadata.scope),
-    metadata.runtimeContext?.workId || 'no-work',
-    metadata.runtimeContext?.runtimeInstanceId || 'no-runtime',
-  ].join(':');
-}
-
-function findExistingRuntimeSession(metadata: ProductAppRuntimeSessionMetadata): string | null {
-  const candidates = Array.from(flowChatStore.getState().sessions.values())
-    .filter(session => runtimeBindingMatches(session.customMetadata?.productAppRuntime, metadata))
-    .sort(compareRuntimeSessionRecency);
-  return candidates[0]?.sessionId ?? null;
-}
-
-function runtimeBindingMatches(
-  binding: ProductAppRuntimeSessionMetadata | undefined,
-  metadata: ProductAppRuntimeSessionMetadata
-): boolean {
-  if (!binding) return false;
-  return (
-    binding.appId === metadata.appId &&
-    binding.hostSurfaceId === metadata.hostSurfaceId &&
-    binding.profile === metadata.profile &&
-    (binding.entityId || 'default') === (metadata.entityId || 'default') &&
-    appScopeIdentity(binding.scope) === appScopeIdentity(metadata.scope) &&
-    (binding.runtimeContext?.workId || '') === (metadata.runtimeContext?.workId || '') &&
-    (binding.runtimeContext?.runtimeInstanceId || '') ===
-      (metadata.runtimeContext?.runtimeInstanceId || '')
-  );
-}
-
-function compareRuntimeSessionRecency(left: Session, right: Session): number {
-  const leftTime = left.updatedAt ?? left.lastActiveAt ?? left.createdAt ?? 0;
-  const rightTime = right.updatedAt ?? right.lastActiveAt ?? right.createdAt ?? 0;
-  return rightTime - leftTime;
-}
-
-function comparePersistedSessionRecency(left: SessionMetadata, right: SessionMetadata): number {
-  const leftTime = left.lastActiveAt ?? left.createdAt ?? 0;
-  const rightTime = right.lastActiveAt ?? right.createdAt ?? 0;
-  return rightTime - leftTime;
-}
-
-async function findPersistedRuntimeSession(metadata: ProductAppRuntimeSessionMetadata): Promise<string | null> {
-  try {
-    const persisted = await sessionAPI.listSessions(undefined, 'agentic_os');
-    const match = persisted
-      .filter(meta => runtimeBindingMatches(meta.customMetadata?.productAppRuntime, metadata))
-      .sort(comparePersistedSessionRecency)[0];
-
-    if (!match) return null;
-
-    const workspacePath =
-      match.workspacePath ||
-      workspacePathFromAppScope(match.customMetadata?.productAppRuntime?.scope) ||
-      workspacePathFromAppScope(metadata.scope) ||
-      '';
-    await flowChatStore.hydrateWorkspaceSessionsMetadata([match], workspacePath, 'agentic_os');
-    return match.sessionId;
-  } catch (error) {
-    log.warn('Failed to search persisted Product App runtime sessions', { appId: metadata.appId, error });
-    return null;
-  }
-}
-
-async function findExistingRuntimeSessionId(
-  metadata: ProductAppRuntimeSessionMetadata
-): Promise<string | null> {
-  const inMemorySessionId = findExistingRuntimeSession(metadata);
-  if (inMemorySessionId) return inMemorySessionId;
-  return findPersistedRuntimeSession(metadata);
-}
-
-function updateSessionRuntimeMetadata(
-  sessionId: string,
-  metadata: ProductAppRuntimeSessionMetadata
-): void {
-  const descriptor = productAppRuntimeDescriptor(metadata);
-  const backendAgentType = getBackendAgentType(descriptor);
-  const workspacePath = workspacePathFromAppScope(metadata.scope);
-  flowChatStore.setState(prev => {
-    const session = prev.sessions.get(sessionId);
-    if (!session) return prev;
-
-    const nextSessions = new Map(prev.sessions);
-    nextSessions.set(sessionId, {
-      ...session,
-      descriptor,
-      title: metadata.interactionTitle || metadata.appName || session.title,
-      workspacePath,
-      config: {
-        ...session.config,
-        agentType: backendAgentType,
-        workspacePath,
-        sessionName: metadata.interactionTitle || metadata.appName || session.config.sessionName,
-        customMetadata: {
-          ...(session.config.customMetadata || {}),
-          productAppRuntime: metadata,
-        },
-      },
-      customMetadata: {
-        ...(session.customMetadata || {}),
-        productAppRuntime: metadata,
-      },
-    });
-    return {
-      ...prev,
-      sessions: nextSessions,
-    };
-  });
-}
-
-async function syncRuntimeSessionWorkspace(
-  sessionId: string,
-  metadata: ProductAppRuntimeSessionMetadata
-): Promise<void> {
-  const workspacePath = workspacePathFromAppScope(metadata.scope);
-  if (!workspacePath) return;
-
-  try {
-    await flowChatManager.ensureBackendSession(
-      sessionId,
-      () => agentAPI.updateSessionWorkspace({ sessionId, workspacePath }),
-    );
-  } catch (error) {
-    log.error('Failed to sync Product App runtime session workspace', {
-      sessionId,
-      appId: metadata.appId,
-      workspacePath,
-      error,
-    });
-    throw error;
-  }
 }
 
 function validateCompositeInteraction(app: ProductAppHostSurface | ProductAppHostSurfaceMeta): void {
@@ -231,7 +119,6 @@ export async function ensureProductAppRuntimeSession(
   const app = target.hostSurface;
   validateCompositeInteraction(app);
   const scope = normalizeAppScope(options.scope ?? target.scope);
-  const workspacePath = workspacePathFromAppScope(scope);
 
   const metadata = buildProductAppRuntimeMetadata(app, {
     intelligentApp: target.intelligentApp,
@@ -240,70 +127,39 @@ export async function ensureProductAppRuntimeSession(
     scope,
     runtimeContext: options.runtimeContext ?? target.runtimeContext,
   });
+  registerProductAppRuntimeToolCardManifests(metadata);
   const descriptor = productAppRuntimeDescriptor(metadata);
-  const existingSessionId = await findExistingRuntimeSessionId(metadata);
-  if (!navigationIsCurrent(options)) return null;
-  if (existingSessionId) {
-    updateSessionRuntimeMetadata(existingSessionId, metadata);
-    // Commit the inexpensive conversation shell first. Backend coordinator
-    // restore, workspace retargeting, and persistence are readiness work and
-    // must not keep the previous screen visible.
-    const navigationResult = await openWorkspaceSession(existingSessionId, {
-      context: options.context,
-      navigationEpoch: options.navigationEpoch,
-    });
-    if (navigationResult === 'missing') return null;
-    await syncRuntimeSessionWorkspace(existingSessionId, metadata);
-    await flowChatManager.persistSessionMetadata(existingSessionId);
-    return existingSessionId;
-  }
-
-  if (!navigationIsCurrent(options)) return null;
   const title = metadata.interactionTitle || metadata.appName;
-  const sessionId = createOptimisticSessionId();
-  const sessionCreation = flowChatManager.createChatSession(
-    {
-      storageScope: 'agentic_os',
-      workspacePath,
-      sessionName: title,
-      creationDeduplicationKey: runtimeKey(metadata),
-      customMetadata: {
-        productAppRuntime: metadata,
-      },
-      navigate: false,
-    },
-    descriptor,
-    { sessionId, notifyOnError: false },
-  );
-  let resolvedSessionId = sessionId;
-  let sessionCreationError: unknown = null;
-  const navigationResult = await openWorkspaceSession(sessionId, {
-    context: options.context,
-    commitPendingSurface: true,
-    navigationEpoch: options.navigationEpoch,
-    resolveSession: async () => {
-      try {
-        resolvedSessionId = await sessionCreation;
-      } catch (error) {
-        sessionCreationError = error;
-        throw error;
-      }
-      updateSessionRuntimeMetadata(resolvedSessionId, metadata);
-      return flowChatStore.getState().sessions.get(resolvedSessionId) ?? null;
+  const workId = metadata.runtimeContext?.workLocator.workId;
+  if (!workId) {
+    throw new Error(`Product App host surface "${app.id}" has no Work binding`);
+  }
+  const opened = await productAppSessionAPI.open({
+    workLocator: metadata.runtimeContext!.workLocator,
+    appId: metadata.appId,
+    channelId: metadata.hostSurfaceId,
+    entityId: metadata.entityId,
+    sessionName: title,
+    agentType: getBackendAgentType(descriptor),
+    customMetadata: {
+      productAppRuntime: metadata,
     },
   });
-  if (
-    navigationResult === 'missing'
-    || !flowChatStore.getState().sessions.has(resolvedSessionId)
-  ) {
-    if (navigationResult !== 'superseded' && sessionCreationError) {
-      throw sessionCreationError;
-    }
-    return null;
-  }
-  await syncRuntimeSessionWorkspace(resolvedSessionId, metadata);
-  await flowChatManager.persistSessionMetadata(resolvedSessionId);
-  return resolvedSessionId;
+  assertProductAppSessionContract(
+    opened,
+    metadata,
+    getBackendAgentType(descriptor),
+  );
+  if (!navigationIsCurrent(options)) return null;
+  await flowChatStore.hydrateWorkspaceSessionsMetadata(
+    [opened.metadata],
+    opened.history.executionWorkspacePath,
+  );
+  const navigationResult = await openWorkspaceSession(opened.sessionId, {
+    context: options.context,
+    navigationEpoch: options.navigationEpoch,
+  });
+  return navigationResult === 'opened' ? opened.sessionId : null;
 }
 
 export async function openProductAppRuntimeHost(
@@ -318,7 +174,7 @@ export async function openProductAppRuntimeHost(
   const context =
     options.context ??
     target.context ??
-    { kind: 'work' as const, workId: runtimeContext.workId };
+    { kind: 'work' as const, workId: runtimeContext.workLocator.workId };
 
   if (!isCompositeProductAppRuntimeHost(app)) {
     if (!navigationIsCurrent(options)) return;
@@ -339,13 +195,6 @@ export async function openProductAppRuntimeHost(
       runtimeContext,
     });
     if (!sessionId) return;
-    await useWorkStore.getState().linkSessionToWork({
-      workId: runtimeContext.workId,
-      sessionId,
-      workspacePath,
-      surface: { kind: 'agent_session', sessionId },
-      setPrimary: false,
-    });
   } catch (error) {
     log.error('Failed to open Product App runtime', {
       appId: target.intelligentApp.appId,

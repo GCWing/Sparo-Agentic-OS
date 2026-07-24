@@ -5,12 +5,12 @@ import type {
 } from '@/infrastructure/api/service-api/ProductAppRuntimeHostAPI';
 import { buildProductAppRuntimeMetadata } from './productAppRuntimeInteraction';
 
-function pptSurface(chat: ProductAppHostSurfaceInteractionChat): ProductAppHostSurfaceMeta {
+function appSurface(chat: ProductAppHostSurfaceInteractionChat): ProductAppHostSurfaceMeta {
   return {
-    id: 'builtin-ppt-live',
-    name: 'PPT Live',
-    description: 'Create presentation drafts and slides',
-    icon: { kind: 'monogram', label: 'PPT' },
+    id: 'sample-product-app',
+    name: 'Sample Product App',
+    description: 'A sample composite Product App',
+    icon: { kind: 'monogram', label: 'SA' },
     category: 'productivity',
     tags: ['presentation'],
     version: 1,
@@ -40,26 +40,27 @@ function pptSurface(chat: ProductAppHostSurfaceInteractionChat): ProductAppHostS
 }
 
 function metadataFor(chat: ProductAppHostSurfaceInteractionChat) {
-  return buildProductAppRuntimeMetadata(pptSurface(chat), {
+  return buildProductAppRuntimeMetadata(appSurface(chat), {
     intelligentApp: {
-      appId: 'builtin-ppt-live',
-      displayName: 'PPT Live',
+      appId: 'sample-product-app',
+      displayName: 'Sample Product App',
       releaseId: 'release-1',
+      workMultiplicity: 'multiple',
     },
     scope: { kind: 'system' },
   });
 }
 
 describe('buildProductAppRuntimeMetadata', () => {
-  it('preserves the app-declared manuscript sidecar contract and separates chat and backend agents', () => {
+  it('preserves app-declared sidecar metadata with one app-private chat agent', () => {
     const metadata = metadataFor({
-      agentType: 'Runno',
-      backendAgentType: 'PptLiveAgent',
+      agentType: 'sample-agent',
+      backendAgentType: 'sample-agent',
     });
 
     expect(metadata.chat).toMatchObject({
-      agentType: 'Runno',
-      backendAgentType: 'PptLiveAgent',
+      agentType: 'sample-agent',
+      backendAgentType: 'sample-agent',
     });
     expect(metadata.tabs).toEqual([
       expect.objectContaining({
@@ -74,6 +75,7 @@ describe('buildProductAppRuntimeMetadata', () => {
         },
       }),
     ]);
+    expect(metadata.workMultiplicity).toBe('multiple');
   });
 
   it('falls back to the visible agent when no dedicated backend agent is declared', () => {

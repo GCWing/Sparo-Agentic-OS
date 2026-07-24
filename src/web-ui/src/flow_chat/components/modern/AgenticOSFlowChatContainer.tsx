@@ -240,7 +240,7 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
   const handleAgenticOsCreateSession = useCallback(async () => {
     try {
       await flowChatManager.createChatSession(
-        { storageScope: 'agentic_os' },
+        { domain: { kind: 'os_agent' } },
         getAgenticOsSessionDescriptor()
       );
     } catch (error) {

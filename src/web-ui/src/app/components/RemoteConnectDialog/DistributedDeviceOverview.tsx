@@ -159,7 +159,9 @@ export const DistributedDeviceOverview: React.FC<DistributedDeviceOverviewProps>
                 ref={transportButtonRef}
                 type="button"
                 variant="ghost"
-                className="sparo-device-network__connection-mode"
+                className={`sparo-device-network__connection-mode${
+                  relayConnected ? ' sparo-device-network__connection-mode--active' : ''
+                }`}
                 aria-label={`${t('transportMethod')}: ${t(selectedTransportOption.labelKey)}`}
                 aria-haspopup="menu"
                 aria-expanded={transportMenuOpen}

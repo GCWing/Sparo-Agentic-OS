@@ -32,15 +32,14 @@ pub mod markdown_export_api;
 pub mod mcp_api;
 pub mod memory_consolidation_api;
 pub mod path_target;
-pub mod ppt_live_export_api;
 pub mod product_app_runtime_api;
 pub(crate) mod product_app_runtime_host_adapter;
 pub(crate) mod product_app_runtime_host_engine;
+pub mod product_app_session_api;
 pub mod project_detection_api;
 pub mod remote_connect_api;
 pub mod runtime_api;
 pub mod session_api;
-pub mod session_storage_path;
 pub mod settings_agent_api;
 pub mod skill_api;
 pub mod snapshot_service;
@@ -52,4 +51,6 @@ pub mod terminal_api;
 pub mod token_usage_api;
 pub mod tool_api;
 pub mod workspace_overview_api;
-pub use app_state::{AppState, AppStatistics, HealthStatus};
+pub use app_state::{
+    AppState, AppStatistics, HealthStatus, SystemAppSyncPhase, SystemAppSyncStatus,
+};

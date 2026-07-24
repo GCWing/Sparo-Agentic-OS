@@ -36,12 +36,12 @@ import type {
 } from '@/app/stores/workDockStore';
 import type { WorkAppRef } from '@/app/agentic-os/work/domain/workTypes';
 import {
-  getWorkCategory,
   getWorkPriorityGroup,
 } from '@/app/agentic-os/work/domain/workClassification';
+import { WorkIcon } from '@/app/agentic-os/work/presentation/WorkIcon';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
-import { appScopeFromWorkspacePath, systemAppScope } from '@/shared/types/app-scope';
+import { appScopeFromWorkScope } from '@/shared/types/app-scope';
 import { externalRuntimeScope } from '@/shared/types/runtime-scope';
 import { workspaceAPI } from '@/infrastructure/api/service-api/WorkspaceAPI';
 import { openFileInBestTarget } from '@/shared/utils/tabUtils';
@@ -410,7 +410,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   const handleSelectWork = useCallback((work: WorkProjection) => {
     onSelectedWorkChange(work.id);
     if (works.some((item) => item.id === work.id)) return;
-    void getWork(work.id).catch((error) => {
+    void getWork({ scope: work.scope, workId: work.id }).catch((error) => {
       log.error('Failed to load work details from Work Center', { workId: work.id, error });
       notificationService.error(t('errors.openFailed'));
     });
@@ -439,10 +439,8 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
 
   const handleOpenSurface = useCallback(async (work: WorkRecord, surface: WorkSurfaceRef) => {
     try {
-      await openWorkSurface(surface, work.id, {
-        scope: work.scope.kind === 'workspace'
-          ? appScopeFromWorkspacePath(work.scope.workspacePath) ?? systemAppScope()
-          : systemAppScope(),
+      await openWorkSurface(surface, { scope: work.scope, workId: work.id }, {
+        scope: appScopeFromWorkScope(work.scope, work.workspacePath),
       });
     } catch (error) {
       log.error('Failed to open work surface from Work Center', { workId: work.id, surfaceKind: surface.kind, error });
@@ -498,11 +496,14 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   }, [t]);
 
   const handleCancelWork = useCallback(async (
-    work: Pick<WorkProjection, 'id' | 'systemManaged'>
+    work: Pick<WorkProjection, 'id' | 'scope' | 'systemManaged'>
   ): Promise<boolean> => {
     if (work.systemManaged) return false;
     try {
-      await controlWork({ workId: work.id, action: 'cancel_current_execution' });
+      await controlWork({
+        locator: { scope: work.scope, workId: work.id },
+        action: 'cancel_current_execution',
+      });
       return true;
     } catch (error) {
       log.error('Failed to cancel work from Work Center', { workId: work.id, error });
@@ -512,11 +513,11 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   }, [controlWork, t]);
 
   const handleArchiveWork = useCallback(async (
-    work: Pick<WorkProjection, 'id' | 'systemManaged'>
+    work: Pick<WorkProjection, 'id' | 'scope' | 'systemManaged'>
   ): Promise<boolean> => {
     if (work.systemManaged) return false;
     try {
-      await controlWork({ workId: work.id, action: 'archive' });
+      await controlWork({ locator: { scope: work.scope, workId: work.id }, action: 'archive' });
       notificationService.success(t('messages.archived'), { duration: 2500 });
       return true;
     } catch (error) {
@@ -533,7 +534,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     if (work.systemManaged || work.kind === kind || reclassifySubmittingId) return false;
     try {
       setReclassifySubmittingId(work.id);
-      await updateWork({ workId: work.id, kind });
+      await updateWork({ locator: { scope: work.scope, workId: work.id }, kind });
       notificationService.success(t('detail.classify.updated'), { duration: 2500 });
       return true;
     } catch (error) {
@@ -599,7 +600,10 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
 
     setBatchSubmitting(true);
     const results = await Promise.allSettled(
-      targets.map((work) => controlWork({ workId: work.id, action }))
+      targets.map((work) => controlWork({
+        locator: { scope: work.scope, workId: work.id },
+        action,
+      }))
     );
     const succeededIds = targets
       .filter((_, index) => results[index]?.status === 'fulfilled')
@@ -656,8 +660,17 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     if (workIds.length === 0 || batchSubmitting) return;
 
     setBatchSubmitting(true);
+    const targets = workIds.map((workId) => works.find((work) => work.id === workId));
+    if (targets.some((work) => !work)) {
+      setBatchSubmitting(false);
+      notificationService.error(t('errors.removeFailed'));
+      return;
+    }
     const results = await Promise.allSettled(
-      workIds.map((workId) => deleteWork(workId, { deleteLinkedSessions }))
+      targets.map((work) => deleteWork(
+        { scope: work!.scope, workId: work!.id },
+        { deleteLinkedSessions },
+      ))
     );
     const settledIds = workIds.filter((_, index) => results[index]?.status === 'fulfilled');
     const fulfilledResults = results.flatMap((result): WorkDeleteResult[] => (
@@ -726,6 +739,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
     onSelectedWorkChange,
     selectedWorkId,
     t,
+    works,
   ]);
 
   const handleSaveObjective = useCallback(async (
@@ -740,7 +754,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
 
     try {
       await updateWork({
-        workId: work.id,
+        locator: { scope: work.scope, workId: work.id },
         objective: nextObjective,
       });
       notificationService.success(t('messages.objectiveSaved'), { duration: 2500 });
@@ -764,7 +778,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
 
     try {
       await advanceWork({
-        workId: work.id,
+        locator: { scope: work.scope, workId: work.id },
         instructions,
         advancePolicy: 'start_if_idle',
       });
@@ -783,7 +797,7 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
   ): Promise<boolean> => {
     if (work.systemManaged) return false;
     try {
-      await controlWork({ workId: work.id, action });
+      await controlWork({ locator: { scope: work.scope, workId: work.id }, action });
       if (action === 'resume') {
         notificationService.success(t('messages.resumed'), { duration: 2500 });
       } else if (action === 'reopen') {
@@ -1223,7 +1237,6 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                       {group.items.map((work, workIndex) => {
                         const showCancelAction = !work.systemManaged && isCancellableStatus(work.status);
                         const showArchiveAction = !work.systemManaged && work.status !== 'archived';
-                        const category = getWorkCategory(work.kind);
                         const statusModifier = work.status.replace('_', '-');
                         const bulkSelected = selectedWorkIdSet.has(work.id);
                         const showBackgroundRuntime = work.systemManaged && work.status === 'running';
@@ -1322,7 +1335,14 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
                               <span className="wc-card__objective">{work.objective}</span>
                             ) : null}
                             <span className="wc-card__meta">
-                              <span className="wc-card__kind">{t(`category.${category}`)}</span>
+                              <span className="wc-card__kind">
+                                <WorkIcon work={work} size={16} />
+                                <span>
+                                  {work.systemManaged
+                                    ? t('kind.system')
+                                    : t(`kind.${kindKey(work.kind)}`)}
+                                </span>
+                              </span>
                               <span className="wc-card__meta-rule" aria-hidden="true" />
                               <span className="wc-card__time">{formatTime(work.updatedAt)}</span>
                             </span>

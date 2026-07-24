@@ -8,20 +8,23 @@ import {
   type OpenWorkspaceSessionResult,
 } from '@/app/navigation/navigationController';
 import { useWorkDockStore } from '@/app/stores/workDockStore';
-import type { RuntimeInstanceRef, WorkRecord, WorkSurfaceRef } from '../domain/workTypes';
+import type { WorkLocator, WorkRecord, WorkSurfaceRef } from '../domain/workTypes';
 import { resolveWorkSurface } from './workSurfaceResolver';
 import { resolveDefaultWorkSurface } from '../domain/workSurface';
 import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 import { openProductAppRuntimeForWorkSurface } from '@/app/scenes/apps/product-app-runtime/productAppRuntimeService';
 import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
-import { appScopeFromWorkspacePath, systemAppScope, type AppScope } from '@/shared/types/app-scope';
+import { appScopeFromWorkScope, systemAppScope, type AppScope } from '@/shared/types/app-scope';
 import type { WorkAppRef } from '../domain/workTypes';
 import {
-  projectRuntimeScopeFromWorkspacePath,
+  runtimeScopeFromAppScope,
   systemRuntimeScope,
   type RuntimeScope,
 } from '@/shared/types/runtime-scope';
 import { useThemeStore } from '@/infrastructure/theme';
+import { productAppRuntimeAPI, type ProductAppWorkCompatibility } from '@/infrastructure/api/service-api/ProductAppRuntimeAPI';
+import { i18nService } from '@/infrastructure/i18n';
+import { notificationService } from '@/shared/notification-system';
 
 interface PendingWorkOpen {
   intent: number;
@@ -32,10 +35,49 @@ interface PendingWorkOpen {
 let workOpenIntent = 0;
 const pendingWorkOpens = new Map<string, PendingWorkOpen>();
 
+function compatibilityMessage(result: ProductAppWorkCompatibility): string {
+  switch (result.status) {
+    case 'versionIncompatible':
+      return i18nService.t('scenes/work-center:compatibility.versionIncompatible', {
+        appId: result.appId,
+        createdWithVersion: result.createdWithVersion ?? result.createdWithReleaseId,
+        installedVersion: result.installedVersion ?? result.installedReleaseId ?? i18nService.t('scenes/work-center:compatibility.unknown'),
+        workDataSchemaVersion: result.workDataSchemaVersion,
+        installedDataSchemaVersion: result.installedDataSchemaVersion ?? i18nService.t('scenes/work-center:compatibility.unknown'),
+      });
+    case 'appDisabled':
+      return i18nService.t('scenes/work-center:compatibility.appDisabled', { appId: result.appId });
+    case 'appSelectionChanged':
+      return i18nService.t('scenes/work-center:compatibility.appSelectionChanged', {
+        appId: result.appId,
+        installedAppId: result.installedAppId ?? i18nService.t('scenes/work-center:compatibility.unknown'),
+      });
+    case 'appUnavailable':
+      return i18nService.t('scenes/work-center:compatibility.appUnavailable', { appId: result.appId });
+    case 'compatible':
+      return '';
+  }
+}
+
+async function ensureProductAppWorkIsCompatible(work: WorkRecord): Promise<boolean> {
+  const productApp = work.subject.kind === 'app' && work.subject.app.kind === 'product_app'
+    ? work.subject.app
+    : work.appRefs.find(({ app }) => app.kind === 'product_app')?.app;
+  if (!productApp) return true;
+  const compatibility = await productAppRuntimeAPI.prepareProductAppWork({
+    scope: work.scope,
+    workId: work.id,
+  });
+  if (compatibility.status === 'compatible') return true;
+  notificationService.warning(compatibilityMessage(compatibility), { duration: 9000 });
+  openWorkInCenter(work.id);
+  return false;
+}
+
 function runtimeScopeFromWork(work: WorkRecord): RuntimeScope {
   return work.scope.kind === 'workspace'
-    ? projectRuntimeScopeFromWorkspacePath(work.scope.workspacePath) ?? systemRuntimeScope()
-    : systemRuntimeScope();
+    ? runtimeScopeFromAppScope(appScopeFromWorkScope(work.scope, work.workspacePath))
+    : systemRuntimeScope('os_agent');
 }
 
 function productAppRefForSurface(work: WorkRecord, surface: WorkSurfaceRef): WorkAppRef | null {
@@ -44,21 +86,6 @@ function productAppRefForSurface(work: WorkRecord, surface: WorkSurfaceRef): Wor
     return work.subject.app;
   }
   return work.appRefs.find(relation => relation.app.appId === surface.productAppId)?.app ?? null;
-}
-
-function runtimeInstanceForSurface(work: WorkRecord, surface: WorkSurfaceRef): RuntimeInstanceRef | null {
-  if (surface.kind !== 'application_surface') return null;
-  const appRef = productAppRefForSurface(work, surface);
-  return work.runtimeInstances.find(instance =>
-    instance.appId === surface.productAppId &&
-    instance.productAppSurfaceId === surface.productAppSurfaceId &&
-    instance.surfaceId === surface.surfaceId &&
-    (!appRef || (
-      instance.slotId === appRef.slotId &&
-      instance.releaseId === appRef.releaseId &&
-      instance.configRevision === appRef.configRevision
-    ))
-  ) ?? null;
 }
 
 export function openWorkCenterHome(): void {
@@ -111,6 +138,7 @@ async function performOpenWork(
   navigationEpoch: number,
 ): Promise<void> {
   if (!isNavigationCurrent()) return;
+  if (!await ensureProductAppWorkIsCompatible(work) || !isNavigationCurrent()) return;
   const defaultSurface = resolveDefaultWorkSurface(work);
   const surface = resolveWorkSurface(work, {
     getSessionRecency: (sessionId) => {
@@ -123,24 +151,31 @@ async function performOpenWork(
       if (!session) return undefined;
       const binding = session.customMetadata?.productAppRuntime;
       if (!binding || binding.appId !== defaultSurface.productAppId) return false;
-      const boundWorkId = binding.runtimeContext?.workId;
+      const boundWorkId = binding.runtimeContext?.workLocator.workId;
       return !boundWorkId || boundWorkId === work.id;
     },
   });
   const runtimeScope = runtimeScopeFromWork(work);
-  const openSurface = (target: WorkSurfaceRef) => openWorkSurface(target, work.id, {
+  const openSurface = (target: WorkSurfaceRef) => openWorkSurface(target, {
+    scope: work.scope,
+    workId: work.id,
+  }, {
     runtimeScope,
     productAppRef: productAppRefForSurface(work, target),
-    runtimeInstance: runtimeInstanceForSurface(work, target),
-    scope: work.scope.kind === 'workspace'
-      ? appScopeFromWorkspacePath(work.scope.workspacePath) ?? systemAppScope()
-      : systemAppScope(),
+    scope: appScopeFromWorkScope(work.scope, work.workspacePath),
     isNavigationCurrent,
     navigationEpoch,
   });
-  const result = await openSurface(surface);
+  // Composite sessions are rebound through the current Application Surface
+  // runtime before navigation. This updates their runtime metadata and never
+  // reuses a host created by the Work's historical Release.
+  const targetSurface = surface.kind === 'agent_session'
+    && defaultSurface.kind === 'application_surface'
+    ? defaultSurface
+    : surface;
+  const result = await openSurface(targetSurface);
 
-  if (result === 'missing' && surface.kind === 'agent_session' && isNavigationCurrent()) {
+  if (result === 'missing' && targetSurface.kind === 'agent_session' && isNavigationCurrent()) {
     if (defaultSurface.kind === 'application_surface') {
       await openSurface(defaultSurface);
     }
@@ -179,17 +214,17 @@ export async function openWork(work: WorkRecord): Promise<void> {
 
 export async function openWorkSurface(
   surface: WorkSurfaceRef,
-  fallbackWorkId: string,
+  workLocator: WorkLocator,
   options: {
     scope?: AppScope | null;
     runtimeScope?: RuntimeScope | null;
     productAppRef?: WorkAppRef | null;
-    runtimeInstance?: RuntimeInstanceRef | null;
     isNavigationCurrent?: () => boolean;
     navigationEpoch?: number;
   } = {}
 ): Promise<OpenWorkspaceSessionResult> {
   if (options.isNavigationCurrent?.() === false) return 'superseded';
+  const fallbackWorkId = workLocator.workId;
   const context: WorkspaceSurfaceContext = { kind: 'work', workId: fallbackWorkId };
 
   switch (surface.kind) {
@@ -219,12 +254,9 @@ export async function openWorkSurface(
       }
       try {
         await openProductAppRuntimeForWorkSurface({
-          workId: fallbackWorkId,
+          workLocator,
           slotId: options.productAppRef.slotId,
           appId: surface.productAppId,
-          releaseId: options.productAppRef.releaseId,
-          configRevision: options.productAppRef.configRevision,
-          runtimeInstanceId: options.runtimeInstance?.id,
           productAppSurfaceId: surface.productAppSurfaceId,
           surfaceId: surface.surfaceId,
         }, {

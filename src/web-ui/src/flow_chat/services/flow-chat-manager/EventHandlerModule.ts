@@ -504,7 +504,15 @@ async function handleMcpInteractionRequest(rawEvent: unknown): Promise<void> {
  * Handle session created event (e.g. remote mobile created a session)
  */
 function handleSessionCreated(context: FlowChatContext, event: any): void {
-  const { sessionId, sessionName, agentType } = event;
+  const { sessionId, sessionName, agentType, domain } = event;
+  if (
+    !domain ||
+    !['os_agent', 'global', 'workspace'].includes(domain.kind) ||
+    (domain.kind === 'workspace' && !domain.workspace_id)
+  ) {
+    log.error('Ignoring session-created event without a valid domain', { sessionId, domain });
+    return;
+  }
 
   if (isLocalBackendSessionCreationPending(sessionId)) {
     log.debug('Ignoring locally managed session-created echo', { sessionId, agentType });
@@ -518,12 +526,20 @@ function handleSessionCreated(context: FlowChatContext, event: any): void {
     agentType || 'Runno',
     existing?.descriptor,
   );
+  if (!descriptor) {
+    log.debug('Deferring session-created event until authoritative metadata is available', {
+      sessionId,
+      agentType,
+      domain,
+    });
+    return;
+  }
   if (existing) {
     store.reconcileSessionDescriptor(
       sessionId,
       descriptor,
       workspacePath,
-      existing.storageScope ?? descriptor.storageScope,
+      domain,
     );
     return;
   }
@@ -533,6 +549,8 @@ function handleSessionCreated(context: FlowChatContext, event: any): void {
     sessionName || 'External Session',
     descriptor,
     workspacePath,
+    undefined,
+    domain,
   );
 }
 

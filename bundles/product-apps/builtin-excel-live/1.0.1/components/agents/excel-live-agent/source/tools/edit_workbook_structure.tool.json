@@ -1,0 +1,102 @@
+{
+  "name": "edit_workbook_structure",
+  "description": "Perform one explicit worksheet structure change: add or rename a sheet, or insert/delete rows or columns. Unlike propose_patch, this commits immediately as a revisioned undoable operation and may be blocked when formulas make reference rewriting unsafe.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["workbookId", "expectedRevision", "intent", "operation"],
+    "properties": {
+      "workbookId": { "type": "string" },
+      "expectedRevision": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Exact current workbook revision. Refresh after each structure operation."
+      },
+      "intent": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500,
+        "description": "Why this immediate structural mutation is necessary."
+      },
+      "operation": {
+        "type": "string",
+        "enum": [
+          "add_sheet",
+          "rename_sheet",
+          "insert_rows",
+          "insert_columns",
+          "delete_rows",
+          "delete_columns"
+        ]
+      },
+      "sheetId": {
+        "type": "string",
+        "description": "Target sheet for rename/insert/delete; defaults to the active sheet."
+      },
+      "name": {
+        "type": "string",
+        "maxLength": 31,
+        "description": "New sheet name for add_sheet or rename_sheet. Required for rename_sheet."
+      },
+      "rows": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1048576,
+        "description": "Initial row capacity for add_sheet."
+      },
+      "columns": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 16384,
+        "description": "Initial column capacity for add_sheet."
+      },
+      "activate": {
+        "type": "boolean",
+        "description": "Whether a newly added sheet becomes active. Defaults to true."
+      },
+      "index": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Human-facing 1-based row number or column number where insert/delete starts (A=1, B=2). Required for insert/delete."
+      },
+      "count": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Number of rows or columns to insert/delete. Defaults to 1."
+      }
+    }
+  },
+  "runtime": "javascript",
+  "entry": "tools/edit_workbook_structure.js",
+  "readonly": false,
+  "permissions": {},
+  "timeoutMs": 60000,
+  "maxOutputBytes": 200000,
+  "ui": {
+    "card": {
+      "kind": "appDefined",
+      "family": "excel-live",
+      "template": "compact",
+      "displayMode": "compact",
+      "resultDisplayType": "detailed",
+      "primaryColor": "var(--ds-tool-family-agent-component-fg)",
+      "displayName": "Edit Workbook Structure",
+      "icon": "TableProperties",
+      "title": "Edit Workbook Structure",
+      "summary": {
+        "preparing": "Preparing structure change",
+        "running": "Applying {{input.operation}}",
+        "completed": "Structure change committed",
+        "failed": "Structure change failed"
+      },
+      "fields": [
+        { "label": "Operation", "inputPath": ["operation"] },
+        { "label": "Sheet", "inputPath": ["sheetId"] },
+        { "label": "Revision", "inputPath": ["expectedRevision"] },
+        { "label": "Intent", "inputPath": ["intent"] },
+        { "label": "Status", "resultPath": ["bridge", "status"] },
+        { "label": "Output", "resultPath": ["bridge", "output"], "format": "json" }
+      ]
+    }
+  }
+}

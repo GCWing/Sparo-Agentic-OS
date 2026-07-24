@@ -1,0 +1,586 @@
+{
+  "en-US": {
+    "meta": {
+      "title": "PPT Live"
+    },
+    "header": {
+      "untitled": "Untitled presentation",
+      "opening": "Opening presentation",
+      "deckMeta": "{{count}} slides · {{status}}",
+      "readyToExport": "Ready to export",
+      "generating": "Generating",
+      "needsReview": "Review pending"
+    },
+    "boot": {
+      "opening": "Opening presentation…"
+    },
+    "actions": {
+      "designManuscript": "Design manuscript",
+      "design": "Design",
+      "undo": "Undo visual change",
+      "export": "Export PowerPoint",
+      "exportPptx": "Export PPTX",
+      "exportReviewed": "Export reviewed PowerPoint",
+      "exportReviewRequired": "Run and pass presentation review before export",
+      "exportColorsPending": "Apply or reset color edits before export",
+      "close": "Close",
+      "closeDesign": "Close design",
+      "backToSlides": "Back to slides",
+      "openSpeakerScript": "Open speaker script",
+      "refineWithAi": "Refine with AI",
+      "followGeneration": "Follow generation",
+      "followingGeneration": "Following generation",
+      "zoomOut": "Zoom out",
+      "zoomIn": "Zoom in",
+      "saveDocument": "Save document",
+      "save": "Save",
+      "saveManuscript": "Save design manuscript",
+      "saveSpeaker": "Save speaker script",
+      "updatePptWithAi": "Update PPT with AI",
+      "reviewWithAi": "Review with AI"
+    },
+    "style": {
+      "defaultName": "Presentation system",
+      "defaultDescription": "Presentation-specific visual language"
+    },
+    "design": {
+      "ariaLabel": "Presentation design",
+      "eyebrow": "Design",
+      "currentScheme": "Current",
+      "schemes": "Inferred design direction",
+      "schemeHint": "The approved Design Case governs the complete presentation.",
+      "aiTitle": "Adjust with AI",
+      "aiHint": "Describe the visual change. Content and slide order stay untouched.",
+      "suggestionsAriaLabel": "Quick design directions",
+      "suggestionSimpler": "Simpler",
+      "suggestionStronger": "Stronger hierarchy",
+      "suggestionCalmer": "Calmer",
+      "promptSimpler": "Reduce decoration and make every page feel simpler and more intentional.",
+      "promptStronger": "Strengthen information hierarchy and make key data easier to find at a glance.",
+      "promptCalmer": "Reduce visual noise and make the overall presentation calmer and more restrained.",
+      "paletteTitle": "Semantic colors",
+      "paletteHint": "Edit the shared tokens used by preview and PowerPoint export. Applying changes creates a new design revision and clears the current review.",
+      "paletteAriaLabel": "Semantic color editor",
+      "paletteFoundation": "Foundation",
+      "paletteStates": "States",
+      "paletteData": "Data series",
+      "applyColors": "Apply colors",
+      "resetColors": "Reset",
+      "promptLabel": "What should change?",
+      "promptPlaceholder": "For example: use less decoration and make the data hierarchy clearer"
+    },
+    "designCase": {
+      "eyebrow": "Design Case",
+      "title": "Approve the visual direction before full production",
+      "awaiting": "Waiting for your decision",
+      "meta": "{{system}} · {{density}} density · three real manuscript pages",
+      "sample": "Case {{number}}",
+      "confirmInFlowChat": "Confirm or revise this direction in the dedicated FlowChat Design Case card."
+    },
+    "system": {
+      "eyebrow": "Presentation system",
+      "initialRevision": "Revision 0",
+      "revision": "Revision {{revision}}",
+      "direction": "Direction",
+      "avoid": "Avoid: {{value}}",
+      "color": "Color",
+      "colorDetail": "Semantic tokens resolve every preview and exported object.",
+      "designUsage": "Design usage",
+      "designUsageDetail": "Live coverage from the same compiled trees used by preview, review, and export.",
+      "tokenCoverage": "Token coverage",
+      "recipesUsed": "Recipes used",
+      "compiledObjects": "Compiled objects",
+      "legacyPages": "Legacy pages",
+      "typography": "Typography",
+      "gridGrammar": "Grid & object grammar",
+      "gridGrammarDetail": "{{columns}} columns · {{density}} density · {{media}} media",
+      "charts": "Charts",
+      "compiledRecipes": "Compiled page recipes",
+      "compilerDetail": "Compiler {{version}} · {{count}} constrained recipes shared by preview, review, and export.",
+      "recipesDetail": "Recipes define the permitted page structure.",
+      "changeColor": "Change {{name}} color",
+      "typeRole": "{{name}} · {{size}} pt · {{weight}}",
+      "typeSample": "Evidence should be easy to see",
+      "shapeRadius": "{{role}}: {{radius}}"
+    },
+    "roles": {
+      "cover": "Cover",
+      "title": "Title",
+      "section": "Section",
+      "body": "Body",
+      "label": "Label",
+      "metric": "Metric",
+      "caption": "Caption",
+      "source": "Source",
+      "code": "Code"
+    },
+    "tokens": {
+      "canvas": "Canvas",
+      "surface": "Surface",
+      "ink": "Ink",
+      "muted": "Muted",
+      "border": "Border",
+      "primary": "Primary",
+      "accent": "Accent",
+      "positive": "Positive",
+      "caution": "Caution",
+      "negative": "Negative",
+      "data_1": "Data 1",
+      "data_2": "Data 2",
+      "data_3": "Data 3",
+      "data_4": "Data 4",
+      "data_5": "Data 5"
+    },
+    "tokenPurposes": {
+      "canvas": "Warm neutral page field",
+      "surface": "Raised evidence and media surfaces",
+      "ink": "Primary text and decisive marks",
+      "muted": "Secondary labels and supporting copy",
+      "border": "Quiet structural separators",
+      "primary": "Primary emphasis and navigation through a page",
+      "accent": "Sparse contrast signal for the key fact",
+      "positive": "Positive status and favorable movement",
+      "caution": "Caution and unresolved trade-offs",
+      "negative": "Negative status and material risk",
+      "data_1": "Primary series",
+      "data_2": "Comparison or highlighted series",
+      "data_3": "Secondary quantitative series",
+      "data_4": "Additional quantitative series",
+      "data_5": "Additional quantitative series"
+    },
+    "density": {
+      "balanced": "balanced",
+      "airy": "airy",
+      "dense": "dense"
+    },
+    "mediaTreatment": {
+      "documentary": "documentary",
+      "framed": "framed",
+      "full-bleed": "full-bleed"
+    },
+    "shapeRoles": {
+      "none": "none",
+      "small": "small",
+      "medium": "medium"
+    },
+    "archetypes": {
+      "cover": { "name": "Cover", "purpose": "Establish the topic and first visual signal." },
+      "section": { "name": "Section", "purpose": "Change chapter and rhythm." },
+      "statement": { "name": "Statement", "purpose": "Land one judgment or metric." },
+      "evidence": { "name": "Evidence", "purpose": "Prove a claim with source material." },
+      "comparison": { "name": "Comparison", "purpose": "Make differences immediately scannable." },
+      "process": { "name": "Process", "purpose": "Explain sequence, responsibility, or state change." },
+      "architecture": { "name": "Architecture", "purpose": "Explain layers, dependencies, and boundaries." },
+      "media": { "name": "Media / Demo", "purpose": "Let the real product or object lead." },
+      "closing": { "name": "Closing", "purpose": "Conclude and define the next action." }
+    },
+    "visual": {
+      "slides": "Slides",
+      "presentationPreview": "Presentation preview",
+      "currentSlide": "Current slide",
+      "selectedSlide": "Selected slide",
+      "visualOnly": "Visual only",
+      "recipe": "Recipe",
+      "title": "Title",
+      "claim": "Claim",
+      "slideNumber": "Slide {{number}}",
+      "slideThumb": "Slide {{number}}: {{title}}, {{status}}",
+      "object": "{{role}} object{{description}}"
+    },
+    "speaker": {
+      "currentSlide": "Current slide",
+      "noSlide": "Select a slide to prepare its delivery",
+      "separateDocument": "Speaker script is edited as a substantial Markdown document",
+      "slideMeta": "Slide {{current}} of {{total}} · Separate Markdown speaker script"
+    },
+    "status": {
+      "planned": "Waiting",
+      "generating": "Generating",
+      "previewReady": "Preview ready",
+      "reviewing": "Reviewing",
+      "needsFix": "Needs fix",
+      "approved": "Approved",
+      "stale": "Needs update",
+      "failed": "Generation failed"
+    },
+    "empty": {
+      "eyebrow": "Presentation workspace",
+      "title": "What should this presentation explain?",
+      "detail": "Give the topic and optional material hints. The Agent infers audience, structure, color direction, density, and page count, then stops at a three-page Design Case for your judgment.",
+      "topicLabel": "Presentation topic and optional material hints",
+      "topicPlaceholder": "Example: Explain why activation quality is now our main growth constraint. Use the latest workspace review as evidence.",
+      "create": "Create presentation",
+      "understandContent": "Understand content",
+      "compileSystem": "Compile design system",
+      "generateFirstSlide": "Generate slide 1",
+      "designPackage": "Design package"
+    },
+    "planned": {
+      "generating": "The agent is compiling this slide against the design package.",
+      "failed": "The last attempt failed. The previous good preview is preserved when available.",
+      "waiting": "Waiting in the generation plan."
+    },
+    "documents": {
+      "manuscript": "PPT design manuscript · Markdown",
+      "speaker": "Speaker script",
+      "editor": "Presentation document editor",
+      "initialRevision": "Revision 1",
+      "revision": "Revision {{revision}}",
+      "revisionUnsaved": "Revision {{revision}} / Unsaved",
+      "manuscriptSaved": "Design manuscript saved",
+      "speakerSaved": "Speaker script saved",
+      "manuscriptLabel": "design manuscript",
+      "speakerLabel": "speaker script"
+    },
+    "toasts": {
+      "objectUpdated": "Visual object updated",
+      "documentSent": "Saved {{label}} and sent it to the presentation Agent",
+      "designSent": "Design system sent to the presentation Agent",
+      "colorsApplied": "Semantic colors applied to preview and PowerPoint export",
+      "generationStarted": "Presentation direction sent to the Agent",
+      "undoComplete": "Latest presentation change undone",
+      "exportComplete": "Validated and exported {{count}} slides to {{filename}}"
+    },
+    "errors": {
+      "deckUnavailable": "Deck Engine is unavailable for this session",
+      "actionFailed": "{{action}} failed",
+      "flowChatDisconnected": "This presentation is not connected to its FlowChat session",
+      "markdownUnavailable": "The system Markdown editor is unavailable in this runtime",
+      "bootFailed": "PPT Live could not open: {{message}}"
+    },
+    "presets": {
+      "editorial-clarity": {
+        "name": "Editorial Clarity",
+        "rationale": "A calm editorial system with decisive hierarchy, evidence-first layouts, and restrained signal colors.",
+        "direction": {
+          "keywords": ["editorial", "precise", "evidence-led", "human"],
+          "tone": "Confident and direct without feeling corporate or ornamental.",
+          "audienceFit": "Product, technical, and executive audiences who need to scan claims and evidence quickly.",
+          "avoid": ["repetitive card grids", "decorative gradients", "tiny text", "single-hue pages", "generic icon walls"]
+        }
+      },
+      "signal-room": {
+        "name": "Signal Room",
+        "rationale": "High-contrast analytical pages for live decision rooms, balanced with warm data signals.",
+        "direction": {
+          "keywords": ["analytical", "high-contrast", "decisive", "technical"],
+          "tone": "Focused and rigorous without becoming a dark dashboard.",
+          "audienceFit": "Leadership reviews and technical decision meetings.",
+          "avoid": ["wall-to-wall dark panels", "neon decoration", "dense dashboards"]
+        }
+      },
+      "studio-redline": {
+        "name": "Studio Redline",
+        "rationale": "Sharp white space, disciplined navy structure, and sparse red interventions.",
+        "direction": {
+          "keywords": ["studio", "structured", "sharp", "modernist"],
+          "tone": "Crisp, assertive, and visually economical.",
+          "audienceFit": "Brand, product, and strategic concept presentations.",
+          "avoid": ["soft generic cards", "pastel wash", "ornamental shadows"]
+        }
+      },
+      "field-notes": {
+        "name": "Field Notes",
+        "rationale": "A human research language with documentary media, forest structure, and annotated evidence.",
+        "direction": {
+          "keywords": ["documentary", "observational", "tactile", "clear"],
+          "tone": "Grounded, warm, and specific.",
+          "audienceFit": "Research, field studies, discovery, and qualitative product narratives.",
+          "avoid": ["corporate gloss", "beige monochrome", "stock photography"]
+        }
+      }
+    }
+  },
+  "zh-CN": {
+    "meta": {
+      "title": "PPT Live"
+    },
+    "header": {
+      "untitled": "未命名演示文稿",
+      "opening": "正在打开演示文稿",
+      "deckMeta": "{{count}} 张幻灯片 · {{status}}",
+      "readyToExport": "可导出",
+      "generating": "正在生成",
+      "needsReview": "等待审阅"
+    },
+    "boot": {
+      "opening": "正在打开演示文稿…"
+    },
+    "actions": {
+      "designManuscript": "设计稿",
+      "design": "设计",
+      "undo": "撤销视觉更改",
+      "export": "导出 PowerPoint",
+      "exportPptx": "导出 PPTX",
+      "exportReviewed": "导出已审阅的 PowerPoint",
+      "exportReviewRequired": "请先完成并通过演示文稿审阅",
+      "exportColorsPending": "请先应用或重置配色修改，再导出演示文稿",
+      "close": "关闭",
+      "closeDesign": "关闭设计",
+      "backToSlides": "返回幻灯片",
+      "openSpeakerScript": "打开演讲稿",
+      "refineWithAi": "让 AI 优化",
+      "followGeneration": "跟随生成进度",
+      "followingGeneration": "正在跟随生成进度",
+      "zoomOut": "缩小",
+      "zoomIn": "放大",
+      "saveDocument": "保存文档",
+      "save": "保存",
+      "saveManuscript": "保存设计文稿",
+      "saveSpeaker": "保存演讲稿",
+      "updatePptWithAi": "使用 AI 更新 PPT",
+      "reviewWithAi": "使用 AI 审阅"
+    },
+    "style": {
+      "defaultName": "演示文稿设计系统",
+      "defaultDescription": "为当前演示文稿定制的完整视觉语言"
+    },
+    "design": {
+      "ariaLabel": "演示文稿设计",
+      "eyebrow": "设计",
+      "currentScheme": "当前",
+      "schemes": "推导出的设计方向",
+      "schemeHint": "已确认的设计样稿统一约束整套演示文稿。",
+      "aiTitle": "用 AI 调整",
+      "aiHint": "描述想要的视觉变化，内容和页序不会被改动。",
+      "suggestionsAriaLabel": "快捷设计方向",
+      "suggestionSimpler": "更简洁",
+      "suggestionStronger": "层级更强",
+      "suggestionCalmer": "更沉稳",
+      "promptSimpler": "减少装饰，让每一页更简洁、更有意图。",
+      "promptStronger": "强化信息层级，让关键数据一眼就能被找到。",
+      "promptCalmer": "降低视觉噪音，让整套演示更沉稳、更克制。",
+      "paletteTitle": "语义配色",
+      "paletteHint": "直接编辑预览与 PowerPoint 导出共用的颜色令牌。应用后会生成新的设计修订，并清除当前审阅结果。",
+      "paletteAriaLabel": "语义颜色编辑器",
+      "paletteFoundation": "基础色",
+      "paletteStates": "状态色",
+      "paletteData": "数据系列",
+      "applyColors": "应用配色",
+      "resetColors": "重置",
+      "promptLabel": "想调整什么？",
+      "promptPlaceholder": "例如：减少装饰，强化数据层级"
+    },
+    "designCase": {
+      "eyebrow": "设计样稿",
+      "title": "生成完整演示前，先判断视觉方向",
+      "awaiting": "等待你的判断",
+      "meta": "{{system}} · {{density}} 密度 · 三张真实文稿页面",
+      "sample": "样稿 {{number}}",
+      "confirmInFlowChat": "请在 FlowChat 的独立设计样稿确认卡片中采用或调整这个方向。"
+    },
+    "system": {
+      "eyebrow": "演示文稿设计系统",
+      "initialRevision": "修订 0",
+      "revision": "修订 {{revision}}",
+      "direction": "设计方向",
+      "avoid": "避免：{{value}}",
+      "color": "颜色",
+      "colorDetail": "语义令牌统一驱动预览与导出对象。",
+      "designUsage": "设计使用情况",
+      "designUsageDetail": "统计数据来自预览、审阅和导出共同使用的编译渲染树。",
+      "tokenCoverage": "令牌覆盖率",
+      "recipesUsed": "已使用版式",
+      "compiledObjects": "已编译对象",
+      "legacyPages": "旧版页面",
+      "typography": "字体排印",
+      "gridGrammar": "网格与对象规则",
+      "gridGrammarDetail": "{{columns}} 列 · {{density}} 密度 · {{media}} 媒体处理",
+      "charts": "图表",
+      "compiledRecipes": "已编译页面版式",
+      "compilerDetail": "编译器 {{version}} · {{count}} 个受约束版式，由预览、审阅与导出共同使用。",
+      "recipesDetail": "版式定义页面允许使用的结构。",
+      "changeColor": "更改 {{name}} 颜色",
+      "typeRole": "{{name}} · {{size}} 磅 · {{weight}}",
+      "typeSample": "证据应该清晰易读",
+      "shapeRadius": "{{role}}：{{radius}}"
+    },
+    "roles": {
+      "cover": "封面",
+      "title": "标题",
+      "section": "章节",
+      "body": "正文",
+      "label": "标签",
+      "metric": "指标",
+      "caption": "说明",
+      "source": "来源",
+      "code": "代码"
+    },
+    "tokens": {
+      "canvas": "画布",
+      "surface": "表面",
+      "ink": "正文",
+      "muted": "弱化文本",
+      "border": "边框",
+      "primary": "主色",
+      "accent": "强调色",
+      "positive": "正向",
+      "caution": "警示",
+      "negative": "负向",
+      "data_1": "数据色 1",
+      "data_2": "数据色 2",
+      "data_3": "数据色 3",
+      "data_4": "数据色 4",
+      "data_5": "数据色 5"
+    },
+    "tokenPurposes": {
+      "canvas": "暖中性色页面底色",
+      "surface": "承载证据与媒体的抬升表面",
+      "ink": "主要文字与明确标记",
+      "muted": "次要标签与辅助文案",
+      "border": "克制的结构分隔线",
+      "primary": "页面中的主要强调与导航",
+      "accent": "用于关键事实的少量对比信号",
+      "positive": "正向状态与有利变化",
+      "caution": "警示与尚未解决的权衡",
+      "negative": "负向状态与重大风险",
+      "data_1": "主要数据系列",
+      "data_2": "对比或高亮数据系列",
+      "data_3": "次要定量数据系列",
+      "data_4": "补充定量数据系列",
+      "data_5": "补充定量数据系列"
+    },
+    "density": {
+      "balanced": "均衡",
+      "airy": "疏朗",
+      "dense": "紧凑"
+    },
+    "mediaTreatment": {
+      "documentary": "纪实",
+      "framed": "带框",
+      "full-bleed": "满版"
+    },
+    "shapeRoles": {
+      "none": "无圆角",
+      "small": "小圆角",
+      "medium": "中圆角"
+    },
+    "archetypes": {
+      "cover": { "name": "封面", "purpose": "建立主题与第一个视觉信号。" },
+      "section": { "name": "章节页", "purpose": "切换章节与叙事节奏。" },
+      "statement": { "name": "观点页", "purpose": "突出一个判断或指标。" },
+      "evidence": { "name": "证据页", "purpose": "使用来源材料证明观点。" },
+      "comparison": { "name": "对比页", "purpose": "让差异可以被快速识别。" },
+      "process": { "name": "流程页", "purpose": "解释顺序、责任或状态变化。" },
+      "architecture": { "name": "架构页", "purpose": "解释层级、依赖与边界。" },
+      "media": { "name": "媒体 / 演示页", "purpose": "让真实产品或对象成为主体。" },
+      "closing": { "name": "结束页", "purpose": "总结并明确下一步行动。" }
+    },
+    "visual": {
+      "slides": "幻灯片",
+      "presentationPreview": "演示文稿预览",
+      "currentSlide": "当前幻灯片",
+      "selectedSlide": "所选幻灯片",
+      "visualOnly": "仅修改视觉稿",
+      "recipe": "版式",
+      "title": "标题",
+      "claim": "核心观点",
+      "slideNumber": "第 {{number}} 张幻灯片",
+      "slideThumb": "第 {{number}} 张幻灯片：{{title}}，{{status}}",
+      "object": "{{role}}对象{{description}}"
+    },
+    "speaker": {
+      "currentSlide": "当前页讲稿",
+      "noSlide": "选择一张幻灯片以准备讲解",
+      "separateDocument": "演讲稿是一份独立、完整的 Markdown 文档",
+      "slideMeta": "第 {{current}} / {{total}} 页 · 独立 Markdown 演讲稿"
+    },
+    "status": {
+      "planned": "等待生成",
+      "generating": "正在生成",
+      "previewReady": "预览已就绪",
+      "reviewing": "正在审阅",
+      "needsFix": "需要修复",
+      "approved": "已通过",
+      "stale": "需要更新",
+      "failed": "生成失败"
+    },
+    "empty": {
+      "eyebrow": "演示文稿工作区",
+      "title": "这套演示要讲清楚什么？",
+      "detail": "只需给出主题和可选材料线索。Agent 会推断受众、结构、配色、密度和页数，然后停在三张设计样稿等待你的判断。",
+      "topicLabel": "演示主题与可选材料线索",
+      "topicPlaceholder": "例如：说明为什么激活质量已经成为当前增长的主要约束，并使用工作区里的最新复盘作为证据。",
+      "create": "生成演示",
+      "understandContent": "理解内容",
+      "compileSystem": "编译设计系统",
+      "generateFirstSlide": "生成第 1 张幻灯片",
+      "designPackage": "设计包"
+    },
+    "planned": {
+      "generating": "Agent 正在依据设计包编译这张幻灯片。",
+      "failed": "上次生成失败；如果存在之前的有效预览，系统会继续保留。",
+      "waiting": "正在等待进入生成流程。"
+    },
+    "documents": {
+      "manuscript": "PPT 设计稿 · Markdown",
+      "speaker": "演讲稿",
+      "editor": "演示文稿文档编辑器",
+      "initialRevision": "修订 1",
+      "revision": "修订 {{revision}}",
+      "revisionUnsaved": "修订 {{revision}} / 未保存",
+      "manuscriptSaved": "设计文稿已保存",
+      "speakerSaved": "演讲稿已保存",
+      "manuscriptLabel": "设计文稿",
+      "speakerLabel": "演讲稿"
+    },
+    "toasts": {
+      "objectUpdated": "视觉对象已更新",
+      "documentSent": "已保存{{label}}并发送给演示文稿 Agent",
+      "designSent": "已将设计系统发送给演示文稿 Agent",
+      "colorsApplied": "语义配色已应用到预览和 PowerPoint 导出",
+      "generationStarted": "已将演示方向发送给 Agent",
+      "undoComplete": "已撤销最近一次演示文稿更改",
+      "exportComplete": "已校验并将 {{count}} 张幻灯片导出到 {{filename}}"
+    },
+    "errors": {
+      "deckUnavailable": "当前会话无法使用演示文稿引擎",
+      "actionFailed": "{{action}} 执行失败",
+      "flowChatDisconnected": "此演示文稿尚未连接到对应的 FlowChat 会话",
+      "markdownUnavailable": "当前运行环境无法使用系统 Markdown 编辑器",
+      "bootFailed": "PPT Live 无法打开：{{message}}"
+    },
+    "presets": {
+      "editorial-clarity": {
+        "name": "编辑清晰",
+        "rationale": "冷静克制的编辑设计系统，以明确层级、证据优先的版式和节制的信号色组织信息。",
+        "direction": {
+          "keywords": ["编辑", "精准", "证据驱动", "人本"],
+          "tone": "自信直接，同时避免企业化与装饰感。",
+          "audienceFit": "需要快速浏览观点与证据的产品、技术和管理层受众。",
+          "avoid": ["重复卡片网格", "装饰性渐变", "过小文字", "单色页面", "通用图标墙"]
+        }
+      },
+      "signal-room": {
+        "name": "信号室",
+        "rationale": "面向实时决策场景的高对比分析页面，并使用温暖的数据强调色保持平衡。",
+        "direction": {
+          "keywords": ["分析型", "高对比", "果断", "技术感"],
+          "tone": "专注严谨，但不呈现为暗色仪表盘。",
+          "audienceFit": "管理层审阅和技术决策会议。",
+          "avoid": ["通篇暗色面板", "霓虹装饰", "密集仪表盘"]
+        }
+      },
+      "studio-redline": {
+        "name": "红线工作室",
+        "rationale": "锐利留白、严谨的海军蓝结构与少量红色干预共同构成的现代设计语言。",
+        "direction": {
+          "keywords": ["工作室", "结构化", "锐利", "现代主义"],
+          "tone": "清晰果断且视觉表达经济克制。",
+          "audienceFit": "品牌、产品和战略概念演示。",
+          "avoid": ["柔软通用卡片", "粉彩晕染", "装饰性阴影"]
+        }
+      },
+      "field-notes": {
+        "name": "田野笔记",
+        "rationale": "以纪实媒体、森林色结构和带注释证据构成的人本研究视觉语言。",
+        "direction": {
+          "keywords": ["纪实", "观察式", "可触感", "清晰"],
+          "tone": "脚踏实地、温暖且具体。",
+          "audienceFit": "研究、田野调查、探索和定性产品叙事。",
+          "avoid": ["企业光泽", "米色单色", "素材库摄影"]
+        }
+      }
+    }
+  }
+}
