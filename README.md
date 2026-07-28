@@ -12,9 +12,9 @@ pnpm run build
 
 ## Publishing
 
-Pushing this branch runs `.github/workflows/publish-pages.yml`. The workflow builds the Vite site into `dist/`, uploads the Pages artifact, and deploys it through the `github-pages` environment.
+Pushing this branch runs `.github/workflows/publish-pages.yml`. The workflow reads the configured Pages base path, builds the Vite site into `dist/`, uploads the Pages artifact, and deploys it through the `github-pages` environment.
 
-The workflow sets `GITHUB_PAGES_BASE_PATH=/Sparo-Agentic-OS/` for the default project Pages URL. Change that value to `/` if the repository is later served from a custom domain root.
+The build receives `GITHUB_PAGES_BASE_PATH` from `actions/configure-pages`, so repository renames and custom-domain root paths do not require a hard-coded path change.
 
 ## Branch Scope
 
