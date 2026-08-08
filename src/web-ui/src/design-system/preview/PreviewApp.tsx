@@ -5,8 +5,11 @@ import type { PreviewCategory } from '../types';
 import { FocusedPreview } from './FocusedPreview';
 import {
   IconButton,
+  PanelLeftClosedIcon,
+  PanelLeftOpenIcon,
   Search,
   Select,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
   SparoLogoMark,
   type SelectOption,
 } from '@/design-system';
@@ -24,7 +27,6 @@ import {
   BookOpen,
   Box,
   Languages,
-  PanelLeftClose,
   SunMedium,
 } from 'lucide-react';
 import './preview.css';
@@ -321,8 +323,22 @@ export const PreviewApp: React.FC = () => {
                 ? t('sidebar.expandNavigation')
                 : t('sidebar.collapseNavigation')}
             >
-              <span className={`preview-sidebar-toggle__icon ${isSidebarCollapsed ? 'is-collapsed' : ''}`}>
-                <PanelLeftClose size={14} aria-hidden="true" />
+              <span className="preview-sidebar-toggle__icon">
+                {isSidebarCollapsed ? (
+                  <PanelLeftClosedIcon
+                    size={14}
+                    strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                    absoluteStrokeWidth
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <PanelLeftOpenIcon
+                    size={14}
+                    strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                    absoluteStrokeWidth
+                    aria-hidden="true"
+                  />
+                )}
               </span>
             </IconButton>
           </div>

@@ -12,6 +12,7 @@ import { useTypewriter } from '../hooks/useTypewriter';
 import { deriveTextBlockState } from '../runtime/statusModel';
 import { incrementFlowChatCounter } from '../performance/flowChatPerf';
 import { StreamingMarkdownRenderer } from '../markdown/StreamingMarkdownRenderer';
+import { notifyReproductionCompleted } from '../services/ReproductionFlowService';
 import './FlowTextBlock.scss';
 
 // Idle timeout (ms) after content stops growing.
@@ -100,6 +101,7 @@ export const FlowTextBlock = React.memo<FlowTextBlockProps>(({
           onFileViewRequest={onFileViewRequest}
           onTabOpen={onTabOpen}
           onOpenVisualization={handleOpenVisualization}
+          onReproductionProceed={notifyReproductionCompleted}
         />
       ) : (
         <div className={`text-content ${isActivelyStreaming && hasContent ? 'text-content--streaming' : ''}`}>

@@ -171,25 +171,6 @@ describe('Product App runtime', () => {
     }, label);
   }
 
-  it('opens immersive Product Apps on the primary runtime surface', async () => {
-    await openProductAppById('builtin-spark-board');
-
-    const hostSurfaceScene = await $('[data-testid="product-app-host-surface-scene"]');
-    await hostSurfaceScene.waitForDisplayed({ timeout: 30000 });
-
-    await browser.waitUntil(
-      async () => browser.execute(() => Boolean(
-        document.querySelector('iframe[data-product-app-id="builtin-spark-board"]'),
-      )),
-      {
-        timeout: 30000,
-        timeoutMsg: 'Spark Board Product App iframe did not render',
-      },
-    );
-
-    expect(await hostSurfaceScene.isDisplayed()).toBe(true);
-  });
-
   it('opens sidecar Product Apps as Flow Chat plus a runtime-owned aux panel', async () => {
     await openProductAppById('builtin-remotion-live');
 

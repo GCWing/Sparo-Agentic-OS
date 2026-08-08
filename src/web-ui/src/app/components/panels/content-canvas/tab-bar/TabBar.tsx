@@ -4,9 +4,13 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo, useLayoutEffect } from 'react';
-import { X } from 'lucide-react';
+import { Maximize2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { IconButton } from '@/design-system';
+import {
+  IconButton,
+  PanelRightOpenIcon,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
+} from '@/design-system';
 import { Tab } from './Tab';
 import { TabOverflowMenu } from './TabOverflowMenu';
 import type { CanvasTab, EditorGroupId, TabDragPayload } from '../types';
@@ -44,6 +48,10 @@ export interface TabBarProps {
   onCloseAllTabs?: () => Promise<void> | void;
   /** Pop out tab as independent scene */
   onTabPopOut?: (tabId: string) => void;
+  /** Collapse the panel that owns this tab bar. */
+  onRequestClose?: () => void;
+  /** Promote the owning auxiliary surface into the current session scene. */
+  onRequestSceneFocus?: () => void;
 }
 
 /**
@@ -94,6 +102,8 @@ export const TabBar: React.FC<TabBarProps> = ({
   onReorderTab,
   onCloseAllTabs,
   onTabPopOut,
+  onRequestClose,
+  onRequestSceneFocus,
 }) => {
   const { t } = useTranslation('components');
   const [visibleTabsCount, setVisibleTabsCount] = useState(tabs.length);
@@ -156,8 +166,11 @@ export const TabBar: React.FC<TabBarProps> = ({
     const totalTabsWidth = allTabWidths.reduce((sum, w) => sum + w, 0);
     
     // Base actions width (excluding overflow button)
-    // Close-all button: 28px + gap
-    const baseActionsWidth = (onCloseAllTabs ? 28 : 0) + 4;
+    // Panel-collapse and close-all buttons: 28px each + gap
+    const baseActionsWidth = (onRequestSceneFocus ? 28 : 0)
+      + (onRequestClose ? 28 : 0)
+      + (onCloseAllTabs ? 28 : 0)
+      + 4;
     const overflowBtnWidth = 50;
     // Gap before actions area
     const actionsGap = 8;
@@ -189,7 +202,14 @@ export const TabBar: React.FC<TabBarProps> = ({
     const finalCount = Math.max(1, Math.min(count, visibleTabs.length));
     setVisibleTabsCount(finalCount);
     setLayoutReady(true);
-  }, [visibleTabs, getTabWidth, getTabCacheKey, onCloseAllTabs]);
+  }, [
+    visibleTabs,
+    getTabWidth,
+    getTabCacheKey,
+    onCloseAllTabs,
+    onRequestClose,
+    onRequestSceneFocus,
+  ]);
 
   // Reset to render all tabs when list changes (re-measure)
   useEffect(() => {
@@ -332,6 +352,45 @@ export const TabBar: React.FC<TabBarProps> = ({
             onTabClose={onTabClose}
             onReorderTab={onReorderTab}
           />
+        )}
+
+        {onRequestSceneFocus && visibleTabs.length > 0 && (
+          <IconButton
+            className="canvas-tab-bar__action canvas-tab-bar__action--scene-focus"
+            onClick={(event) => {
+              event.stopPropagation();
+              onRequestSceneFocus();
+            }}
+            size="xs"
+            variant="ghost"
+            aria-label={t('canvas.focusInScene')}
+            tooltip={t('canvas.focusInScene')}
+            tooltipPlacement="bottom"
+          >
+            <Maximize2 size={14} aria-hidden="true" />
+          </IconButton>
+        )}
+
+        {onRequestClose && (
+          <IconButton
+            className="canvas-tab-bar__action canvas-tab-bar__action--collapse-panel"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRequestClose();
+            }}
+            size="xs"
+            variant="ghost"
+            aria-label={t('canvas.collapsePanel')}
+            tooltip={t('canvas.collapsePanel')}
+            tooltipPlacement="bottom"
+          >
+            <PanelRightOpenIcon
+              size={14}
+              strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+              absoluteStrokeWidth
+              aria-hidden="true"
+            />
+          </IconButton>
         )}
 
         {/* Close all tabs button */}

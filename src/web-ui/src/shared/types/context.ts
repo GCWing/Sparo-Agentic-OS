@@ -10,6 +10,19 @@ export interface BaseContext {
   id: string;
   timestamp: number;
   metadata?: Record<string, unknown>;
+  /** Stable content identity used for draft-local deduplication. */
+  identity?: ContextAssetIdentity;
+}
+
+export interface ContextAssetIdentity {
+  version: 1;
+  strategy:
+    | 'content-sha256'
+    | 'content-fallback'
+    | 'canonical-url'
+    | 'canonical-locator'
+    | 'versioned-object';
+  fingerprint: string;
 }
 
 /**
@@ -27,7 +40,17 @@ export type ContextItem =
   | URLContext
   | WebElementContext
   | ProductAppPreviewElementSelectionContext
+  | IntentCanvasContext
   | SpreadsheetFocusContext;
+
+export type ContextAssetStatus =
+  | 'captured'
+  | 'resolving'
+  | 'ready'
+  | 'degraded'
+  | 'failed'
+  | 'changed'
+  | 'frozen';
 
 /**
  * Long-form text captured as an atomic Composer resource.
@@ -87,18 +110,23 @@ export interface CodeSnippetContext extends BaseContext {
   afterContext?: string;  
 }
 
+/** Serializable locator for image bytes; large binary payloads stay outside UI state. */
+export type ImageAssetSourceRef =
+  | { kind: 'local-file'; path: string }
+  | { kind: 'memory-asset'; assetId: string }
+  | { kind: 'remote-url'; url: string };
+
 export interface ImageContext extends BaseContext {
   type: 'image';
-  imagePath: string;
   imageName: string;
   width?: number;
   height?: number;
-  fileSize: number;          
-  mimeType: string;          
-  dataUrl?: string;          
-  thumbnailUrl?: string;     
-  source: 'file' | 'clipboard' | 'url';  
-  isLocal: boolean;          
+  fileSize: number;
+  mimeType: string;
+  sourceRef: ImageAssetSourceRef;
+  /** Small display derivative only; never the original image payload. */
+  thumbnailUrl?: string;
+  source: 'file' | 'clipboard' | 'url';
 }
 
 export interface TerminalCommandContext extends BaseContext {
@@ -184,6 +212,21 @@ export interface ProductAppPreviewElementSelectionContext extends BaseContext {
   fingerprint: ProductAppPreviewElementFingerprint;
   source: 'iframe-element-inspector' | 'runtime-specific';
   confidence: 'high' | 'medium' | 'low';
+}
+
+/** A stable reference to a whole intent canvas or one selected branch. */
+export interface IntentCanvasContext extends BaseContext {
+  type: 'intent-canvas';
+  canvasId: string;
+  title: string;
+  revision: string;
+  scope: 'canvas' | 'branch';
+  rootNodeId?: string;
+  rootNodeLabel?: string;
+  selectedNodeIds?: string[];
+  nodeCount: number;
+  serializedContent: string;
+  thumbnailUrl?: string;
 }
 
 export interface SpreadsheetFocusValueSummary {
@@ -321,6 +364,12 @@ export function isProductAppPreviewElementSelectionContext(
   context: ContextItem,
 ): context is ProductAppPreviewElementSelectionContext {
   return context.type === 'product-app-preview-element-selection';
+}
+
+export function isIntentCanvasContext(
+  context: ContextItem,
+): context is IntentCanvasContext {
+  return context.type === 'intent-canvas';
 }
 
 export function isSpreadsheetFocusContext(

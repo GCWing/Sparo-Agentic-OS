@@ -90,7 +90,10 @@ import { mergeProductAppLibrary, productAppLibraryKey } from './productAppLibrar
 import { AppIcon } from '@/app/components/AppIcon';
 import { launchActiveIntelligentApp } from './intelligentAppLaunchService';
 import { createAndOpenAppBuilder, openAppBuilderSession } from './app-builder/openAppBuilderSession';
-import { selectOpenAppWorkActivities } from './appWorkActivity';
+import {
+  selectLatestOpenAppWorkPerObject,
+  selectOpenAppWorkActivities,
+} from './appWorkActivity';
 import { appScopeFromWorkspace, systemAppScope } from '@/shared/types/app-scope';
 import {
   intelligentAppAPI,
@@ -681,7 +684,7 @@ export const AppsScene: React.FC = () => {
     return sortManageApps(filtered, manageSort, runningSurfaceAppIdSet);
   }, [managementApps, manageQuery, manageSection, manageSort, runningSurfaceAppIdSet]);
 
-  const continueWorks = useMemo(() => selectOpenAppWorkActivities(works)
+  const continueWorks = useMemo(() => selectLatestOpenAppWorkPerObject(selectOpenAppWorkActivities(works)
     .filter((item) => {
       const nativeApp = displayNativeApps.find((candidate) => sameAppRef(nativeAppWorkRef(candidate.id), item.appRef));
       if (nativeApp) {
@@ -692,7 +695,7 @@ export const AppsScene: React.FC = () => {
         && app?.installed === true
         && !appHasCatalogIssues(app)
         && workMatchesSearch(item.work, app?.name, installedQuery);
-    }), [displayNativeApps, homeDisplayApps, installedQuery, works]);
+    })), [displayNativeApps, homeDisplayApps, installedQuery, works]);
 
   const filteredComponents = useMemo(() => components
     .filter((component) => componentFilter === 'all' || component.kind === componentFilter)
@@ -885,7 +888,7 @@ export const AppsScene: React.FC = () => {
           scope: workAppScope,
           title: app.name,
           objective: app.description || app.name,
-          workMode,
+          intent: { kind: workMode === 'create' ? 'create_new' : 'resume_last' },
         });
         return;
       }
@@ -953,6 +956,40 @@ export const AppsScene: React.FC = () => {
       setStoppingAppId(null);
     }
   }, [markProductAppRuntimeWorkerStopped, t]);
+
+  const handleCreateWorkForExistingObject = useCallback(async (
+    app: ProductAppCatalogEntry,
+    sourceWork: WorkRecord,
+  ) => {
+    if (app.installed !== true) {
+      notificationService.error(t('productSystem.messages.installBeforeLaunch', { name: app.name }));
+      return;
+    }
+    setLaunchingAppId(app.id);
+    try {
+      await launchActiveIntelligentApp(app.activeRef!, {
+        scope: workAppScope,
+        title: sourceWork.title,
+        objective: sourceWork.objective || sourceWork.title,
+        intent: {
+          kind: 'create_for_existing_object',
+          sourceWorkLocator: { scope: sourceWork.scope, workId: sourceWork.id },
+        },
+      });
+    } catch (error) {
+      log.error('Failed to create Product App Work for existing WorkObject', {
+        appId: app.id,
+        sourceWorkId: sourceWork.id,
+        error,
+      });
+      notificationService.error(t('productSystem.messages.createForObjectFailed', {
+        name: sourceWork.title,
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    } finally {
+      setLaunchingAppId(null);
+    }
+  }, [workAppScope, t]);
 
   const handleCloseRunningWork = useCallback(async (work: WorkRecord) => {
     setClosingWorkId(work.id);
@@ -1530,6 +1567,8 @@ export const AppsScene: React.FC = () => {
                             stopping={stoppingAppId === app.id}
                             running={runningSurfaceAppIdSet.has(app.id)}
                             supportsMultipleWorks={launchBehavior.supportsMultipleWorks}
+                            supportsExistingObjectWork={app.launch?.kind === 'applicationSurface'
+                              && app.workObjectKinds?.[0]?.reusableAcrossWorks === true}
                             relatedWorks={launchBehavior.supportsMultipleWorks
                               ? continueWorksByAppId.get(app.id)?.map(({ work }) => work) ?? []
                               : []}
@@ -1537,6 +1576,7 @@ export const AppsScene: React.FC = () => {
                             onToggleFlip={() => toggleCardFlip(app.id)}
                             onLaunch={() => void handleLaunchApp(app)}
                             onCreateNew={() => void handleLaunchApp(app, 'create')}
+                            onCreateForObject={(work) => void handleCreateWorkForExistingObject(app, work)}
                             onStop={() => void handleStopApp(app)}
                             onContinue={(work) => void openWork(work)}
                             onOpenDetails={() => openAppDetail(app.id)}
@@ -2202,11 +2242,13 @@ function ProductAppCard({
   stopping,
   running,
   supportsMultipleWorks,
+  supportsExistingObjectWork,
   relatedWorks,
   flipped,
   onToggleFlip,
   onLaunch,
   onCreateNew,
+  onCreateForObject,
   onStop,
   onContinue,
   onOpenDetails,
@@ -2217,11 +2259,13 @@ function ProductAppCard({
   stopping: boolean;
   running: boolean;
   supportsMultipleWorks: boolean;
+  supportsExistingObjectWork: boolean;
   relatedWorks: WorkRecord[];
   flipped: boolean;
   onToggleFlip: () => void;
   onLaunch: () => void;
   onCreateNew: () => void;
+  onCreateForObject: (work: WorkRecord) => void;
   onStop: () => void;
   onContinue: (work: WorkRecord) => void;
   onOpenDetails: () => void;
@@ -2295,6 +2339,8 @@ function ProductAppCard({
               onBack={onToggleFlip}
               onSelect={onContinue}
               onCreateNew={onCreateNew}
+              onCreateForObject={supportsExistingObjectWork ? onCreateForObject : undefined}
+              creatingForObject={launching}
               t={t}
             />
           ) : null}

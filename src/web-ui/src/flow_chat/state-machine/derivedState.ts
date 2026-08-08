@@ -17,7 +17,7 @@ import { projectSessionInteraction } from '../projections/sessionInteractionProj
 
 /** Optional live chat input draft while PROCESSING (mirrors input box); used so send mode stays `split` when user has typed a follow-up. */
 export type DeriveSessionOptions = {
-  processingInputDraftTrimmed?: string;
+  processingDraftHasContent?: boolean;
 };
 
 export function deriveSessionState(
@@ -26,12 +26,12 @@ export function deriveSessionState(
 ): SessionDerivedState {
   const { currentState, context } = machine;
   const { processingPhase } = context;
-  const draftTrimmed =
+  const processingDraftHasContent =
     currentState === SessionExecutionState.PROCESSING ||
     currentState === SessionExecutionState.FINISHING ||
     currentState === SessionExecutionState.ERROR
-      ? options?.processingInputDraftTrimmed?.trim() ?? ''
-      : '';
+      ? options?.processingDraftHasContent ?? false
+      : false;
 
   const plannerStats = context.planner?.todos
     ?       {
@@ -51,7 +51,7 @@ export function deriveSessionState(
   const isError = currentState === SessionExecutionState.ERROR;
   const isIdle = currentState === SessionExecutionState.IDLE;
   const interaction = projectSessionInteraction(machine, {
-    processingInputDraftTrimmed: draftTrimmed,
+    processingDraftHasContent,
   });
   const canCancel = interaction.canCancel;
   
@@ -92,7 +92,7 @@ export function deriveSessionState(
       ((currentState === SessionExecutionState.PROCESSING ||
         currentState === SessionExecutionState.FINISHING ||
         currentState === SessionExecutionState.ERROR) &&
-        draftTrimmed.length > 0),
+        processingDraftHasContent),
     queuedInput: context.queuedInput ?? null,
     
     hasError: isError,

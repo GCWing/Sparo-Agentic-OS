@@ -1,6 +1,8 @@
 import { agentAPI, btwAPI, sessionAPI } from '@/infrastructure/api';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
+import type { ComposerSubmissionEnvelope } from '@/shared/types/composer';
+import type { ImageContextData } from '@/infrastructure/api/service-api/ImageContextTypes';
 import { flowChatStore } from '../store/FlowChatStore';
 import { stateMachineManager } from '../state-machine';
 import type { Session } from '../types/flow-chat';
@@ -234,9 +236,11 @@ export async function sendMessageToTransientBtwSession(params: {
   question: string;
   childSessionName?: string;
   modelId?: string;
+  composerSubmission?: ComposerSubmissionEnvelope;
+  imageContexts?: ImageContextData[];
 }): Promise<{ requestId: string }> {
   const question = params.question.trim();
-  if (!question) {
+  if (!question && !params.composerSubmission) {
     notificationService.warning('Please provide a question after /btw');
     throw new Error('Empty /btw question');
   }
@@ -254,6 +258,8 @@ export async function sendMessageToTransientBtwSession(params: {
     childSessionName: params.childSessionName || childSession.title || 'Side thread',
     question,
     modelId: params.modelId ?? childSession.config.modelName ?? 'primary',
+    composerSubmission: params.composerSubmission,
+    imageContexts: params.imageContexts,
   });
   if (params.modelId?.trim()) {
     flowChatStore.updateSessionModelName(params.childSessionId, params.modelId.trim());
@@ -267,9 +273,11 @@ export async function startBtwThread(params: {
   workspacePath: string;
   question: string;
   modelId?: string;
+  composerSubmission?: ComposerSubmissionEnvelope;
+  imageContexts?: ImageContextData[];
 }): Promise<{ requestId: string; childSessionId: string }> {
   const question = params.question.trim();
-  if (!question) {
+  if (!question && !params.composerSubmission) {
     notificationService.warning('Please provide a question after /btw');
     throw new Error('Empty /btw question');
   }
@@ -289,6 +297,8 @@ export async function startBtwThread(params: {
       question,
       childSessionName,
       modelId: params.modelId,
+      composerSubmission: params.composerSubmission,
+      imageContexts: params.imageContexts,
     });
     return { requestId, childSessionId };
   } catch (error) {

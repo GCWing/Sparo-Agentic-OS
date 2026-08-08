@@ -516,6 +516,8 @@ pub struct WorkObjectKind {
     pub id: String,
     pub label: String,
     pub scope: WorkObjectScope,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub reusable_across_works: bool,
     #[serde(default)]
     pub identity_schema: Value,
     #[serde(default)]

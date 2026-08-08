@@ -287,9 +287,10 @@ impl AppState {
                         );
                     }
                     log::info!(
-                        "Synchronized system Intelligent Apps: components_added={}, components_reused={}, releases_added={}, releases_reused={}, releases_replaced={}, activations_created={}, activations_preserved={}, issues={}",
+                        "Synchronized system Intelligent Apps: components_added={}, components_reused={}, apps_retired={}, releases_added={}, releases_reused={}, releases_replaced={}, activations_created={}, activations_preserved={}, issues={}",
                         result.components_added,
                         result.components_reused,
+                        result.apps_retired,
                         result.releases_added,
                         result.releases_reused,
                         result.releases_replaced,

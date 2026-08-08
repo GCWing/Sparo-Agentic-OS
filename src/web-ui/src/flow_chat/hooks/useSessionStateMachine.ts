@@ -41,22 +41,22 @@ export function useSessionStateMachine(sessionId: string | null) {
 
 /**
  * Derived session state.
- * @param processingInputDraftTrimmed - trimmed chat input while generating; keeps send UI in `split` when user has typed a follow-up (see derivedState).
+ * @param processingDraftHasContent - canonical Composer sendability while generating; keeps send UI in `split` for text or attachment-only follow-ups.
  */
 export function useSessionDerivedState(
   sessionId: string | null,
-  processingInputDraftTrimmed?: string
+  processingDraftHasContent?: boolean,
 ): SessionDerivedState | null {
   const snapshot = useSessionStateMachine(sessionId);
 
   const derivedState = useMemo(() => {
     if (!snapshot) return null;
     const opts =
-      processingInputDraftTrimmed !== undefined
-        ? { processingInputDraftTrimmed }
+      processingDraftHasContent !== undefined
+        ? { processingDraftHasContent }
         : undefined;
     return deriveSessionState(snapshot, opts);
-  }, [snapshot, processingInputDraftTrimmed]);
+  }, [snapshot, processingDraftHasContent]);
 
   return derivedState;
 }

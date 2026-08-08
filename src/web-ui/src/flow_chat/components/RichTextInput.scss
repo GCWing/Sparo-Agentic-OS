@@ -6,6 +6,13 @@
 @use '../../design-system/styles/_extended-mixins' as mixins;
 @use '../styles/flow-chat-style-contract' as flow;
 
+.composer-editor-surface {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
 .rich-text-input {
   flex: 1;
   background: transparent;
@@ -27,12 +34,23 @@
   word-break: break-word;
   cursor: text;
   box-shadow: none !important;
+
+  > p {
+    min-height: inherit;
+    margin: 0;
+  }
   
-  &:empty::before {
+  &:empty::before,
+  > .rich-text-input__empty-node::before {
     content: attr(data-placeholder);
     color: color-mix(in srgb, var(--ds-chat-text-muted) 52%, transparent);
     pointer-events: none;
     animation: rich-text-placeholder-fade-in 0.25s ease-out;
+  }
+
+  > .rich-text-input__empty-node::before {
+    float: left;
+    height: 0;
   }
   
   @keyframes rich-text-placeholder-fade-in {
@@ -63,7 +81,8 @@
 :root[data-theme="light"] .rich-text-input,
 :root[data-theme-type="light"] .rich-text-input,
 .light .rich-text-input {
-  &:empty::before {
+  &:empty::before,
+  > .rich-text-input__empty-node::before {
     color: color-mix(in srgb, var(--ds-chat-text-secondary, var(--ds-chat-text-secondary)) 48%, transparent);
   }
 }
@@ -182,11 +201,45 @@
   }
 }
 
+.rich-text-tag-pill[data-context-type] {
+  background: transparent;
+  color: var(--ds-chat-text-primary);
+
+  &:hover {
+    background: transparent;
+  }
+}
+
+.rich-text-tag-pill__surface[data-context-type] {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+
+  &:hover {
+    background: color-mix(in srgb, currentColor 15%, transparent);
+  }
+}
+
+.rich-text-tag-pill__surface.composer-attachment-identity--capsule {
+  gap: var(--ds-space-1);
+  padding: 2px 3px 2px var(--ds-space-1);
+  border-radius: var(--ds-radius-full);
+
+  .composer-attachment-identity__copy {
+    max-width: 104px;
+  }
+}
+
+.rich-text-tag-pill--selected {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ds-chat-accent) 48%, transparent);
+}
+
 .rich-text-tag-pill__action {
   display: inline-flex;
+  flex: 1 1 auto;
   align-items: center;
+  gap: var(--ds-space-1);
   min-width: 0;
-  padding: 2px 4px 2px 8px;
+  overflow: hidden;
+  padding: 0;
   border: 0;
   background: transparent;
   color: inherit;
@@ -219,18 +272,20 @@
 }
 
 .rich-text-tag-pill__remove {
-  display: flex;
+  display: inline-flex;
+  flex: 0 0 16px;
   align-items: center;
   justify-content: center;
   width: 16px;
   height: 16px;
   padding: 0;
-  margin: 0 4px 0 0;
+  margin: 0;
   border: none;
   background: transparent;
   color: currentColor;
   opacity: 0.6;
-  font-size: var(--flowchat-font-size-2xl);
+  font-size: var(--flowchat-font-size-sm);
+  font-weight: var(--ds-font-weight-medium);
   line-height: 1;
   cursor: pointer;
   border-radius: 50%;

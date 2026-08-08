@@ -673,4 +673,170 @@
         <path d="m33 27 7 7-7 7" />
     </g>
   </symbol>
+  <symbol id="panel-right-closed" viewBox="0 0 48 48">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M31 8v32" stroke-width="var(--sparo-icon-detail-stroke-width, 1.4)" stroke-dasharray="2 7" />
+    </g>
+  </symbol>
+  <symbol id="panel-right-closed-emphasis" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+    <g transform="translate(5.28 5.28) scale(0.78)" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round" style="--sparo-icon-detail-stroke-width: var(--sparo-icon-detail-stroke-width-override, 1.7949)">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M31 8v32" stroke-width="var(--sparo-icon-detail-stroke-width, 1.4)" stroke-dasharray="2 7" />
+    </g>
+  </symbol>
+  <symbol id="panel-right-open" viewBox="0 0 48 48">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M31 7v34" />
+    </g>
+  </symbol>
+  <symbol id="panel-right-open-emphasis" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+    <g transform="translate(5.28 5.28) scale(0.78)" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M31 7v34" />
+    </g>
+  </symbol>
+  <symbol id="panel-left-closed" viewBox="0 0 48 48">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M17 8v32" stroke-width="var(--sparo-icon-detail-stroke-width, 1.4)" stroke-dasharray="2 7" />
+    </g>
+  </symbol>
+  <symbol id="panel-left-closed-emphasis" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+    <g transform="translate(5.28 5.28) scale(0.78)" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round" style="--sparo-icon-detail-stroke-width: var(--sparo-icon-detail-stroke-width-override, 1.7949)">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M17 8v32" stroke-width="var(--sparo-icon-detail-stroke-width, 1.4)" stroke-dasharray="2 7" />
+    </g>
+  </symbol>
+  <symbol id="panel-left-open" viewBox="0 0 48 48">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M17 7v34" />
+    </g>
+  </symbol>
+  <symbol id="panel-left-open-emphasis" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+    <g transform="translate(5.28 5.28) scale(0.78)" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M17 7v34" />
+    </g>
+  </symbol>
+  <symbol id="panel-bottom-closed" viewBox="0 0 48 48">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M8 32h32" stroke-width="var(--sparo-icon-detail-stroke-width, 1.4)" stroke-dasharray="2 7" />
+    </g>
+  </symbol>
+  <symbol id="panel-bottom-closed-emphasis" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+    <g transform="translate(5.28 5.28) scale(0.78)" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round" style="--sparo-icon-detail-stroke-width: var(--sparo-icon-detail-stroke-width-override, 1.7949)">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M8 32h32" stroke-width="var(--sparo-icon-detail-stroke-width, 1.4)" stroke-dasharray="2 7" />
+    </g>
+  </symbol>
+  <symbol id="panel-bottom-open" viewBox="0 0 48 48">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M7 32h34" />
+    </g>
+  </symbol>
+  <symbol id="panel-bottom-open-emphasis" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+    <g transform="translate(5.28 5.28) scale(0.78)" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M7 32h34" />
+    </g>
+  </symbol>
+  <symbol id="panel-bottom-half" viewBox="0 0 48 48">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M7 27h34" />
+    </g>
+  </symbol>
+  <symbol id="panel-bottom-half-emphasis" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+    <g transform="translate(5.28 5.28) scale(0.78)" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+        <path d="M7 27h34" />
+    </g>
+  </symbol>
+  <symbol id="panel-bottom-maximized" viewBox="0 0 48 48">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+    </g>
+  </symbol>
+  <symbol id="panel-bottom-maximized-emphasis" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+    <g transform="translate(5.28 5.28) scale(0.78)" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="7" width="34" height="34" rx="4" />
+    </g>
+  </symbol>
+  <symbol id="panel-floating" viewBox="0 0 48 48">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M25 8h11a4 4 0 0 1 4 4v18a4 4 0 0 1-4 4" />
+        <rect x="5" y="14" width="29" height="27" rx="4" />
+    </g>
+  </symbol>
+  <symbol id="panel-floating-emphasis" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+    <g transform="translate(5.28 5.28) scale(0.78)" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M25 8h11a4 4 0 0 1 4 4v18a4 4 0 0 1-4 4" />
+        <rect x="5" y="14" width="29" height="27" rx="4" />
+    </g>
+  </symbol>
+  <symbol id="panel-docked" viewBox="0 0 48 48">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="5" y="10" width="38" height="29" rx="4" />
+        <path d="M32 10v29" />
+    </g>
+  </symbol>
+  <symbol id="panel-docked-emphasis" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+    <g transform="translate(5.28 5.28) scale(0.78)" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="5" y="10" width="38" height="29" rx="4" />
+        <path d="M32 10v29" />
+    </g>
+  </symbol>
+  <symbol id="panel-pinned" viewBox="0 0 48 48">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="8" width="34" height="32" rx="4" />
+        <path d="M32 12h5v6" />
+    </g>
+  </symbol>
+  <symbol id="panel-pinned-emphasis" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+    <g transform="translate(5.28 5.28) scale(0.78)" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="7" y="8" width="34" height="32" rx="4" />
+        <path d="M32 12h5v6" />
+    </g>
+  </symbol>
+  <symbol id="layout-reset" viewBox="0 0 48 48">
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 7h21a4 4 0 0 1 4 4v12" />
+        <path d="M8 35V11a4 4 0 0 1 4-4" />
+        <path d="M8 35a4 4 0 0 0 4 4h17" />
+        <path d="M25 7v32" />
+        <path d="M32 29a7 7 0 0 1 12 4" />
+        <path d="m44 29v4h-4" />
+        <path d="M43 38a7 7 0 0 1-12-4" />
+        <path d="m31 38v-4h4" />
+    </g>
+  </symbol>
+  <symbol id="layout-reset-emphasis" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
+    <g transform="translate(5.28 5.28) scale(0.78)" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, 2.5641)" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 7h21a4 4 0 0 1 4 4v12" />
+        <path d="M8 35V11a4 4 0 0 1 4-4" />
+        <path d="M8 35a4 4 0 0 0 4 4h17" />
+        <path d="M25 7v32" />
+        <path d="M32 29a7 7 0 0 1 12 4" />
+        <path d="m44 29v4h-4" />
+        <path d="M43 38a7 7 0 0 1-12-4" />
+        <path d="m31 38v-4h4" />
+    </g>
+  </symbol>
 </svg>

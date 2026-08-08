@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Check, X } from 'lucide-react';
 import { IconButton } from '@/design-system';
-import type { ContextItem } from '@/shared/types/context';
 import { createComposerTextDocument, getComposerText } from '@/shared/types/composer';
 import { RichTextInput, type MentionState, type RichTextInputHandle } from '../RichTextInput';
 import type { DialogTurn } from '../../types/flow-chat';
@@ -42,7 +41,7 @@ export function UserMessageEditComposer({
     return () => window.clearTimeout(id);
   }, []);
 
-  const handleChange = useCallback((nextDocument: ReturnType<typeof createComposerTextDocument>, _contexts: ContextItem[]) => {
+  const handleChange = useCallback((nextDocument: ReturnType<typeof createComposerTextDocument>, _referenceIds: string[]) => {
     onChange(getComposerText(nextDocument));
   }, [onChange]);
 
@@ -85,9 +84,10 @@ export function UserMessageEditComposer({
                 onKeyDown={handleKeyDown}
                 placeholder={labels.placeholder}
                 disabled={disabled}
-                contexts={[]}
-                openContextOptions={{ readOnly: true }}
-                onRemoveContext={() => {}}
+                assets={[]}
+                references={[]}
+                onOpenReference={() => {}}
+                onRemoveReference={() => {}}
                 onMentionStateChange={setMentionState}
               />
               {mentionState.isActive && null}

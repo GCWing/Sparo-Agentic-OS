@@ -33,7 +33,11 @@
   border-color: transparent;
   border-radius: $radius;
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--ds-color-border-base) 42%, transparent),
+    0 0 0 1px color-mix(
+      in srgb,
+      var(--ds-color-border-base, var(--border-base, #{legacy.$border-base})) 42%,
+      transparent
+    ),
     var(
       --ds-shadow-floating,
       0 16px 34px var(--ds-shadow-color-floating, rgb(0 0 0 / 45%))

@@ -7,7 +7,6 @@
 pub mod agentic;
 pub mod config;
 pub mod emitter;
-pub mod types;
 
 pub use agentic::{
     AgenticEvent, AgenticEventDeliveryClass, AgenticEventEnvelope, AgenticEventPriority,
@@ -21,4 +20,3 @@ pub use config::{
     PublishedConfigRolledBackEvent, PublishedConfigValueChange, SettingsSectionRef,
 };
 pub use emitter::EventEmitter;
-pub use types::*;

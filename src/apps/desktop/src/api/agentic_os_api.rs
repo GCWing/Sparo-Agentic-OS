@@ -6,11 +6,11 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use sparo_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
 use sparo_core::agentic_os::work::{
-    default_work_store, AgenticWorkRuntimeBridge, WorkCleanupAction, WorkCleanupItem,
-    WorkCleanupItemReport, WorkCleanupItemStatus, WorkExecutionGraph, WorkLifecycleHookBus,
-    WorkLifecycleHookContext, WorkLifecycleHookHandler, WorkLifecycleHookKind,
-    WorkLifecycleHookOutcome, WorkLifecycleHookPhase, WorkResourceOwnership, WorkResourceRef,
-    WorkService,
+    default_work_store, AgenticWorkRuntimeBridge, CreateWorkForObjectRequest,
+    EnsurePrimaryWorkObjectRequest, WorkCleanupAction, WorkCleanupItem, WorkCleanupItemReport,
+    WorkCleanupItemStatus, WorkExecutionGraph, WorkLifecycleHookBus, WorkLifecycleHookContext,
+    WorkLifecycleHookHandler, WorkLifecycleHookKind, WorkLifecycleHookOutcome,
+    WorkLifecycleHookPhase, WorkResourceOwnership, WorkResourceRef, WorkService,
 };
 use sparo_core::command::agentic_os as agentic_os_command;
 use sparo_core::error::CoreResult;
@@ -170,6 +170,24 @@ pub async fn agentic_os_get_work(
 }
 
 #[tauri::command]
+pub async fn agentic_os_list_work_objects(
+    request: agentic_os_command::AgenticOsListWorkObjectsRequest,
+) -> Result<agentic_os_command::AgenticOsListWorkObjectsResponse, String> {
+    agentic_os_command::list_work_objects(request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn agentic_os_get_work_object(
+    request: agentic_os_command::AgenticOsGetWorkObjectRequest,
+) -> Result<agentic_os_command::AgenticOsGetWorkObjectResponse, String> {
+    agentic_os_command::get_work_object(request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub async fn agentic_os_delete_work(
     state: State<'_, AppState>,
     coordinator: State<'_, Arc<ConversationCoordinator>>,
@@ -213,12 +231,89 @@ pub async fn agentic_os_create_work(
     scheduler: State<'_, Arc<DialogScheduler>>,
     mut request: agentic_os_command::AgenticOsCreateWorkRequest,
 ) -> Result<agentic_os_command::AgenticOsCreateWorkResponse, String> {
-    crate::api::app_release_runtime::authorize_create_work_request(&state, &mut request.work)
-        .await?;
+    let primary_work_object_kind =
+        crate::api::app_release_runtime::authorize_create_work_request(&state, &mut request.work)
+            .await?;
     let service = work_service(&coordinator, &scheduler)?;
-    agentic_os_command::create_work_with_service(&service, request)
+    let mut response = agentic_os_command::create_work_with_service(&service, request)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    if let Some(declaration) = primary_work_object_kind {
+        response.work = service
+            .ensure_primary_work_object(EnsurePrimaryWorkObjectRequest {
+                work_locator: response.work.locator(),
+                kind_id: declaration.kind_id,
+                title: Some(response.work.title.clone()),
+            })
+            .await
+            .map_err(|error| error.to_string())?
+            .work;
+    }
+    Ok(response)
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AgenticOsCreateWorkForObjectRequest {
+    pub source_work_locator: sparo_core::agentic_os::work::WorkLocator,
+    pub work: sparo_core::agentic_os::work::CreateWorkRequest,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AgenticOsCreateWorkForObjectResponse {
+    pub work: sparo_core::agentic_os::work::WorkRecord,
+}
+
+#[tauri::command]
+pub async fn agentic_os_create_work_for_object(
+    state: State<'_, AppState>,
+    coordinator: State<'_, Arc<ConversationCoordinator>>,
+    scheduler: State<'_, Arc<DialogScheduler>>,
+    mut request: AgenticOsCreateWorkForObjectRequest,
+) -> Result<AgenticOsCreateWorkForObjectResponse, String> {
+    let primary_object =
+        crate::api::app_release_runtime::authorize_create_work_request(&state, &mut request.work)
+            .await?
+            .ok_or_else(|| {
+                "Product App does not declare a reusable primary WorkObject".to_string()
+            })?;
+    if !primary_object.reusable_across_works {
+        return Err(
+            "Product App does not support reusing its primary WorkObject across Works".to_string(),
+        );
+    }
+    let service = work_service(&coordinator, &scheduler)?;
+    let source_work = service
+        .get(&request.source_work_locator)
+        .await
+        .map_err(|error| error.to_string())?;
+    let source_app = source_work
+        .subject
+        .app_ref()
+        .ok_or_else(|| "Source Work is not owned by a Product App".to_string())?;
+    let (_, current_source_app) =
+        crate::api::app_release_runtime::resolve_current_app_release_for_work(&state, source_app)
+            .await?;
+    let target_app = request
+        .work
+        .subject
+        .app_ref()
+        .ok_or_else(|| "New Work must be owned by a Product App".to_string())?;
+    if &current_source_app != target_app {
+        return Err(
+            "Source Work is not compatible with the active Product App Release".to_string(),
+        );
+    }
+    let response = service
+        .create_work_for_object(CreateWorkForObjectRequest {
+            source_work_locator: request.source_work_locator,
+            work: request.work,
+            primary_object_kind_id: primary_object.kind_id,
+        })
+        .await
+        .map_err(|error| error.to_string())?;
+    Ok(AgenticOsCreateWorkForObjectResponse {
+        work: response.work,
+    })
 }
 
 #[tauri::command]
@@ -228,15 +323,30 @@ pub async fn agentic_os_resolve_app_work(
     scheduler: State<'_, Arc<DialogScheduler>>,
     mut request: agentic_os_command::AgenticOsResolveAppWorkRequest,
 ) -> Result<agentic_os_command::AgenticOsResolveAppWorkResponse, String> {
-    crate::api::app_release_runtime::authorize_resolve_app_work_request(
-        &state,
-        &mut request.app_work,
-    )
-    .await?;
+    let primary_work_object_kind =
+        crate::api::app_release_runtime::authorize_resolve_app_work_request(
+            &state,
+            &mut request.app_work,
+        )
+        .await?;
     let service = work_service(&coordinator, &scheduler)?;
-    agentic_os_command::resolve_app_work_with_service(&service, request)
+    let mut response = agentic_os_command::resolve_app_work_with_service(&service, request)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    if response.created {
+        if let Some(declaration) = primary_work_object_kind {
+            response.work = service
+                .ensure_primary_work_object(EnsurePrimaryWorkObjectRequest {
+                    work_locator: response.work.locator(),
+                    kind_id: declaration.kind_id,
+                    title: Some(response.work.title.clone()),
+                })
+                .await
+                .map_err(|error| error.to_string())?
+                .work;
+        }
+    }
+    Ok(response)
 }
 
 #[tauri::command]

@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, ChevronDown, Info, LayoutDashboard, ListChecks, Pin, Plus, XCircle } from 'lucide-react';
-import { Button, IconButton, Search } from '@/design-system';
+import { ArrowRight, ChevronDown, Info, LayoutDashboard, ListChecks, Plus, XCircle } from 'lucide-react';
+import {
+  Button,
+  IconButton,
+  PanelPinnedIcon,
+  Search,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
+} from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
 import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
 import { WorkIcon } from '@/app/agentic-os/work/presentation/WorkIcon';
@@ -315,7 +321,12 @@ const WorkDock: React.FC = () => {
                 tooltip={pinned ? t('nav.workDock.unpinKeepOpen') : t('nav.workDock.pinKeepOpen')}
                 tooltipPlacement="top"
               >
-                <Pin size={12} strokeWidth={2.25} fill={pinned ? 'currentColor' : 'none'} />
+                <PanelPinnedIcon
+                  size={12}
+                  strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                  absoluteStrokeWidth
+                  aria-hidden="true"
+                />
               </IconButton>
             </div>
           </div>
@@ -380,7 +391,10 @@ const WorkDock: React.FC = () => {
                 >
                   <button
                     type="button"
-                    className="work-dock__running-row"
+                    className={[
+                      'work-dock__running-row',
+                      work.status === 'failed' && 'work-dock__running-row--failed',
+                    ].filter(Boolean).join(' ')}
                     onClick={() => void handleOpenWork(work)}
                     aria-label={work.title}
                   >

@@ -350,5 +350,101 @@
     "label": "Retry",
     "labelZh": "重试",
     "tags": ["retry", "again", "repeat", "重试", "再次", "重新执行"]
+  },
+  {
+    "id": "panel-right-closed",
+    "family": "panels",
+    "componentName": "PanelRightClosedIcon",
+    "label": "Right Panel Closed",
+    "labelZh": "右侧面板 · 未打开",
+    "tags": ["panel", "right", "closed", "hidden", "sidebar", "面板", "右侧", "未打开", "关闭"]
+  },
+  {
+    "id": "panel-right-open",
+    "family": "panels",
+    "componentName": "PanelRightOpenIcon",
+    "label": "Right Panel Open",
+    "labelZh": "右侧面板 · 已打开",
+    "tags": ["panel", "right", "open", "visible", "sidebar", "面板", "右侧", "已打开", "展开"]
+  },
+  {
+    "id": "panel-left-closed",
+    "family": "panels",
+    "componentName": "PanelLeftClosedIcon",
+    "label": "Left Panel Closed",
+    "labelZh": "左侧面板 · 未打开",
+    "tags": ["panel", "left", "closed", "hidden", "sidebar", "面板", "左侧", "未打开", "关闭"]
+  },
+  {
+    "id": "panel-left-open",
+    "family": "panels",
+    "componentName": "PanelLeftOpenIcon",
+    "label": "Left Panel Open",
+    "labelZh": "左侧面板 · 已打开",
+    "tags": ["panel", "left", "open", "visible", "sidebar", "面板", "左侧", "已打开", "展开"]
+  },
+  {
+    "id": "panel-bottom-closed",
+    "family": "panels",
+    "componentName": "PanelBottomClosedIcon",
+    "label": "Bottom Panel Closed",
+    "labelZh": "底部面板 · 未打开",
+    "tags": ["panel", "bottom", "closed", "hidden", "drawer", "面板", "底部", "未打开", "关闭"]
+  },
+  {
+    "id": "panel-bottom-open",
+    "family": "panels",
+    "componentName": "PanelBottomOpenIcon",
+    "label": "Bottom Panel Open",
+    "labelZh": "底部面板 · 已打开",
+    "tags": ["panel", "bottom", "open", "visible", "drawer", "面板", "底部", "已打开", "展开"]
+  },
+  {
+    "id": "panel-bottom-half",
+    "family": "panels",
+    "componentName": "PanelBottomHalfIcon",
+    "label": "Bottom Panel Half Expanded",
+    "labelZh": "底部面板 · 半展开",
+    "tags": ["panel", "bottom", "half", "expanded", "drawer", "面板", "底部", "半展开"]
+  },
+  {
+    "id": "panel-bottom-maximized",
+    "family": "panels",
+    "componentName": "PanelBottomMaximizedIcon",
+    "label": "Bottom Panel Maximized",
+    "labelZh": "底部面板 · 已最大化",
+    "tags": ["panel", "bottom", "maximized", "full", "drawer", "面板", "底部", "最大化", "全屏"]
+  },
+  {
+    "id": "panel-floating",
+    "family": "panels",
+    "componentName": "PanelFloatingIcon",
+    "label": "Floating Panel",
+    "labelZh": "浮动面板 · 浮动",
+    "tags": ["panel", "floating", "window", "undocked", "面板", "浮动", "窗口"]
+  },
+  {
+    "id": "panel-docked",
+    "family": "panels",
+    "componentName": "PanelDockedIcon",
+    "label": "Docked Panel",
+    "labelZh": "停靠面板 · 已停靠",
+    "tags": ["panel", "docked", "attached", "sidebar", "面板", "停靠", "侧栏"]
+  },
+  {
+    "id": "panel-pinned",
+    "family": "panels",
+    "componentName": "PanelPinnedIcon",
+    "label": "Pinned Panel",
+    "labelZh": "固定面板 · 已固定",
+    "tags": ["panel", "pinned", "fixed", "locked", "面板", "固定", "锁定"]
+  },
+  {
+    "id": "layout-reset",
+    "family": "panels",
+    "componentName": "LayoutResetIcon",
+    "label": "Reset Layout",
+    "labelZh": "重置布局 · 默认",
+    "tags": ["layout", "reset", "restore", "default", "panel", "布局", "重置", "恢复", "默认"]
   }
 ]

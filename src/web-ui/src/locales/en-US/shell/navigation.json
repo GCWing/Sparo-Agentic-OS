@@ -930,9 +930,9 @@
             "idle": "Ready when needed"
           },
           "metrics": {
-            "builtin": "Built-in",
-            "connected": "Connected",
-            "specialists": "Experts"
+            "skills": "Skills",
+            "tools": "Tools",
+            "subagents": "Subagents"
           },
           "sections": {
             "execution": "Execution",
@@ -942,7 +942,10 @@
             "servers": "{{count}} servers",
             "specialists": "{{count}} ready",
             "connectedOf": "{{connected}} / {{count}} connected",
-            "tools": "{{count}} tools"
+            "tools": "{{count}} tools",
+            "suites": "{{count}} suites",
+            "mcpTools": "{{count}} MCP tools",
+            "enabledOf": "{{enabled}} / {{count}} enabled"
           },
           "execution": {
             "builtin": "Built-in tools",
@@ -953,6 +956,7 @@
             "mcpToolsDescription": "Extensions provided by connected services"
           },
           "actions": {
+            "skills": "Open Skills",
             "tools": "Open Tool Center",
             "subagents": "Manage Subagents"
           },
@@ -963,6 +967,7 @@
             "noneEnabledDescription": "Open Subagents to choose who can be called."
           },
           "errors": {
+            "skills": "Skills are temporarily unavailable",
             "execution": "Execution status is temporarily unavailable",
             "servers": "MCP status is unavailable",
             "tools": "The tool catalog is unavailable",

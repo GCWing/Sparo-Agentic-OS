@@ -518,6 +518,7 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
           scope,
           title: selectedExecutor.slot.displayName,
           objective: selectedExecutor.description || selectedExecutor.slot.displayName,
+          intent: { kind: 'create_new' },
         });
         if (workspace) await rememberWorkspace(workspace.id);
       } else {

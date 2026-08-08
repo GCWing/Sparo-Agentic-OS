@@ -1,5 +1,7 @@
 // Remotion Live surface state. The Player is the only preview authority.
 
+import { PLAYER_BASELINE_REVISION } from './player-state-contract.js';
+
 const state = {
   locale: navigator.language || 'en-US',
   route: '/preview',
@@ -35,16 +37,26 @@ const state = {
   playerDesiredState: null,
   playerActualState: null,
   playerDesiredRevision: 0,
-  playerActualRevision: 0,
+  playerActualRevision: PLAYER_BASELINE_REVISION,
   playerPendingCommand: null,
   playerInFlightCommand: null,
+  playerNeedsReconcile: false,
+  playerCommandTimer: null,
   playerInstanceId: null,
   playerStageKey: null,
   playerRenderedStageKey: null,
   playerHandshakeTimer: null,
+  playerReadyTimer: null,
   playerReloadNonce: 0,
   playerChannelConnected: false,
   playerConnectionState: 'disconnected',
+  playerConnectionTransport: null,
+  playerConnectionId: null,
+  playerConnectionGeneration: 0,
+  playerStateConnectionId: null,
+  playerConnectionErrorCode: null,
+  playerRecoveryAttempt: 0,
+  playerLastMessageAt: null,
   playerChannelNonce: null,
 
   muted: true,

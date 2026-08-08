@@ -5,8 +5,11 @@
 
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
-import { EmptyState as DesignEmptyState, IconButton } from '@/design-system';
+import {
+  IconButton,
+  PanelRightOpenIcon,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
+} from '@/design-system';
 import './EmptyState.scss';
 
 export interface EmptyStateProps {
@@ -29,18 +32,20 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onClose }) => {
             onClick={handleClose}
             size="xs"
             variant="ghost"
-            aria-label={t('tabs.close')}
-            tooltip={t('tabs.close')}
+            aria-label={t('canvas.collapsePanel')}
+            tooltip={t('canvas.collapsePanel')}
           >
-            <X size={14} />
+            <PanelRightOpenIcon
+              size={14}
+              strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+              absoluteStrokeWidth
+              aria-hidden="true"
+            />
           </IconButton>
         </div>
       )}
       <div className="canvas-empty-state__content">
-        <DesignEmptyState
-          description={t('canvas.noContentOpen')}
-          imageSize="small"
-        />
+        <p className="canvas-empty-state__message">{t('canvas.noContentOpen')}</p>
       </div>
     </div>
   );

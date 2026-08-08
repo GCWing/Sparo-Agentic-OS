@@ -342,17 +342,25 @@
 .work-card-back__row {
   display: flex;
   align-items: center;
-  gap: var(--ds-space-2);
   min-width: 0;
   flex: 0 0 auto;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  transition: background var(--ds-motion-fast) var(--ds-easing-standard);
+}
+
+.work-card-back__row-main {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-width: 0;
+  flex: 1 1 auto;
   padding: var(--ds-space-1) var(--ds-space-2);
   border: 0;
-  border-radius: var(--ds-radius-md);
   background: transparent;
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background var(--ds-motion-fast) var(--ds-easing-standard);
 }
 
 .card-expand__pane.is-open .work-card-back__row {
@@ -373,6 +381,23 @@
 
 .work-card-back__row:hover {
   background: var(--ds-color-element-soft);
+}
+
+.work-card-back__row-main:focus-visible {
+  outline: 2px solid var(--ds-focus-outline);
+  outline-offset: -2px;
+  border-radius: var(--ds-radius-md);
+}
+
+.work-card-back__reuse {
+  flex: 0 0 auto;
+  margin-inline-end: var(--ds-space-1);
+  color: var(--ds-color-text-muted);
+}
+
+.work-card-back__row:hover .work-card-back__reuse,
+.work-card-back__reuse:focus-visible {
+  color: var(--ds-color-text-primary);
 }
 
 .work-card-back__row-body {

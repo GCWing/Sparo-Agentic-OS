@@ -16,6 +16,8 @@ import { confirmDialog } from '@/design-system';
 interface UseTabLifecycleOptions {
   /** App mode / target canvas */
   mode?: 'agent' | 'project';
+  /** Called after a close operation removes the final visible tab. */
+  onLastVisibleTabClosed?: () => void;
 }
 
 interface UseTabLifecycleReturn {
@@ -42,7 +44,7 @@ interface UseTabLifecycleReturn {
  * Tab lifecycle management hook.
  */
 export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLifecycleReturn => {
-  const { mode = 'agent' } = options;
+  const { mode = 'agent', onLastVisibleTabClosed } = options;
   const { t } = useI18n('components');
   const canvasStoreApi =
     mode === 'project' ? useProjectCanvasStore : useAgentCanvasStore;
@@ -115,12 +117,26 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
     togglePinTab(tabId, groupId);
   }, [togglePinTab]);
 
+  const getGroup = useCallback((groupId: EditorGroupId) => {
+    const state = canvasStoreApi.getState();
+    if (groupId === 'primary') return state.primaryGroup;
+    if (groupId === 'secondary') return state.secondaryGroup;
+    return state.tertiaryGroup;
+  }, [canvasStoreApi]);
+
+  const notifyIfCanvasIsEmpty = useCallback(() => {
+    const hasVisibleTabs = canvasStoreApi.getState().getAllTabs()
+      .some(tab => tab.isHidden !== true);
+    if (!hasVisibleTabs) {
+      onLastVisibleTabClosed?.();
+    }
+  }, [canvasStoreApi, onLastVisibleTabClosed]);
+
   /**
    * Dirty check before closing a tab.
    */
   const handleCloseWithDirtyCheck = useCallback(async (tabId: string, groupId: EditorGroupId): Promise<boolean> => {
-    const { primaryGroup: latestPrimaryGroup, secondaryGroup: latestSecondaryGroup } = canvasStoreApi.getState();
-    const group = groupId === 'primary' ? latestPrimaryGroup : latestSecondaryGroup;
+    const group = getGroup(groupId);
     const tab = group.tabs.find(t => t.id === tabId);
 
     if (!tab) {
@@ -141,19 +157,20 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
     }
 
     closeTab(tabId, groupId);
+    notifyIfCanvasIsEmpty();
     return true;
-  }, [canvasStoreApi, closeTab, t]);
+  }, [closeTab, getGroup, notifyIfCanvasIsEmpty, t]);
 
   /**
    * Dirty check before closing all tabs.
    */
   const handleCloseAllWithDirtyCheck = useCallback(async (groupId: EditorGroupId): Promise<boolean> => {
-    const { primaryGroup: latestPrimaryGroup, secondaryGroup: latestSecondaryGroup } = canvasStoreApi.getState();
-    const group = groupId === 'primary' ? latestPrimaryGroup : latestSecondaryGroup;
+    const group = getGroup(groupId);
     const dirtyTabs = group.tabs.filter(t => t.isDirty);
 
     if (dirtyTabs.length === 0) {
       closeAllTabs(groupId);
+      notifyIfCanvasIsEmpty();
       return true;
     }
 
@@ -171,8 +188,9 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
     }
 
     closeAllTabs(groupId);
+    notifyIfCanvasIsEmpty();
     return true;
-  }, [canvasStoreApi, closeAllTabs, t]);
+  }, [closeAllTabs, getGroup, notifyIfCanvasIsEmpty, t]);
 
   /**
    * Listen for left-panel terminal close events to sync right-panel tabs.

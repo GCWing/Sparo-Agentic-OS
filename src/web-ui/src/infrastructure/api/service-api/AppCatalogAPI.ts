@@ -68,6 +68,7 @@ export interface WorkObjectKind {
   id: string;
   label: string;
   scope: WorkObjectScope;
+  reusableAcrossWorks?: boolean;
   identitySchema?: Record<string, unknown>;
   contextSchema?: Record<string, unknown>;
 }

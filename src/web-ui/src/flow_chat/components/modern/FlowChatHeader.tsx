@@ -9,10 +9,31 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { ChevronDown, ChevronUp, Eye, EyeOff, List, MoreVertical, Search, X } from 'lucide-react';
-import { DropdownMenu, IconButton, Input } from '@/design-system';
+import {
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  List,
+  MoreVertical,
+  Search,
+  X,
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  IconButton,
+  Input,
+  PanelRightClosedIcon,
+  PanelRightOpenIcon,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
+} from '@/design-system';
 import type { DropdownMenuEntry } from '@/design-system';
 import { useTranslation } from 'react-i18next';
+import {
+  selectActiveAuxiliaryHostState,
+  toggleActiveAuxiliarySurface,
+  useAuxiliarySurfaceStore,
+} from '@/app/auxiliary-surface';
 import { SessionFilesBadge } from './SessionFilesBadge';
 import { FlowChatSidecarActions } from './FlowChatSidecarActions';
 import GoalHeaderControl from '../goal/GoalHeaderControl';
@@ -119,6 +140,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const sessionMoreMenuAnchorRef = useRef<HTMLDivElement | null>(null);
   const [sessionMoreMenuOpen, setSessionMoreMenuOpen] = useState(false);
+  const activeAuxiliaryHost = useAuxiliarySurfaceStore(selectActiveAuxiliaryHostState);
 
   const timelineTooltip =
     timelineTooltipOverride ??
@@ -132,6 +154,10 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   const hasTimelineNavigation =
     showTimelineControl && (forceTimelineEnabled || (turns.length > 0 && !!onJumpToTurn));
   const moreMenuLabel = t('flowChatHeader.moreMenu', { defaultValue: 'More' });
+  const rightPanelOpen = activeAuxiliaryHost?.presentation === 'docked';
+  const rightPanelLabel = rightPanelOpen
+    ? t('flowChatHeader.collapseRightPanel', { defaultValue: 'Collapse right panel' })
+    : t('flowChatHeader.expandRightPanel', { defaultValue: 'Expand right panel' });
 
   // When collapsing the turn list with an active query, reopen the header search bar.
   const prevTimelineOpenRef = useRef(timelineOpen);
@@ -402,6 +428,34 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
             />
           </div>
         ) : null}
+        <IconButton
+          className="flowchat-header__right-panel-toggle"
+          variant="ghost"
+          size="xs"
+          onClick={toggleActiveAuxiliarySurface}
+          disabled={!activeAuxiliaryHost}
+          tooltip={rightPanelLabel}
+          aria-label={rightPanelLabel}
+          aria-expanded={rightPanelOpen}
+          aria-controls="session-auxiliary-surface"
+          data-testid="flowchat-header-right-panel-toggle"
+        >
+          {rightPanelOpen ? (
+            <PanelRightOpenIcon
+              size={14}
+              strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+              absoluteStrokeWidth
+              aria-hidden="true"
+            />
+          ) : (
+            <PanelRightClosedIcon
+              size={14}
+              strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+              absoluteStrokeWidth
+              aria-hidden="true"
+            />
+          )}
+        </IconButton>
       </div>
     </div>
   );

@@ -30,7 +30,6 @@ import {
   buildSpreadsheetFocusContext,
   useExcelLiveFocusStore,
 } from '@/app/agentic-os/excel-live/excelLiveFocusStore';
-import { useContextStore } from '@/shared/stores/contextStore';
 import type { ProductAppRuntimeHostedViewBridge } from './productAppRuntimeHostedViews';
 import { resizeActiveAuxiliarySurface } from '@/app/auxiliary-surface';
 
@@ -548,7 +547,6 @@ export function useProductAppRuntimeBridge(
             sessionId: trustedSessionIdRef.current,
           } as any, 'pinned');
           if (context) {
-            useContextStore.getState().addContext(context);
             window.dispatchEvent(new CustomEvent('insert-context-tag', {
               detail: { context },
             }));

@@ -3,7 +3,7 @@
 //! Uses Tauri's app.emit() system to send events to frontend
 
 #[cfg(feature = "tauri-adapter")]
-use crate::traits::{TextChunk, ToolEventPayload, TransportAdapter};
+use crate::traits::TransportAdapter;
 #[cfg(feature = "tauri-adapter")]
 use async_trait::async_trait;
 #[cfg(feature = "tauri-adapter")]
@@ -665,78 +665,6 @@ impl TransportAdapter for TauriTransportAdapter {
                 warn!("Unhandled AgenticEvent type in TauriAdapter");
             }
         }
-        Ok(())
-    }
-
-    async fn emit_text_chunk(&self, _session_id: &str, chunk: TextChunk) -> anyhow::Result<()> {
-        self.app_handle.emit(
-            "agentic://text-chunk",
-            json!({
-                "sessionId": chunk.session_id,
-                "turnId": chunk.turn_id,
-                "roundId": chunk.round_id,
-                "text": chunk.text,
-                "timestamp": chunk.timestamp,
-            }),
-        )?;
-        Ok(())
-    }
-
-    async fn emit_tool_event(
-        &self,
-        _session_id: &str,
-        event: ToolEventPayload,
-    ) -> anyhow::Result<()> {
-        self.app_handle.emit(
-            "agentic://tool-event",
-            json!({
-                "sessionId": event.session_id,
-                "turnId": event.turn_id,
-                "toolEvent": {
-                    "tool_id": event.tool_id,
-                    "tool_name": event.tool_name,
-                    "event_type": event.event_type,
-                    "params": event.params,
-                    "result": event.result,
-                    "error": event.error,
-                    "duration_ms": event.duration_ms,
-                }
-            }),
-        )?;
-        Ok(())
-    }
-
-    async fn emit_stream_start(
-        &self,
-        session_id: &str,
-        turn_id: &str,
-        round_id: &str,
-    ) -> anyhow::Result<()> {
-        self.app_handle.emit(
-            "agentic://stream-start",
-            json!({
-                "sessionId": session_id,
-                "turnId": turn_id,
-                "roundId": round_id,
-            }),
-        )?;
-        Ok(())
-    }
-
-    async fn emit_stream_end(
-        &self,
-        session_id: &str,
-        turn_id: &str,
-        round_id: &str,
-    ) -> anyhow::Result<()> {
-        self.app_handle.emit(
-            "agentic://stream-end",
-            json!({
-                "sessionId": session_id,
-                "turnId": turn_id,
-                "roundId": round_id,
-            }),
-        )?;
         Ok(())
     }
 

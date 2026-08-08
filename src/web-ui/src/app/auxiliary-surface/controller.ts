@@ -13,11 +13,17 @@ import { useAuxiliarySurfaceStore } from './auxiliarySurfaceStore';
 import type {
   AuxiliaryItemDescriptor,
   AuxiliarySurfaceHostKey,
+  AuxiliarySurfacePresentation,
   OpenAuxiliaryItemCommand,
 } from './types';
 
 const log = createLogger('AuxiliarySurface');
 const pendingCommands = new Map<AuxiliarySurfaceHostKey, OpenAuxiliaryItemCommand[]>();
+const restorers = new Map<AuxiliarySurfaceHostKey, () => void>();
+
+function hasVisibleCanvasItems(): boolean {
+  return useAgentCanvasStore.getState().getAllTabs().some(tab => tab.isHidden !== true);
+}
 
 function duplicateKey(item: AuxiliaryItemDescriptor): string | undefined {
   return item.duplicateCheckKey
@@ -77,6 +83,27 @@ export function openActiveAuxiliaryItem(
   return true;
 }
 
+export function openActiveAuxiliaryItemAtPresentation(
+  item: AuxiliaryItemDescriptor,
+  presentation: Exclude<AuxiliarySurfacePresentation, 'closed'>,
+): boolean {
+  const surfaceStore = useAuxiliarySurfaceStore.getState();
+  const hostKey = surfaceStore.activeHostKey;
+  if (!hostKey || getActiveAgentCanvasHostKey() !== hostKey) return false;
+
+  // Scene focus is a presentation transition of the active session container.
+  // This command never navigates to PanelViewScene or creates another canvas.
+  openAuxiliaryItem({
+    hostKey,
+    item,
+    reveal: presentation === 'docked' ? 'explicit' : 'preserve',
+  });
+  if (presentation === 'scene-focus') {
+    surfaceStore.enterSceneFocus(hostKey);
+  }
+  return true;
+}
+
 export function flushAuxiliaryItems(hostKey: AuxiliarySurfaceHostKey): void {
   const queue = pendingCommands.get(hostKey);
   if (!queue?.length || getActiveAgentCanvasHostKey() !== hostKey) return;
@@ -88,19 +115,65 @@ export function flushAuxiliaryItems(hostKey: AuxiliarySurfaceHostKey): void {
 }
 
 export function forgetAuxiliaryCommands(hostKeys: readonly AuxiliarySurfaceHostKey[]): void {
-  hostKeys.forEach(hostKey => pendingCommands.delete(hostKey));
+  hostKeys.forEach(hostKey => {
+    pendingCommands.delete(hostKey);
+    restorers.delete(hostKey);
+  });
+}
+
+export function registerAuxiliarySurfaceRestorer(
+  hostKey: AuxiliarySurfaceHostKey,
+  restore: () => void,
+): () => void {
+  restorers.set(hostKey, restore);
+  return () => {
+    if (restorers.get(hostKey) === restore) {
+      restorers.delete(hostKey);
+    }
+  };
 }
 
 export function toggleActiveAuxiliarySurface(): boolean {
   const store = useAuxiliarySurfaceStore.getState();
   const hostKey = store.activeHostKey;
   if (!hostKey) return false;
+  if (getActiveAgentCanvasHostKey() !== hostKey) return false;
   const presentation = store.hosts[hostKey]?.presentation ?? 'closed';
+  if (presentation === 'scene-focus') {
+    store.exitSceneFocus(hostKey, 'previous');
+    return true;
+  }
   if (presentation === 'closed') {
+    if (!hasVisibleCanvasItems()) {
+      const restoreProfileItems = restorers.get(hostKey);
+      if (restoreProfileItems) {
+        restoreProfileItems();
+      } else {
+        useAgentCanvasStore.getState().reopenClosedTab();
+      }
+    }
     store.reveal(hostKey, 'user');
   } else {
     store.collapse(hostKey, 'user');
   }
+  return true;
+}
+
+export function enterActiveAuxiliarySceneFocus(): boolean {
+  const store = useAuxiliarySurfaceStore.getState();
+  const hostKey = store.activeHostKey;
+  if (!hostKey || getActiveAgentCanvasHostKey() !== hostKey || !hasVisibleCanvasItems()) return false;
+  store.enterSceneFocus(hostKey);
+  return true;
+}
+
+export function exitActiveAuxiliarySceneFocus(
+  restore: 'previous' | 'docked' = 'previous',
+): boolean {
+  const store = useAuxiliarySurfaceStore.getState();
+  const hostKey = store.activeHostKey;
+  if (!hostKey || store.hosts[hostKey]?.presentation !== 'scene-focus') return false;
+  store.exitSceneFocus(hostKey, restore);
   return true;
 }
 

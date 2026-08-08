@@ -5,7 +5,7 @@ use crate::agentic_os::work::{
     DispatchWorkRequest, LinkSessionToWorkRequest, ResolveAppWorkRequest,
     ResolveComponentWorkRequest, StartWorkRequest, UpdateWorkRequest, WorkAppRef,
     WorkBuilderPreviewResult, WorkBuilderValidationResult, WorkCleanupReport, WorkDeleteOptions,
-    WorkId, WorkLocator, WorkRecord, WorkService,
+    WorkId, WorkLocator, WorkObjectLocator, WorkObjectRecord, WorkRecord, WorkScope, WorkService,
 };
 
 use super::super::{CommandError, CommandResult};
@@ -30,6 +30,29 @@ pub struct AgenticOsGetWorkRequest {
 #[derive(Debug, Clone, Serialize)]
 pub struct AgenticOsGetWorkResponse {
     pub work: WorkRecord,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct AgenticOsListWorkObjectsRequest {
+    #[serde(default)]
+    pub scope: Option<WorkScope>,
+    #[serde(default)]
+    pub app_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AgenticOsListWorkObjectsResponse {
+    pub objects: Vec<WorkObjectRecord>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AgenticOsGetWorkObjectRequest {
+    pub locator: WorkObjectLocator,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AgenticOsGetWorkObjectResponse {
+    pub object: WorkObjectRecord,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -219,6 +242,46 @@ pub async fn get_work(request: AgenticOsGetWorkRequest) -> CommandResult<Agentic
         .await
         .map_err(CommandError::session)?;
     Ok(AgenticOsGetWorkResponse { work })
+}
+
+pub async fn list_work_objects(
+    request: AgenticOsListWorkObjectsRequest,
+) -> CommandResult<AgenticOsListWorkObjectsResponse> {
+    let service = WorkService::new(default_work_store().map_err(CommandError::session)?);
+    list_work_objects_with_service(&service, request).await
+}
+
+pub async fn list_work_objects_with_service(
+    service: &WorkService,
+    request: AgenticOsListWorkObjectsRequest,
+) -> CommandResult<AgenticOsListWorkObjectsResponse> {
+    let mut objects = service
+        .list_work_objects()
+        .await
+        .map_err(CommandError::session)?;
+    if let Some(scope) = request.scope.as_ref() {
+        objects.retain(|object| &object.scope == scope);
+    }
+    if let Some(app_id) = request
+        .app_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        objects.retain(|object| object.app.app_id == app_id);
+    }
+    Ok(AgenticOsListWorkObjectsResponse { objects })
+}
+
+pub async fn get_work_object(
+    request: AgenticOsGetWorkObjectRequest,
+) -> CommandResult<AgenticOsGetWorkObjectResponse> {
+    let service = WorkService::new(default_work_store().map_err(CommandError::session)?);
+    let object = service
+        .get_work_object(&request.locator)
+        .await
+        .map_err(CommandError::session)?;
+    Ok(AgenticOsGetWorkObjectResponse { object })
 }
 
 pub async fn delete_work(

@@ -370,6 +370,10 @@
     color var(--ds-motion-fast) var(--ds-easing-standard),
     background var(--ds-motion-fast) var(--ds-easing-standard);
 
+  &--failed {
+    overflow: visible;
+  }
+
   .work-dock--running:is(:hover, :focus-within) & {
     justify-content: flex-start;
     gap: 7px;
@@ -736,8 +740,7 @@
   }
 
   &--waiting-user,
-  &--blocked,
-  &--failed {
+  &--blocked {
     background: color-mix(in srgb, var(--work-dock-tone, var(--ds-color-accent-500)) 12%, var(--ds-color-element-soft));
     color: var(--work-dock-tone, var(--ds-color-accent-500));
   }
@@ -777,25 +780,30 @@
   }
 
   &--failed {
+    overflow: visible;
+    background: transparent;
+    color: var(--ds-color-text-secondary);
+
     &::before {
-      display: block;
-      inset: 1px;
-      border: 1px solid color-mix(in srgb, var(--work-dock-tone, var(--ds-color-danger)) 58%, transparent);
-      border-radius: inherit;
-      animation: work-dock-status-error-pulse 2.4s ease-out infinite;
+      display: none;
     }
 
     &::after {
       display: block;
-      width: 5px;
-      height: 5px;
-      top: 2px;
-      right: 2px;
-      border-radius: 1px;
+      width: 6px;
+      height: 6px;
+      right: 1px;
+      bottom: 1px;
+      z-index: var(--ds-z-raised);
+      border-radius: var(--ds-radius-full);
       background: var(--work-dock-tone, var(--ds-color-danger));
-      box-shadow:
-        -4px 4px 0 var(--work-dock-tone, var(--ds-color-danger)),
-        0 4px 0 color-mix(in srgb, var(--work-dock-tone, var(--ds-color-danger)) 42%, transparent);
+      box-shadow: 0 0 0 1px var(--work-dock-menu-bg);
+      opacity: 1;
+    }
+
+    .work-dock__running-row.is-active & {
+      background: transparent;
+      color: var(--ds-color-text-secondary);
     }
   }
 
@@ -930,18 +938,6 @@
   50% {
     opacity: 1;
     transform: scale(1.05);
-  }
-}
-
-@keyframes work-dock-status-error-pulse {
-  0% {
-    opacity: 0.95;
-    transform: scale(1);
-  }
-  45%,
-  100% {
-    opacity: 0.34;
-    transform: scale(1.08);
   }
 }
 

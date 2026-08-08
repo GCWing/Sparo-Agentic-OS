@@ -9,6 +9,10 @@ export * from './global-state';
 export * from './app-scope';
 export * from './runtime-scope';
 export * from './session-history';
+export * from './terminal';
+export * from './context-budget';
+export * from './file-system';
+export * from './markdown-ai';
 export * from './tab';
 export * from './tool-display';
 

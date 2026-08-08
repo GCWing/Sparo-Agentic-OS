@@ -12,6 +12,8 @@ import type {
   WorkDeleteOptions,
   WorkDeleteResult,
   WorkLocator,
+  WorkObjectLocator,
+  WorkObjectRecord,
   WorkRecord,
 } from '../domain/workTypes';
 
@@ -22,12 +24,17 @@ let refreshQueued = false;
 
 interface WorkStoreState {
   works: WorkRecord[];
+  workObjects: WorkObjectRecord[];
   loaded: boolean;
+  workObjectsLoaded: boolean;
   loading: boolean;
   error: string | null;
   refreshWorks: () => Promise<void>;
+  refreshWorkObjects: () => Promise<void>;
   getWork: (locator: WorkLocator) => Promise<WorkRecord>;
+  getWorkObject: (locator: WorkObjectLocator) => Promise<WorkObjectRecord>;
   createWork: (request: CreateWorkRequest) => Promise<WorkRecord>;
+  createWorkForObject: (sourceWorkLocator: WorkLocator, request: CreateWorkRequest) => Promise<WorkRecord>;
   resolveAppWork: (request: ResolveAppWorkRequest) => Promise<{ work: WorkRecord; created: boolean }>;
   resolveComponentWork: (request: ResolveComponentWorkRequest) => Promise<{ work: WorkRecord; created: boolean }>;
   linkSessionToWork: (request: LinkSessionToWorkRequest) => Promise<WorkRecord>;
@@ -51,9 +58,31 @@ function upsertWork(works: WorkRecord[], next: WorkRecord): WorkRecord[] {
   return copy;
 }
 
+function sameObjectLocator(object: WorkObjectRecord, locator: WorkObjectLocator): boolean {
+  if (object.id !== locator.objectId || object.scope.kind !== locator.scope.kind) return false;
+  return object.scope.kind === 'global'
+    || (locator.scope.kind === 'workspace' && object.scope.workspaceId === locator.scope.workspaceId);
+}
+
+function upsertWorkObject(
+  objects: WorkObjectRecord[],
+  next: WorkObjectRecord,
+): WorkObjectRecord[] {
+  const index = objects.findIndex((object) => sameObjectLocator(object, {
+    scope: next.scope,
+    objectId: next.id,
+  }));
+  if (index < 0) return [next, ...objects];
+  const copy = objects.slice();
+  copy[index] = next;
+  return copy;
+}
+
 export const useWorkStore = create<WorkStoreState>((set, get) => ({
   works: [],
+  workObjects: [],
   loaded: false,
+  workObjectsLoaded: false,
   loading: false,
   error: null,
 
@@ -72,8 +101,24 @@ export const useWorkStore = create<WorkStoreState>((set, get) => ({
     }
   },
 
+  refreshWorkObjects: async () => {
+    try {
+      const workObjects = await agenticOsWorkApi.listWorkObjects();
+      set({ workObjects, workObjectsLoaded: true });
+    } catch (error) {
+      log.error('Failed to load WorkObjects', { error });
+      set({ workObjectsLoaded: true });
+    }
+  },
+
   createWork: async (request) => {
     const work = await agenticOsWorkApi.createWork(request);
+    set({ works: upsertWork(get().works, work), loaded: true, loading: false, error: null });
+    return work;
+  },
+
+  createWorkForObject: async (sourceWorkLocator, request) => {
+    const work = await agenticOsWorkApi.createWorkForObject(sourceWorkLocator, request);
     set({ works: upsertWork(get().works, work), loaded: true, loading: false, error: null });
     return work;
   },
@@ -94,6 +139,15 @@ export const useWorkStore = create<WorkStoreState>((set, get) => ({
     const work = await agenticOsWorkApi.getWork(locator);
     set({ works: upsertWork(get().works, work), loaded: true, loading: false, error: null });
     return work;
+  },
+
+  getWorkObject: async (locator) => {
+    const object = await agenticOsWorkApi.getWorkObject(locator);
+    set({
+      workObjects: upsertWorkObject(get().workObjects, object),
+      workObjectsLoaded: true,
+    });
+    return object;
   },
 
   updateWork: async (request) => {

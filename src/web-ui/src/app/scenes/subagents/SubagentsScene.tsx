@@ -17,6 +17,7 @@ import {
   NavigationListItem,
   Search,
   SegmentedControl,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
   SparoSubagentIcon,
   Switch,
   Textarea,
@@ -374,7 +375,11 @@ const SubagentsScene: React.FC = () => {
         className={`subagent-row${selectedId === item.id && mode === 'browse' ? ' is-active' : ''}`}
         icon={(
           <span className="subagent-row__icon">
-            <SparoSubagentIcon size={15} />
+            <SparoSubagentIcon
+              size={15}
+              strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+              absoluteStrokeWidth
+            />
           </span>
         )}
         meta={<ChevronRight size={14} className="subagent-row__chev" />}
@@ -474,7 +479,13 @@ const SubagentsScene: React.FC = () => {
                 <div className="subagents-panel">
                   <div className="subagents-panel__head">
                     <div className="subagents-panel__title-wrap">
-                      <span className="subagents-panel__icon"><SparoSubagentIcon size={18} /></span>
+                      <span className="subagents-panel__icon">
+                        <SparoSubagentIcon
+                          size={18}
+                          strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                          absoluteStrokeWidth
+                        />
+                      </span>
                       <div>
                         <h2 className="subagents-panel__title">{selectedDisplayName}</h2>
                         <p className="subagents-panel__subtitle">{selectedDisplayDescription.trim() || t('detail.noDescription')}</p>
@@ -550,7 +561,11 @@ const SubagentsScene: React.FC = () => {
                 </div>
               ) : (
                 <div className="subagents-panel subagents-panel--empty">
-                  <SparoSubagentIcon size={36} strokeWidth={1.5} />
+                  <SparoSubagentIcon
+                    size={36}
+                    strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.display}
+                    absoluteStrokeWidth
+                  />
                   <p>{t('detail.empty')}</p>
                 </div>
               )

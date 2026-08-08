@@ -1,7 +1,7 @@
 const ROUTES = new Set(['/preview']);
 
-const PLAYER_HOST_RUNTIME_VERSION = 14;
-const PLAYER_CONTROL_PROTOCOL_VERSION = 3;
+const PLAYER_HOST_RUNTIME_VERSION = 15;
+const PLAYER_CONTROL_PROTOCOL_VERSION = 4;
 
 const MESSAGES = {
   'en-US': {

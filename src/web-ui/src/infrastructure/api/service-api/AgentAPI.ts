@@ -4,6 +4,7 @@ import { api } from './ApiClient';
 import { createTauriCommandError } from '../errors/TauriCommandError';
 import type { ImageContextData as ImageInputContextData } from './ImageContextTypes';
 import type { SessionDomain, SessionLocator, TriggerSource } from '@/shared/types/session-history';
+import type { ComposerSubmissionEnvelope } from '@/shared/types/composer';
 
 
 
@@ -67,6 +68,8 @@ export interface StartDialogTurnRequest {
   userMessageMetadata?: Record<string, unknown>;
   /** Optional multimodal image contexts (snake_case fields, aligned with backend ImageContextData). */
   imageContexts?: ImageInputContextData[];
+  /** Canonical structured Composer payload. Runtime compilation takes precedence over userInput. */
+  composerSubmission?: ComposerSubmissionEnvelope;
 }
 
 export interface StartDialogTurnResponse {

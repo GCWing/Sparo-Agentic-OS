@@ -11,6 +11,12 @@ import { useCanvasStore } from './stores';
 import { useTabLifecycle, useKeyboardShortcuts } from './hooks';
 import type { AnchorPosition } from './types';
 import { openMainSession, selectActiveChildSessionTab } from '@/flow_chat/services/childSessionPanels';
+import {
+  enterActiveAuxiliarySceneFocus,
+  exitActiveAuxiliarySceneFocus,
+  selectActiveAuxiliaryHostState,
+  useAuxiliarySurfaceStore,
+} from '@/app/auxiliary-surface';
 import './ContentCanvas.scss';
 export interface ContentCanvasProps {
   /** Workspace path */
@@ -19,6 +25,8 @@ export interface ContentCanvasProps {
   mode?: 'agent' | 'project';
   /** Whether the containing scene is currently visible */
   isSceneActive?: boolean;
+  /** Whether this canvas currently owns the session scene focus presentation. */
+  isSceneFocused?: boolean;
   /** Interaction callback */
   onInteraction?: (itemId: string, userInput: string) => Promise<void>;
   /** Before-close callback */
@@ -27,15 +35,19 @@ export interface ContentCanvasProps {
   disablePopOut?: boolean;
   /** Request that the owning host hide this canvas. */
   onRequestClose?: () => void;
+  /** Notify the owning host when the final visible tab is closed. */
+  onLastVisibleTabClosed?: () => void;
 }
 
 export const ContentCanvas: React.FC<ContentCanvasProps> = ({
   workspacePath,
   mode = 'agent',
   isSceneActive = true,
+  isSceneFocused = false,
   onInteraction,
   disablePopOut = false,
   onRequestClose,
+  onLastVisibleTabClosed,
 }) => {
   // Store state
   const {
@@ -49,9 +61,24 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
     | { childSessionId: string; parentSessionId: string; workspacePath?: string }
     | undefined;
   const lastSyncedChildSessionTabIdRef = useRef<string | null>(null);
+  const activeAuxiliaryHost = useAuxiliarySurfaceStore(selectActiveAuxiliaryHostState);
   // Initialize hooks
-  const { handleCloseWithDirtyCheck, handleCloseAllWithDirtyCheck } = useTabLifecycle({ mode });
-  useKeyboardShortcuts({ enabled: true, handleCloseWithDirtyCheck });
+  const { handleCloseWithDirtyCheck, handleCloseAllWithDirtyCheck } = useTabLifecycle({
+    mode,
+    onLastVisibleTabClosed,
+  });
+  const toggleSceneFocus = useCallback(() => {
+    if (activeAuxiliaryHost?.presentation === 'scene-focus') {
+      exitActiveAuxiliarySceneFocus('previous');
+    } else {
+      enterActiveAuxiliarySceneFocus();
+    }
+  }, [activeAuxiliaryHost?.presentation]);
+  useKeyboardShortcuts({
+    enabled: true,
+    handleCloseWithDirtyCheck,
+    onToggleSceneFocus: mode === 'agent' ? toggleSceneFocus : undefined,
+  });
   useEffect(() => {
     if (mode !== 'agent' || !activeChildSessionTab?.id || !activeChildSessionData?.parentSessionId) {
       lastSyncedChildSessionTabIdRef.current = null;
@@ -105,6 +132,10 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
             onTabCloseWithDirtyCheck={handleCloseWithDirtyCheck}
             onTabCloseAllWithDirtyCheck={handleCloseAllWithDirtyCheck}
             disablePopOut={disablePopOut}
+            onRequestClose={onRequestClose}
+            onRequestSceneFocus={mode === 'agent' && !isSceneFocused
+              ? toggleSceneFocus
+              : undefined}
           />
         </div>
 
@@ -128,7 +159,7 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
 
   return (
     <div
-      className={`canvas-content-canvas ${layout.isMaximized ? 'is-maximized' : ''}`}
+      className={`canvas-content-canvas ${mode === 'project' && layout.isMaximized ? 'is-maximized' : ''}`}
       data-shortcut-scope="canvas"
     >
       {/* Main content */}

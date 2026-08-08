@@ -14,10 +14,11 @@ import type { EditorGroupId } from '../types';
 interface UseKeyboardShortcutsOptions {
   enabled?: boolean;
   handleCloseWithDirtyCheck?: (tabId: string, groupId: EditorGroupId) => Promise<boolean>;
+  onToggleSceneFocus?: () => void;
 }
 
 export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions = {}) => {
-  const { enabled = true, handleCloseWithDirtyCheck } = options;
+  const { enabled = true, handleCloseWithDirtyCheck, onToggleSceneFocus } = options;
 
   const {
     primaryGroup,
@@ -68,7 +69,7 @@ export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions = {}) 
   useShortcut(
     'canvas.maximize',
     { key: 'M', ctrl: true, shift: true, scope: 'canvas' },
-    () => toggleMaximize(),
+    () => onToggleSceneFocus ? onToggleSceneFocus() : toggleMaximize(),
     { enabled, description: 'keyboard.shortcuts.canvas.maximize' }
   );
 

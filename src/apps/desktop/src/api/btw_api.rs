@@ -10,11 +10,14 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::State;
 
+use crate::api::agentic_api::{order_composer_images, resolve_missing_image_payloads};
 use crate::api::app_state::AppState;
 
 use sparo_core::agentic::coordination::{
     ConversationCoordinator, DialogScheduler, SessionControlActor, TurnCancellationReason,
 };
+use sparo_core::agentic::image_analysis::ImageContextData;
+use sparo_core::agentic::{compile_composer_submission, ComposerSubmissionEnvelope};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,6 +29,10 @@ pub struct BtwAskStreamRequest {
     pub child_session_name: Option<String>,
     /// Optional model id override. Supports "fast"/"primary" aliases.
     pub model_id: Option<String>,
+    #[serde(default)]
+    pub composer_submission: Option<ComposerSubmissionEnvelope>,
+    #[serde(default)]
+    pub image_contexts: Option<Vec<ImageContextData>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -88,7 +95,7 @@ pub async fn btw_ask_stream(
     if request.session_id.trim().is_empty() {
         return Err("sessionId is required".to_string());
     }
-    if request.question.trim().is_empty() {
+    if request.question.trim().is_empty() && request.composer_submission.is_none() {
         return Err("question is required".to_string());
     }
     let child_session_id = request.child_session_id.trim();
@@ -96,14 +103,26 @@ pub async fn btw_ask_stream(
         return Err("childSessionId is required".to_string());
     }
 
+    let (question, image_contexts) = if let Some(submission) = request.composer_submission.as_ref()
+    {
+        let compiled =
+            compile_composer_submission(submission).map_err(|error| error.to_string())?;
+        let images = order_composer_images(&compiled.image_attachment_ids, request.image_contexts)?;
+        let images = images.map(resolve_missing_image_payloads).transpose()?;
+        (compiled.user_input, images)
+    } else {
+        (request.question.clone(), request.image_contexts)
+    };
+
     let turn_id = coordinator
         .start_hidden_btw_turn(
             &request.request_id,
             &request.session_id,
             child_session_id,
             request.child_session_name.as_deref(),
-            &request.question,
+            &question,
             request.model_id.as_deref(),
+            image_contexts,
         )
         .await
         .map_err(|e| e.to_string())?;

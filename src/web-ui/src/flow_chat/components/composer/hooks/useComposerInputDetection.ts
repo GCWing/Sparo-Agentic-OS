@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import type { Dispatch, MutableRefObject } from 'react';
-import type { ContextItem } from '../../../../shared/types/context';
-import type { ComposerDocument } from '../../../../shared/types/composer';
+import type { ComposerDocument, ContextReference } from '../../../../shared/types/composer';
 import { getComposerText } from '../../../../shared/types/composer';
 import type { InputAction } from '../../../reducers/inputReducer';
 import type { SessionDerivedState } from '../../../state-machine/types';
@@ -11,41 +10,40 @@ import {
 } from '../model/composerInputDetection';
 
 export function useComposerInputDetection({
-  contexts,
+  references,
   derivedState,
   dispatchInput,
   inputIsActive,
   inputValueRef,
   isImeComposingRef,
   setDocument,
-  removeContext,
+  removeReference,
   setInputDetection,
   setQueuedInput,
   shouldQueueDraft,
 }: {
-  contexts: ContextItem[];
+  references: ContextReference[];
   derivedState: SessionDerivedState | null;
   dispatchInput: Dispatch<InputAction>;
   inputIsActive: boolean;
   inputValueRef: MutableRefObject<string>;
   isImeComposingRef: MutableRefObject<boolean>;
   setDocument: (document: ComposerDocument) => void;
-  removeContext: (id: string) => void;
+  removeReference: (id: string) => void;
   setInputDetection: (detection: ComposerInputDetection) => void;
   setQueuedInput: (value: string | null) => void;
   shouldQueueDraft: (text: string) => boolean;
 }) {
-  return useCallback((document: ComposerDocument, activeContexts: ContextItem[]) => {
+  return useCallback((document: ComposerDocument, activeReferenceIds: string[]) => {
     const text = getComposerText(document);
     if (!inputIsActive && text.length > 0) {
       dispatchInput({ type: 'ACTIVATE' });
     }
 
-    const activeContextIds = new Set(activeContexts.map(context => context.id));
-    contexts.forEach(context => {
-      if (context.type === 'image') return;
-      if (!activeContextIds.has(context.id)) {
-        removeContext(context.id);
+    const activeIds = new Set(activeReferenceIds);
+    references.forEach(reference => {
+      if (!activeIds.has(reference.id)) {
+        removeReference(reference.id);
       }
     });
 
@@ -64,14 +62,14 @@ export function useComposerInputDetection({
       isComposing: isImeComposingRef.current,
     }));
   }, [
-    contexts,
+    references,
     derivedState?.isProcessing,
     dispatchInput,
     inputIsActive,
     inputValueRef,
     isImeComposingRef,
     setDocument,
-    removeContext,
+    removeReference,
     setInputDetection,
     setQueuedInput,
     shouldQueueDraft,

@@ -20,7 +20,7 @@ function getDraggedFileTreePath(data: ContextItem): string | null {
     case 'file':
       return data.filePath;
     case 'image':
-      return data.imagePath;
+      return data.sourceRef.kind === 'local-file' ? data.sourceRef.path : null;
     case 'directory':
       return data.directoryPath;
     default:

@@ -301,6 +301,12 @@ const FlexiblePanel: React.FC<ExtendedFlexiblePanelProps> = memo(({
           <div className="sparo-flexible-panel__image-viewer-container">
             <ImageViewer
               filePath={imageViewerData.filePath || ''}
+              sourceRef={imageViewerData.sourceRef}
+              previewUrl={imageViewerData.previewUrl}
+              mimeType={imageViewerData.mimeType}
+              fileSize={imageViewerData.fileSize}
+              width={imageViewerData.width}
+              height={imageViewerData.height}
               fileName={content.title}
               workspacePath={workspacePath}
               className="sparo-flexible-panel__image-viewer"

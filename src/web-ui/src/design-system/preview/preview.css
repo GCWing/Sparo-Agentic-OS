@@ -227,11 +227,6 @@ input {
 
 .preview-sidebar-toggle__icon {
   display: inline-flex;
-  transition: transform var(--motion-fast) var(--easing-smooth);
-}
-
-.preview-sidebar-toggle__icon.is-collapsed {
-  transform: rotate(180deg);
 }
 
 .preview-sidebar-search {

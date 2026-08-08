@@ -11,7 +11,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { SparoAgentIcon } from '@/design-system';
+import { SPARO_ICON_OPTICAL_STROKE_WIDTH, SparoAgentIcon } from '@/design-system';
 import type { ToolCardProps } from '../types/flow-chat';
 import {
   DefaultToolCardTemplate,
@@ -150,7 +150,13 @@ export const ComponentAuthoringToolDisplay: React.FC<ToolCardProps> = ({ toolIte
   const viewState = useMemo(() => getToolViewState(toolItem), [toolItem]);
   const toolName = toolItem.toolName;
   const label = TOOL_LABELS[toolName] ?? {
-    icon: <SparoAgentIcon size={16} />,
+    icon: (
+      <SparoAgentIcon
+        size={16}
+        strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+        absoluteStrokeWidth
+      />
+    ),
     tagKey: 'generic',
     layout: 'compact',
   };

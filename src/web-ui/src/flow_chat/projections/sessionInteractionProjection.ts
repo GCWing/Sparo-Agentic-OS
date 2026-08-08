@@ -14,7 +14,7 @@ export interface SessionInteractionProjection {
 }
 
 export interface ProjectSessionInteractionOptions {
-  processingInputDraftTrimmed?: string;
+  processingDraftHasContent?: boolean;
 }
 
 export function projectSessionInteraction(
@@ -22,13 +22,13 @@ export function projectSessionInteraction(
   options?: ProjectSessionInteractionOptions,
 ): SessionInteractionProjection {
   const { currentState, context } = machine;
-  const draftTrimmed =
+  const processingDraftHasContent =
     currentState === SessionExecutionState.PROCESSING ||
     currentState === SessionExecutionState.FINISHING ||
     currentState === SessionExecutionState.ERROR
-      ? options?.processingInputDraftTrimmed?.trim() ?? ''
-      : '';
-  const hasQueuedInput = (context.queuedInput?.trim()?.length ?? 0) > 0 || draftTrimmed.length > 0;
+      ? options?.processingDraftHasContent ?? false
+      : false;
+  const hasQueuedInput = (context.queuedInput?.trim()?.length ?? 0) > 0 || processingDraftHasContent;
   const hasPendingConfirmations = context.pendingToolConfirmations.size > 0;
   const isActive =
     currentState === SessionExecutionState.PROCESSING ||

@@ -143,7 +143,6 @@ If the Product App needs durable intelligent behavior, prefer an app-private Age
 
 ## Built-In App References
 
-- `builtin-spark-board`: uses `runtime().storage` for canvas state persistence and `onLocaleChange` for i18n refresh; use it as a lightweight workbench reference.
 - `builtin-ppt-live`: shows complex modular source, `app.backend.call('ppt.generate', ...)`, history/storage fallback, and theme/locale synchronization; use it for intelligent backend and large UI patterns.
 - `builtin-harmony-dev` / `builtin-remotion-live`: listen for `productAppRuntimeRouteChange` and refresh facts by workspace route; use them for workspace-aware apps.
 

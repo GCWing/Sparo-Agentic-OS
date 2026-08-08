@@ -12,6 +12,7 @@
 
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ArrowLeft } from 'lucide-react';
 import { useSessionProfile } from '../../session-profiles';
 import { useSessionGoalSnapshot } from '@/flow_chat/store/sessionGoalStore';
 import ChatPane from './ChatPane';
@@ -31,9 +32,9 @@ import {
   isSessionTranscriptLoading,
   isSessionTranscriptReady,
 } from '@/flow_chat/domain/sessionLoadPhase';
-import { DotMatrixLoader } from '@/design-system';
-import { useCanvasStore } from '@/app/components/panels/content-canvas';
+import { DotMatrixLoader, IconButton } from '@/design-system';
 import {
+  exitActiveAuxiliarySceneFocus,
   selectActiveAuxiliaryHostState,
   useAuxiliarySurfaceStore,
 } from '@/app/auxiliary-surface';
@@ -61,17 +62,11 @@ const SessionScene: React.FC<SessionSceneProps> = ({
   const updateAuxiliaryWidth = useAuxiliarySurfaceStore(store => store.setWidth);
   const auxiliaryCollapsed =
     !activeAuxiliaryHost || activeAuxiliaryHost.presentation === 'closed';
+  const auxiliarySceneFocused = activeAuxiliaryHost?.presentation === 'scene-focus';
+  const preserveDockedLayoutDuringSceneFocus = auxiliarySceneFocused
+    && activeAuxiliaryHost?.sceneFocusReturnPresentation === 'docked';
   const activeSession = useActiveSession();
   const [auxPaneReleasedSessionId, setAuxPaneReleasedSessionId] = useState<string | null>(null);
-  const hasBoundProductAppTab = useCanvasStore(state => (
-    [state.primaryGroup, state.secondaryGroup, state.tertiaryGroup].some(group => (
-      group.tabs.some(tab => (
-        tab.content.type === 'product-app-runtime' &&
-        tab.content.metadata?.boundSessionId === surfaceSessionId
-      ))
-    ))
-  ));
-  const productAppId = activeSession?.customMetadata?.productAppRuntime?.appId;
   const isTranscriptLoading = Boolean(surfaceSessionId) && (
     activeSession?.sessionId !== surfaceSessionId ||
     isSessionTranscriptLoading(activeSession)
@@ -86,9 +81,7 @@ const SessionScene: React.FC<SessionSceneProps> = ({
     }
   }, [isTranscriptLoading, surfaceSessionId]);
   const auxPaneReleased = !surfaceSessionId || auxPaneReleasedSessionId === surfaceSessionId;
-  const isSessionSurfaceLoading = !auxPaneReleased || (
-    Boolean(productAppId) && !hasBoundProductAppTab
-  );
+  const isSessionSurfaceLoading = !auxPaneReleased;
   const goalSnapshot = useSessionGoalSnapshot(surfaceSessionId);
   // Once the goal is completed the session returns to its normal look: drop the
   // focus frame. The banner stays (neutral) so the result is still visible/clearable.
@@ -99,6 +92,7 @@ const SessionScene: React.FC<SessionSceneProps> = ({
   const auxiliaryConfig = AUXILIARY_SURFACE_CONFIG;
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const chatPaneRef = useRef<HTMLDivElement>(null);
   const resizerRef = useRef<HTMLDivElement>(null);
   const auxPaneElementRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -201,6 +195,24 @@ const SessionScene: React.FC<SessionSceneProps> = ({
     if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
   }, []);
 
+  useEffect(() => {
+    if (!auxiliarySceneFocused) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      exitActiveAuxiliarySceneFocus('previous');
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [auxiliarySceneFocused]);
+
+  useEffect(() => {
+    const chatPane = chatPaneRef.current;
+    if (!chatPane) return;
+    if (auxiliarySceneFocused) chatPane.setAttribute('inert', '');
+    else chatPane.removeAttribute('inert');
+  }, [auxiliarySceneFocused]);
+
   const panelModeLabels = useMemo(() => ({
     collapsed:    t('layout.panelMode.collapsed'),
     compact:      t('layout.panelMode.compact'),
@@ -227,6 +239,7 @@ const SessionScene: React.FC<SessionSceneProps> = ({
         'sparo-session-scene',
         isDragging && 'sparo-session-scene--dragging',
         hasGoalMode && 'sparo-session-scene--goal-mode',
+        auxiliarySceneFocused && 'sparo-session-scene--auxiliary-focus',
         isEntering && 'layout-entering',
       ].filter(Boolean).join(' ')}
       data-agent={profile.theme.dataAgent}
@@ -236,7 +249,9 @@ const SessionScene: React.FC<SessionSceneProps> = ({
     >
       {/* ChatPane �?FlowChat conversation */}
       <div
+        ref={chatPaneRef}
         className={`sparo-session-scene__chat-pane ${isDragging ? 'sparo-session-scene__chat-pane--dragging' : ''}`}
+        aria-hidden={auxiliarySceneFocused || undefined}
       >
         <ChatPane
           width={0}
@@ -248,6 +263,14 @@ const SessionScene: React.FC<SessionSceneProps> = ({
         />
       </div>
 
+      {auxiliarySceneFocused ? (
+        <div
+          className="sparo-session-scene__scene-focus-layout-placeholder"
+          style={{ width: preserveDockedLayoutDuringSceneFocus ? `${currentRightWidth}px` : 0 }}
+          aria-hidden="true"
+        />
+      ) : null}
+
       {/* Resizer �?always rendered (when chat visible) for slide animation */}
       <div
         ref={resizerRef}
@@ -256,12 +279,13 @@ const SessionScene: React.FC<SessionSceneProps> = ({
             auxiliaryCollapsed && 'sparo-pane-resizer--collapsed',
             isDragging && 'sparo-pane-resizer--dragging',
             isHovering && 'sparo-pane-resizer--hovering',
+            auxiliarySceneFocused && 'sparo-pane-resizer--scene-focus',
         ].filter(Boolean).join(' ')}
         onMouseDown={handleMouseDownResizer}
         onDoubleClick={handleDoubleClick}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
-        tabIndex={auxiliaryCollapsed ? -1 : 0}
+        tabIndex={auxiliaryCollapsed || auxiliarySceneFocused ? -1 : 0}
         role="separator"
         aria-orientation="vertical"
         aria-label={t('layout.resizer.rightAriaLabel')}
@@ -285,36 +309,67 @@ const SessionScene: React.FC<SessionSceneProps> = ({
 
       {/* AuxPane �?ContentCanvas */}
       <div
+        id="session-auxiliary-surface"
         ref={auxPaneElementRef}
         className={[
           'sparo-session-scene__aux-pane',
           auxiliaryCollapsed                       && 'sparo-session-scene__aux-pane--collapsed',
           isDragging                               && 'sparo-session-scene__aux-pane--dragging',
+          auxiliarySceneFocused                    && 'sparo-session-scene__aux-pane--scene-focus',
         ].filter(Boolean).join(' ')}
         style={{
-          width: auxiliaryCollapsed
+          width: auxiliaryCollapsed || auxiliarySceneFocused
             ? undefined
             : `${currentRightWidth}px`,
         }}
         data-mode={auxiliaryDisplayMode}
+        aria-hidden={auxiliaryCollapsed}
       >
-        {auxPaneReleased ? (
-          <AuxPane
-            workspacePath={workspacePath}
-            isSceneActive={isActive}
-          />
-        ) : null}
-        {isSessionSurfaceLoading ? (
-          <div
-            className="sparo-session-scene__aux-loading"
-            role="status"
-            aria-live="polite"
-            aria-label={t('session.loadingSurface')}
+        {auxiliarySceneFocused ? (
+          <header
+            className="sparo-session-scene__scene-focus-header"
+            data-testid="scene-focus-header"
           >
-            <DotMatrixLoader size="small" />
-            <span>{t('session.loadingSurface')}</span>
-          </div>
+            <IconButton
+              aria-label={t('layout.sceneFocus.backToChat')}
+              tooltip={t('layout.sceneFocus.backToChat')}
+              tooltipPlacement="bottom"
+              tooltipFollowCursor={false}
+              size="small"
+              variant="ghost"
+              onClick={() => exitActiveAuxiliarySceneFocus('previous')}
+            >
+              <ArrowLeft aria-hidden="true" size={16} />
+            </IconButton>
+            <span
+              className="sparo-session-scene__scene-focus-divider"
+              aria-hidden="true"
+            />
+            <span className="sparo-session-scene__scene-focus-title">
+              {t('layout.sceneFocus.title')}
+            </span>
+          </header>
         ) : null}
+        <div className="sparo-session-scene__aux-content">
+          {auxPaneReleased ? (
+            <AuxPane
+              workspacePath={workspacePath}
+              isSceneActive={isActive}
+              isSceneFocused={auxiliarySceneFocused}
+            />
+          ) : null}
+          {isSessionSurfaceLoading ? (
+            <div
+              className="sparo-session-scene__aux-loading"
+              role="status"
+              aria-live="polite"
+              aria-label={t('session.loadingSurface')}
+            >
+              <DotMatrixLoader size="small" />
+              <span>{t('session.loadingSurface')}</span>
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );

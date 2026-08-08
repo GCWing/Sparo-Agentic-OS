@@ -42,6 +42,18 @@ import resetSvg from './svg/base/reset.svg?raw';
 import undoSvg from './svg/base/undo.svg?raw';
 import refreshSvg from './svg/base/refresh.svg?raw';
 import retrySvg from './svg/base/retry.svg?raw';
+import panelRightClosedSvg from './svg/base/panel-right-closed.svg?raw';
+import panelRightOpenSvg from './svg/base/panel-right-open.svg?raw';
+import panelLeftClosedSvg from './svg/base/panel-left-closed.svg?raw';
+import panelLeftOpenSvg from './svg/base/panel-left-open.svg?raw';
+import panelBottomClosedSvg from './svg/base/panel-bottom-closed.svg?raw';
+import panelBottomOpenSvg from './svg/base/panel-bottom-open.svg?raw';
+import panelBottomHalfSvg from './svg/base/panel-bottom-half.svg?raw';
+import panelBottomMaximizedSvg from './svg/base/panel-bottom-maximized.svg?raw';
+import panelFloatingSvg from './svg/base/panel-floating.svg?raw';
+import panelDockedSvg from './svg/base/panel-docked.svg?raw';
+import panelPinnedSvg from './svg/base/panel-pinned.svg?raw';
+import layoutResetSvg from './svg/base/layout-reset.svg?raw';
 import type { SystemIconName } from './icon-manifest';
 
 export const rawSystemIcons: Record<SystemIconName, string> = {
@@ -89,6 +101,18 @@ export const rawSystemIcons: Record<SystemIconName, string> = {
   undo: undoSvg,
   refresh: refreshSvg,
   retry: retrySvg,
+  'panel-right-closed': panelRightClosedSvg,
+  'panel-right-open': panelRightOpenSvg,
+  'panel-left-closed': panelLeftClosedSvg,
+  'panel-left-open': panelLeftOpenSvg,
+  'panel-bottom-closed': panelBottomClosedSvg,
+  'panel-bottom-open': panelBottomOpenSvg,
+  'panel-bottom-half': panelBottomHalfSvg,
+  'panel-bottom-maximized': panelBottomMaximizedSvg,
+  'panel-floating': panelFloatingSvg,
+  'panel-docked': panelDockedSvg,
+  'panel-pinned': panelPinnedSvg,
+  'layout-reset': layoutResetSvg,
 };
 
 export function extractSvgBody(source: string): string {

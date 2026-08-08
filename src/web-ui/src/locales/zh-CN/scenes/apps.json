@@ -177,6 +177,7 @@
       "launch": "启动",
       "stop": "停止",
       "newWork": "新建",
+      "createForObject": "基于此产物新建工作",
       "continue": "继续",
       "back": "返回",
       "close": "关闭",
@@ -247,6 +248,7 @@
       "installBeforeLaunch": "请先安装 {{name}}，再启动它。",
       "noLaunch": "{{name}} 没有启动目标。",
       "launchFailed": "启动 {{name}} 失败：{{error}}",
+      "createForObjectFailed": "基于「{{name}}」新建工作失败：{{error}}",
       "stopped": "{{name}} 已停止",
       "stopFailed": "停止 {{name}} 失败：{{error}}",
       "closeWorkFailed": "关闭工作 {{name}} 失败：{{error}}",
@@ -365,6 +367,7 @@
     },
     "workStack": {
       "continueLabel": "继续「{{title}}」",
+      "createForObjectLabel": "基于「{{title}}」新建工作",
       "moreCount": "查看全部 {{count}} 个工作",
       "collapse": "收起",
       "relatedLabel": "{{name}} 的相关工作",

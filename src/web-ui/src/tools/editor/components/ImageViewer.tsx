@@ -5,18 +5,26 @@
  * @module components/ImageViewer
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { ZoomIn, ZoomOut, RotateCw, Download, Maximize2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { ZoomIn, ZoomOut, RotateCw, Download } from 'lucide-react';
 import { createLogger } from '@/shared/utils/logger';
 import { Button, DotMatrixLoader, IconButton, Tooltip } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
+import { decodeImageAsset } from '@/shared/media/imageAssetStore';
+import type { ImageAssetSourceRef } from '@/shared/types/context';
 import './ImageViewer.scss';
 
 const log = createLogger('ImageViewer');
 
 export interface ImageViewerProps {
-  /** Image file path */
-  filePath: string;
+  /** Legacy local file path; sourceRef is the canonical source contract. */
+  filePath?: string;
+  sourceRef?: ImageAssetSourceRef;
+  previewUrl?: string;
+  mimeType?: string;
+  fileSize?: number;
+  width?: number;
+  height?: number;
   /** File name */
   fileName?: string;
   /** Workspace path (for relative path resolution) */
@@ -27,18 +35,25 @@ export interface ImageViewerProps {
 
 export const ImageViewer: React.FC<ImageViewerProps> = ({
   filePath,
+  sourceRef,
+  previewUrl,
+  mimeType,
+  fileSize: knownFileSize,
+  width: knownWidth,
+  height: knownHeight,
   fileName,
   className = ''
 }) => {
   const { t } = useI18n('tools');
-  const [imageUrl, setImageUrl] = useState<string>('');
+  const [imageUrl, setImageUrl] = useState<string>(previewUrl || '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
-  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [fileSize, setFileSize] = useState<number>(0);
+  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(
+    knownWidth && knownHeight ? { width: knownWidth, height: knownHeight } : null,
+  );
+  const [fileSize, setFileSize] = useState<number>(knownFileSize || 0);
 
   const getMimeType = useCallback((path: string): string => {
     const ext = path.toLowerCase().split('.').pop();
@@ -56,53 +71,84 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     return mimeTypes[ext || ''] || 'image/jpeg';
   }, []);
 
+  const resolvedSourceRef = useMemo<ImageAssetSourceRef | undefined>(() => (
+    sourceRef || (filePath ? { kind: 'local-file', path: filePath } : undefined)
+  ), [filePath, sourceRef]);
+  const sourceIdentity = resolvedSourceRef
+    ? JSON.stringify(resolvedSourceRef)
+    : '';
+
   useEffect(() => {
+    let cancelled = false;
+    let frameId = 0;
+    setImageUrl(previewUrl || '');
+    setImageDimensions(knownWidth && knownHeight ? { width: knownWidth, height: knownHeight } : null);
+    setFileSize(knownFileSize || 0);
+    setError(null);
+    setLoading(true);
+
+    if (!resolvedSourceRef) {
+      setError(t('editor.imageViewer.filePathEmpty'));
+      setLoading(false);
+      return undefined;
+    }
+
     const loadImage = async () => {
-      if (!filePath) {
-        setError(t('editor.imageViewer.filePathEmpty'));
-        setLoading(false);
-        return;
-      }
-
       try {
-        setLoading(true);
-        setError(null);
-
-        const { workspaceAPI } = await import('@/infrastructure/api');
-        const result = await workspaceAPI.readFileContent(filePath);
-
-        const mimeType = getMimeType(filePath);
-
-        const dataUrl = `data:${mimeType};base64,${result}`;
-        
-        setImageUrl(dataUrl);
-        setFileSize(result.length);
+        const decoded = await decodeImageAsset(
+          resolvedSourceRef,
+          mimeType || (resolvedSourceRef.kind === 'local-file'
+            ? getMimeType(resolvedSourceRef.path)
+            : 'image/*'),
+        );
+        if (cancelled) return;
+        setImageUrl(decoded.url);
+        setImageDimensions({ width: decoded.width, height: decoded.height });
         setLoading(false);
-        
       } catch (err) {
-        log.error('Failed to load image', err);
+        if (cancelled) return;
+        log.error('Failed to load image', { source: sourceIdentity, error: err });
         setError(t('editor.imageViewer.loadImageFailedWithMessage', { message: String(err) }));
         setLoading(false);
       }
     };
 
-    loadImage();
-  }, [filePath, getMimeType, t]);
+    // Commit the scene/docked shell and thumbnail before resolving or decoding
+    // the original image. Large media work must never share the click frame.
+    frameId = window.requestAnimationFrame(() => {
+      void loadImage();
+    });
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [
+    getMimeType,
+    knownFileSize,
+    knownHeight,
+    knownWidth,
+    mimeType,
+    previewUrl,
+    resolvedSourceRef,
+    sourceIdentity,
+    t,
+  ]);
 
   const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    if (knownWidth && knownHeight) return;
     const img = e.currentTarget;
     
     setImageDimensions({
       width: img.naturalWidth,
       height: img.naturalHeight
     });
-  }, []);
+  }, [knownHeight, knownWidth]);
 
   const handleImageError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    log.error('Image load error', { filePath, srcLength: e.currentTarget.src.length });
+    log.error('Image load error', { source: sourceIdentity, srcLength: e.currentTarget.src.length });
     setError(t('editor.imageViewer.decodeFailed'));
     setLoading(false);
-  }, [filePath, t]);
+  }, [sourceIdentity, t]);
 
   const handleZoomIn = useCallback(() => {
     setZoom(prev => Math.min(prev + 25, 500));
@@ -122,7 +168,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
   const handleDownload = useCallback(async () => {
     try {
-      const name = fileName || filePath.split(/[/\\]/).pop() || 'image';
+      const name = fileName || filePath?.split(/[/\\]/).pop() || 'image';
       const link = document.createElement('a');
       link.href = imageUrl;
       link.download = name;
@@ -134,23 +180,17 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     }
   }, [imageUrl, fileName, filePath]);
 
-  const handleToggleFullscreen = useCallback(() => {
-    setIsFullscreen(prev => !prev);
-  }, []);
-
-  /** Format file size (base64 length is roughly 1.33x original) */
-  const formatFileSize = useCallback((base64Length: number): string => {
-    const bytes = Math.round(base64Length * 0.75);
+  const formatFileSize = useCallback((bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }, []);
 
   return (
-    <div className={`sparo-image-viewer ${className} ${isFullscreen ? 'fullscreen' : ''}`}>
+    <div className={`sparo-image-viewer ${className}`}>
       <div className="sparo-image-viewer__toolbar">
         <div className="sparo-image-viewer__info">
-          <span className="sparo-image-viewer__filename">{fileName || filePath.split(/[/\\]/).pop()}</span>
+          <span className="sparo-image-viewer__filename">{fileName || filePath?.split(/[/\\]/).pop()}</span>
           {imageDimensions && (
             <span className="sparo-image-viewer__dimensions">
               {imageDimensions.width} × {imageDimensions.height}
@@ -212,45 +252,37 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           >
             <Download size={14} />
           </IconButton>
-          <IconButton
-            aria-label={isFullscreen ? t('editor.imageViewer.exitFullscreen') : t('editor.imageViewer.enterFullscreen')}
-            tooltip={isFullscreen ? t('editor.imageViewer.exitFullscreen') : t('editor.imageViewer.enterFullscreen')}
-            size="xs"
-            variant="ghost"
-            onClick={handleToggleFullscreen}
-          >
-            <Maximize2 size={14} />
-          </IconButton>
         </div>
       </div>
 
       <div className="sparo-image-viewer__container">
-        {loading && (
-          <div className="sparo-image-viewer__loading">
-            <DotMatrixLoader size="medium" className="sparo-image-viewer__spinner" />
-            <p>{t('editor.common.loading')}</p>
-          </div>
-        )}
-
-        {error && (
-          <div className="sparo-image-viewer__error">
-            <p>{error}</p>
-            <p className="sparo-image-viewer__error-path">{filePath}</p>
-          </div>
-        )}
-
-        {!loading && !error && imageUrl && (
+        {imageUrl && (
           <div className="sparo-image-viewer__image-wrapper">
             <img
               src={imageUrl}
-              alt={fileName || filePath}
+              alt={fileName || filePath || ''}
               className="sparo-image-viewer__image"
+              decoding="async"
               style={{
                 transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
               }}
               onLoad={handleImageLoad}
               onError={handleImageError}
             />
+          </div>
+        )}
+
+        {loading && !imageUrl && (
+          <div className="sparo-image-viewer__loading" role="status" aria-live="polite">
+            <DotMatrixLoader size="medium" className="sparo-image-viewer__spinner" />
+            <p>{t('editor.common.loading')}</p>
+          </div>
+        )}
+
+        {error && !imageUrl && (
+          <div className="sparo-image-viewer__error">
+            <p>{error}</p>
+            <p className="sparo-image-viewer__error-path">{filePath || fileName}</p>
           </div>
         )}
         

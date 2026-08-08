@@ -5,6 +5,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { createLogger } from '@/shared/utils/logger';
+import { terminalAPI } from '@/infrastructure/api/service-api/TerminalAPI';
 import type {
   CreateSessionRequest,
   SessionResponse,
@@ -190,13 +191,7 @@ export class TerminalService {
   }
 
   async getAvailableShells(): Promise<ShellInfo[]> {
-    try {
-      const shells = await invoke<ShellInfo[]>('terminal_get_shells');
-      return shells;
-    } catch (error) {
-      log.error('Failed to get available shells', error);
-      throw error;
-    }
+    return terminalAPI.listAvailableShells();
   }
 
   async createSession(request: CreateSessionRequest): Promise<SessionResponse> {

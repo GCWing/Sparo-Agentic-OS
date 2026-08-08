@@ -278,13 +278,22 @@ function safePresentationDirectoryName(value) {
 }
 
 function defaultPptIndex() {
-  return { schemaVersion: PPT_INDEX_SCHEMA_VERSION, works: {}, updatedAt: nowIso() };
+  return {
+    schemaVersion: PPT_INDEX_SCHEMA_VERSION,
+    works: {},
+    objects: {},
+    updatedAt: nowIso(),
+  };
 }
 
 function loadPptIndex(indexFile) {
   const index = readFileJson(indexFile, defaultPptIndex());
   if (!index || index.schemaVersion !== PPT_INDEX_SCHEMA_VERSION || typeof index.works !== "object" || Array.isArray(index.works)) {
     throw new Error("Workspace PPT index is invalid");
+  }
+  if (index.objects == null) index.objects = {};
+  if (typeof index.objects !== "object" || Array.isArray(index.objects)) {
+    throw new Error("Workspace PPT WorkObject index is invalid");
   }
   return index;
 }
@@ -302,13 +311,29 @@ function controlMatchesWork(controlFile, workId) {
   }
 }
 
-function locatePresentationRoot(workspaceRoot, workId, indexFile) {
+function controlMatchesWorkObject(controlFile, workObjectId) {
+  try {
+    const control = readControl(controlFile, null);
+    return Boolean(
+      control
+      && control.schemaVersion === CONTROL_SCHEMA_VERSION
+      && control.workObjectId === workObjectId
+    );
+  } catch (_error) {
+    return false;
+  }
+}
+
+function locatePresentationRoot(workspaceRoot, workId, workObjectId, indexFile) {
   const index = loadPptIndex(indexFile);
-  const indexed = index.works[workId];
+  const indexed = workObjectId ? index.objects[workObjectId] : index.works[workId];
   if (typeof indexed === "string" && indexed.trim()) {
     const candidate = path.resolve(workspaceRoot, indexed);
     const pptRoot = path.join(workspaceRoot, PPT_DIRECTORY);
-    if (isInside(pptRoot, candidate) && controlMatchesWork(path.join(candidate, ".ppt-live.json"), workId)) {
+    const matches = workObjectId
+      ? controlMatchesWorkObject(path.join(candidate, ".ppt-live.json"), workObjectId)
+      : controlMatchesWork(path.join(candidate, ".ppt-live.json"), workId);
+    if (isInside(pptRoot, candidate) && matches) {
       return candidate;
     }
   }
@@ -318,8 +343,11 @@ function locatePresentationRoot(workspaceRoot, workId, indexFile) {
   for (const entry of fs.readdirSync(pptRoot, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const candidate = path.join(pptRoot, entry.name);
-    if (controlMatchesWork(path.join(candidate, ".ppt-live.json"), workId)) return candidate;
+    const controlFile = path.join(candidate, ".ppt-live.json");
+    if (workObjectId && controlMatchesWorkObject(controlFile, workObjectId)) return candidate;
+    if (!workObjectId && controlMatchesWork(controlFile, workId)) return candidate;
   }
+  if (workObjectId) return locatePresentationRoot(workspaceRoot, workId, null, indexFile);
   return null;
 }
 
@@ -344,13 +372,17 @@ function projectPaths(trusted, options = {}) {
   }
   const workspaceRoot = path.resolve(trusted.workspacePath);
   const workId = safeId(trusted.workId, "work");
+  const workObjectId = trusted.workObjectId
+    ? safeId(trusted.workObjectId, "object")
+    : null;
   const indexFile = path.join(workspaceRoot, ".sparo_os", "ppt-index.json");
-  let root = locatePresentationRoot(workspaceRoot, workId, indexFile);
+  let root = locatePresentationRoot(workspaceRoot, workId, workObjectId, indexFile);
   if (!root && options.create === true) {
     root = uniquePresentationRoot(workspaceRoot, options.title || trusted.workTitle);
   }
   if (!root) {
-    const error = new Error(`PPT Live presentation '${workId}' is not initialized in this workspace`);
+    const identity = workObjectId || workId;
+    const error = new Error(`PPT Live presentation '${identity}' is not initialized in this workspace`);
     error.code = "ppt_work_not_initialized";
     throw error;
   }
@@ -358,9 +390,25 @@ function projectPaths(trusted, options = {}) {
     throw new Error("Resolved PPT Live project escaped the trusted workspace root");
   }
   const controlFile = path.join(root, ".ppt-live.json");
+  if (workObjectId) {
+    const control = readControl(controlFile, null);
+    if (control?.workObjectId && control.workObjectId !== workObjectId) {
+      throw new Error("Resolved PPT Live presentation belongs to another WorkObject");
+    }
+    if (!control?.workObjectId && control?.workId === workId) {
+      control.workObjectId = workObjectId;
+      control.updatedAt = nowIso();
+      writeControl(controlFile, control);
+      const index = loadPptIndex(indexFile);
+      index.objects[workObjectId] = relativeWorkspacePath(workspaceRoot, root);
+      index.updatedAt = nowIso();
+      writeJson(indexFile, index);
+    }
+  }
   return {
     workspaceRoot,
     workId,
+    workObjectId,
     root,
     indexFile,
     controlFile,
@@ -441,8 +489,14 @@ function initialDeck(deckId) {
 
 function syncPptIndex(paths) {
   const index = loadPptIndex(paths.indexFile);
+  const control = readControl(paths.controlFile, null);
+  if (!control || control.schemaVersion !== CONTROL_SCHEMA_VERSION || control.appId !== APP_ID) {
+    throw new Error("PPT Live control file is missing or invalid");
+  }
   index.schemaVersion = PPT_INDEX_SCHEMA_VERSION;
-  index.works[paths.workId] = relativeWorkspacePath(paths.workspaceRoot, paths.root);
+  const relativeRoot = relativeWorkspacePath(paths.workspaceRoot, paths.root);
+  if (control.workId) index.works[control.workId] = relativeRoot;
+  if (control.workObjectId) index.objects[control.workObjectId] = relativeRoot;
   index.updatedAt = nowIso();
   writeJson(paths.indexFile, index);
 }
@@ -501,7 +555,21 @@ function bindControlSession(paths, sessionId) {
 
 function initializeProject(paths, input = {}, trusted = {}) {
   if (fs.existsSync(paths.controlFile)) {
-    if (!controlMatchesWork(paths.controlFile, paths.workId)) {
+    const control = readControl(paths.controlFile, null);
+    if (paths.workObjectId) {
+      if (control?.workObjectId && control.workObjectId !== paths.workObjectId) {
+        throw new Error("PPT Live presentation directory belongs to another WorkObject");
+      }
+      if (!control?.workObjectId) {
+        if (control?.workId !== paths.workId) {
+          throw new Error("PPT Live presentation directory belongs to another Work");
+        }
+        control.workObjectId = paths.workObjectId;
+        control.updatedAt = nowIso();
+        writeControl(paths.controlFile, control);
+        syncPptIndex(paths);
+      }
+    } else if (!controlMatchesWork(paths.controlFile, paths.workId)) {
       throw new Error("PPT Live presentation directory belongs to another Work");
     }
     ensureProject(paths);
@@ -528,6 +596,7 @@ function initializeProject(paths, input = {}, trusted = {}) {
     appId: APP_ID,
     appVersion: APP_VERSION,
     workId: paths.workId,
+    workObjectId: paths.workObjectId,
     deckId,
     title,
     revision: 0,
@@ -569,10 +638,66 @@ function initializeProject(paths, input = {}, trusted = {}) {
   syncPptIndex(paths);
 }
 
+function attachWorkObject(input = {}, trusted = {}) {
+  if (!trusted.workspacePath || typeof trusted.workspacePath !== "string") {
+    throw new Error("PPT Live requires a host-bound workspace root");
+  }
+  if (!trusted.workId || typeof trusted.workId !== "string") {
+    throw new Error("PPT Live requires a host-bound Work id");
+  }
+  if (!trusted.workObjectId || typeof trusted.workObjectId !== "string") {
+    throw new Error("PPT Live requires a host-bound WorkObject id to attach existing content");
+  }
+  const sourceWorkId = safeId(requiredText(input.sourceWorkId, "sourceWorkId", 128));
+  const targetWorkId = safeId(trusted.workId, "work");
+  const workObjectId = safeId(trusted.workObjectId, "object");
+  if (sourceWorkId === targetWorkId) {
+    throw new Error("PPT Live requires a different source Work when attaching a WorkObject");
+  }
+
+  const workspaceRoot = path.resolve(trusted.workspacePath);
+  const indexFile = path.join(workspaceRoot, ".sparo_os", "ppt-index.json");
+  const existingRoot = locatePresentationRoot(
+    workspaceRoot,
+    "__unbound_work__",
+    workObjectId,
+    indexFile,
+  );
+  if (existingRoot) {
+    const paths = projectPaths(trusted);
+    ensureProject(paths);
+    bindControlSession(paths, trusted.sessionId);
+    return inspect(paths, input);
+  }
+
+  const sourcePaths = projectPaths({ ...trusted, workId: sourceWorkId, workObjectId: null });
+  ensureProject(sourcePaths);
+  const control = readControl(sourcePaths.controlFile, null);
+  if (!control || control.schemaVersion !== CONTROL_SCHEMA_VERSION || control.appId !== APP_ID) {
+    throw new Error("PPT Live source presentation state is missing or invalid");
+  }
+  if (control.workObjectId && control.workObjectId !== workObjectId) {
+    throw new Error("PPT Live source presentation belongs to another WorkObject");
+  }
+  control.workObjectId = workObjectId;
+  control.updatedAt = nowIso();
+  writeControl(sourcePaths.controlFile, control);
+  syncPptIndex({ ...sourcePaths, workObjectId });
+
+  const paths = projectPaths(trusted);
+  ensureProject(paths);
+  bindControlSession(paths, trusted.sessionId);
+  return inspect(paths, input);
+}
+
 function ensureProject(paths) {
   const control = readControl(paths.controlFile, null);
-  if (!control || control.schemaVersion !== CONTROL_SCHEMA_VERSION || control.appId !== APP_ID || control.workId !== paths.workId) {
-    const error = new Error(`PPT Live presentation '${paths.workId}' is missing or invalid`);
+  const identityMatches = paths.workObjectId
+    ? control?.workObjectId === paths.workObjectId
+    : control?.workId === paths.workId;
+  if (!control || control.schemaVersion !== CONTROL_SCHEMA_VERSION || control.appId !== APP_ID || !identityMatches) {
+    const identity = paths.workObjectId || paths.workId;
+    const error = new Error(`PPT Live presentation '${identity}' is missing or invalid`);
     error.code = "ppt_work_state_missing";
     throw error;
   }
@@ -641,6 +766,17 @@ function assertExpectedRevision(actual, expected, subject) {
   if (parsed !== Number(actual)) {
     throw new Error(`${subject} revision conflict: expected ${parsed}, current ${actual}`);
   }
+}
+
+function assertBaselineRevision(actual, expected, subject) {
+  const parsed = Number(expected);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${subject} expectedRevision must be a non-negative integer`);
+  }
+  if (parsed > Number(actual)) {
+    throw new Error(`${subject} revision conflict: expected ${parsed}, current ${actual}`);
+  }
+  return parsed;
 }
 
 function boundedNumber(value, fallback, min, max) {
@@ -1022,6 +1158,18 @@ function contrastRatio(left, right) {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
+function diagnosticId(rule) {
+  const identity = {
+    level: String(rule?.level || ""),
+    code: String(rule?.code || ""),
+    artifact: String(rule?.artifact || ""),
+    message: String(rule?.message || ""),
+    slideIds: [...new Set((rule?.slideIds || []).map(String))].sort(),
+    elementIds: [...new Set((rule?.elementIds || []).map(String))].sort(),
+  };
+  return `diagnostic-${sha256(JSON.stringify(identity)).slice(0, 20)}`;
+}
+
 function ruleViolationsFor(deck, manuscriptState, presentationSystemState, manuscriptContent, speakerScript, assets, visualDocument = null) {
   const rules = [];
   const presentationSystem = presentationSystemContent(presentationSystemState);
@@ -1275,6 +1423,39 @@ function manuscriptSlideHash(manuscript, index) {
   return section ? sha256(`${section.position}:${section.title}:${section.content}`) : "";
 }
 
+function compactDesignCase(designCase) {
+  if (!designCase || typeof designCase !== "object") return designCase;
+  return {
+    ...designCase,
+    sampleSlides: (designCase.sampleSlides || []).map((sample) => {
+      const { renderTree, ...metadata } = sample;
+      return {
+        ...metadata,
+        nodeCount: Array.isArray(renderTree?.nodes) ? renderTree.nodes.length : 0,
+      };
+    }),
+  };
+}
+
+function compactCommittedSlide(slide) {
+  return {
+    id: slide.id,
+    title: slide.title,
+    claim: slide.claim,
+    pageRole: slide.pageRole,
+    recipeId: slide.recipeId,
+    visualMode: slide.visualMode,
+    revision: slide.revision,
+    status: slide.status,
+    sourceRevision: slide.sourceRevision,
+    visualRevision: slide.visualRevision,
+    userOverrideCount: slide.userOverrideCount,
+    visualConflicts: slide.visualConflicts,
+    nodeCount: Array.isArray(slide.renderTree?.nodes) ? slide.renderTree.nodes.length : 0,
+    updatedAt: slide.updatedAt,
+  };
+}
+
 function inspect(paths, input = {}) {
   ensureProject(paths);
   const project = syncDocumentMetadata(paths);
@@ -1415,6 +1596,7 @@ function inspect(paths, input = {}) {
   if (input.audience !== "agent") return snapshot;
   return {
     ...snapshot,
+    designCase: compactDesignCase(snapshot.designCase),
     deck: {
       ...snapshot.deck,
       slides: snapshot.deck.slides.map((slide) => {
@@ -1865,13 +2047,29 @@ function pushHistory(paths, kind, state, intent) {
 }
 
 function commitDeck(paths, current, next, intent) {
-  pushHistory(paths, "visualDeck", current, intent);
   next.revision = Number(current.revision || 0) + 1;
   next.updatedAt = nowIso();
   next.schemaVersion = DECK_SCHEMA_VERSION;
   next.lastIntent = text(intent, "Visual presentation change", 500);
-  writeJson(paths.deck, next);
-  return inspect(paths);
+  const controlBeforeCommit = readControl(paths.controlFile, null);
+  if (!controlBeforeCommit) throw new Error("PPT Live control file is missing or invalid");
+  try {
+    pushHistory(paths, "visualDeck", current, intent);
+    writeJson(paths.deck, next);
+    return inspect(paths);
+  } catch (error) {
+    try {
+      writeControl(paths.controlFile, controlBeforeCommit);
+    } catch (rollbackError) {
+      const failure = new Error(
+        `VisualDeck commit failed and rollback could not restore the previous state: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
+      );
+      failure.code = "ppt_commit_rollback_failed";
+      failure.cause = error;
+      throw failure;
+    }
+    throw error;
+  }
 }
 
 function setPresentationSystem(paths, input) {
@@ -2011,7 +2209,7 @@ async function renderDesignCase(paths, input) {
     updatedAt: nowIso(),
   };
   writeJson(paths.designCase, designCase);
-  return designCase;
+  return compactDesignCase(designCase);
 }
 
 function decideDesignCase(paths, input) {
@@ -2082,7 +2280,7 @@ function commitSingleSlide(paths, input) {
   const manuscript = fs.readFileSync(paths.manuscript, "utf8");
   const speakerScript = fs.readFileSync(paths.speakerScript, "utf8");
   const manuscriptState = buildManuscriptState(manuscript, speakerScript, project);
-  assertExpectedRevision(current.revision, input.expectedDeckRevision, "VisualDeck");
+  const baselineDeckRevision = assertBaselineRevision(current.revision, input.expectedDeckRevision, "VisualDeck");
   assertExpectedRevision(presentationSystem.revision, input.expectedSystemRevision, "PresentationSystem");
   assertExpectedRevision(manuscriptState.revision, input.expectedManuscriptRevision, "Manuscript");
   assertExpectedRevision(designCase.revision, input.expectedDesignCaseRevision, "DesignCase");
@@ -2136,8 +2334,10 @@ function commitSingleSlide(paths, input) {
       slideId,
       slideRevision: slide.revision,
       recipeId: slide.recipeId,
+      deckRevisionBeforeCommit: current.revision,
+      rebasedFromDeckRevision: baselineDeckRevision < current.revision ? baselineDeckRevision : null,
     }]),
-    slide: committed,
+    slide: compactCommittedSlide(committed),
   };
 }
 
@@ -2785,6 +2985,9 @@ async function exportDeck(paths, input) {
 }
 
 async function dispatch(action, input = {}, trusted = {}) {
+  if (action === "attachWorkObject") {
+    return attachWorkObject(input, trusted);
+  }
   const paths = projectPaths(trusted, {
     create: action === "initializeWork",
     title: input.title || trusted.workTitle,

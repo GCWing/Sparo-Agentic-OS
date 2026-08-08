@@ -145,6 +145,11 @@ export interface SessionProfile {
      * Called once when a ready session first initializes its auxiliary host.
      */
     initialize?: (sessionId: string, extra?: Record<string, unknown>) => TabAutoOpenResult;
+    /**
+     * Rebuild the profile-owned default items after the user closed every tab.
+     * Unlike initialize, this may be called more than once for the same host.
+     */
+    restore?: (sessionId: string, extra?: Record<string, unknown>) => TabAutoOpenResult;
   };
 
   /**

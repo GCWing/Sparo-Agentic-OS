@@ -106,6 +106,10 @@ function createProductAppRuntimeProfile(
         const binding = getRuntimeBinding(extra);
         return binding ? buildDefaultRuntimeTabDescriptors(sessionId, binding) : null;
       },
+      restore(sessionId, extra) {
+        const binding = getRuntimeBinding(extra);
+        return binding ? buildDefaultRuntimeTabDescriptors(sessionId, binding) : null;
+      },
     },
 
     sidecarActions(sessionId, extra) {

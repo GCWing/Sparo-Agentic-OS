@@ -13,6 +13,7 @@ async function handleRequest(request) {
   const trusted = {
     workspacePath: request.workspacePath || request.workspace_path || null,
     workId: consumer.workId || consumer.work_id || null,
+    workObjectId: consumer.workObjectId || consumer.work_object_id || null,
     workTitle: consumer.workTitle || consumer.work_title || null,
     runtimeInstanceId: consumer.runtimeInstanceId || consumer.runtime_instance_id || null,
     sessionId: consumer.sessionId || consumer.session_id || null,

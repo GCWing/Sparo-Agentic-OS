@@ -3,6 +3,7 @@
  * Marks local image paths for async post-processing after render.
  */
 import { visit } from 'unist-util-visit';
+import { imageMimeTypeFromPath } from '@/shared/media/imageFormats';
 import { createLogger } from '@/shared/utils/logger';
 
 type Root = any;
@@ -91,19 +92,7 @@ export function resolveImagePath(src: string, basePath?: string): string {
  * Get image MIME type.
  */
 export function getMimeType(path: string): string {
-  const ext = path.toLowerCase().split('.').pop();
-  const mimeTypes: Record<string, string> = {
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'png': 'image/png',
-    'gif': 'image/gif',
-    'bmp': 'image/bmp',
-    'webp': 'image/webp',
-    'svg': 'image/svg+xml',
-    'ico': 'image/x-icon',
-    'avif': 'image/avif'
-  };
-  return mimeTypes[ext || ''] || 'image/jpeg';
+  return imageMimeTypeFromPath(path, 'image/jpeg');
 }
 
 /**

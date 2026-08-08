@@ -4,6 +4,7 @@
 
 // Core module
 pub mod app_builder_context;
+pub mod composer_submission;
 pub mod core;
 pub mod events;
 pub mod persistence;
@@ -47,6 +48,7 @@ pub mod workspace;
 
 pub use agents::*;
 pub use app_builder_context::*;
+pub use composer_submission::*;
 pub use coordination::*;
 pub use core::*;
 pub use events::{queue, router, types as event_types};

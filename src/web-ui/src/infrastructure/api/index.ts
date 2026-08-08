@@ -18,6 +18,7 @@ export * from './service-api/ProductAppRuntimeAPI';
 export * from './service-api/ProductAppRuntimeHostAPI';
 export * from './service-api/ProductAppSessionAPI';
 export * from './service-api/SpeechAPI';
+export * from './service-api/TerminalAPI';
 
 // Import API modules
 import { workspaceAPI } from './service-api/WorkspaceAPI';
@@ -44,9 +45,10 @@ import { productAppRuntimeAPI } from './service-api/ProductAppRuntimeAPI';
 import { productAppRuntimeHostAPI } from './service-api/ProductAppRuntimeHostAPI';
 import { productAppSessionAPI } from './service-api/ProductAppSessionAPI';
 import { speechAPI } from './service-api/SpeechAPI';
+import { terminalAPI } from './service-api/TerminalAPI';
 
 // Export API modules
-export { workspaceAPI, systemFsAPI, pinnedAPI, filesContextAPI, fileWorkbenchAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, btwAPI, markdownAiAPI, markdownExportAPI, tokenUsageAPI, storageAPI, goalAPI, productAppRuntimeAPI, productAppRuntimeHostAPI, productAppSessionAPI, speechAPI };
+export { workspaceAPI, systemFsAPI, pinnedAPI, filesContextAPI, fileWorkbenchAPI, configAPI, aiApi, toolAPI, agentAPI, systemAPI, projectAPI, diffAPI, snapshotAPI, globalAPI, contextAPI, cronAPI, sessionAPI, btwAPI, markdownAiAPI, markdownExportAPI, tokenUsageAPI, storageAPI, goalAPI, productAppRuntimeAPI, productAppRuntimeHostAPI, productAppSessionAPI, speechAPI, terminalAPI };
 
 // Sparo OS API collection: a single access point for all API modules.
 export const sparoAPI = {
@@ -77,6 +79,7 @@ export const sparoAPI = {
   productAppRuntimeHost: productAppRuntimeHostAPI,
   productAppSession: productAppSessionAPI,
   speech: speechAPI,
+  terminal: terminalAPI,
 };
 
 // Default export

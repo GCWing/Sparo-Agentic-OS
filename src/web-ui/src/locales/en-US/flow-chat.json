@@ -29,6 +29,10 @@
       "comfortable": "Comfortable",
       "expanded": "Expanded"
     },
+    "sceneFocus": {
+      "backToChat": "Back to chat",
+      "title": "Focus view"
+    },
     "resizer": {
       "leftAriaLabel": "Resize left panel",
       "centerAriaLabel": "Resize panel",
@@ -127,7 +131,35 @@
       "skillDetail": "Skill · {{suite}}",
       "standaloneSkill": "Standalone",
       "open": "Open {{label}}",
-      "remove": "Remove {{label}}"
+      "remove": "Remove {{label}}",
+      "preview": "Preview {{label}}",
+      "attachments": "Attachments",
+      "attachmentNumber": "Attachment {{number}}",
+      "showPreviousAttachments": "Show previous attachments",
+      "showMoreAttachments": "Show more attachments",
+      "closePreview": "Close preview",
+      "previewActions": "Preview actions",
+      "openDocked": "Open",
+      "openSceneFocus": "Full screen in scene",
+      "insertAtCursor": "Insert at cursor",
+      "removeReference": "Remove reference",
+      "removeAttachment": "Remove attachment",
+      "unsupportedForOperation": "Attachments are not used by {{operation}}. Remove them before continuing.",
+      "types": {
+        "text-fragment": "Long text",
+        "skill-selection": "Skill",
+        "file": "File",
+        "directory": "Folder",
+        "code-snippet": "Code snippet",
+        "image": "Image",
+        "terminal-command": "Terminal command",
+        "git-ref": "Git reference",
+        "url": "Web link",
+        "web-element": "Web element",
+        "product-app-preview-element-selection": "App element",
+        "intent-canvas": "Intent canvas",
+        "spreadsheet-focus": "Spreadsheet focus"
+      }
     },
     "messageTooLarge": "Message exceeds the maximum length of {{max}} characters ({{count}} provided).",
     "openWorkspaceFolder": "Open workspace folder",
@@ -353,6 +385,8 @@
     "searchOpen": "Search in turns",
     "hideCompletedThinkingItems": "Hide completed thinking items",
     "showCompletedThinkingItems": "Show completed thinking items",
+    "expandRightPanel": "Expand right panel",
+    "collapseRightPanel": "Collapse right panel",
     "resetHistory": "Reset history",
     "moreMenu": "More",
     "showCompletedThinkingInConversation": "Show/hide thinking",

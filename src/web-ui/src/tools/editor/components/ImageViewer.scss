@@ -12,16 +12,6 @@
   overflow: hidden;
   font-family: var(--ds-font-family-sans);
 
-  &.fullscreen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: var(--ds-z-fullscreen);
-    background: var(--ds-color-bg-app);
-  }
-
   // Toolbar
   &__toolbar {
     display: flex;
@@ -121,12 +111,17 @@
 
   // Loading State
   &__loading {
+    position: absolute;
+    inset: 0;
+    z-index: var(--ds-z-local);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 16px;
     color: var(--ds-color-text-muted);
+    background: color-mix(in srgb, var(--ds-color-bg-app) 58%, transparent);
+    pointer-events: none;
 
     p {
       margin: 0;

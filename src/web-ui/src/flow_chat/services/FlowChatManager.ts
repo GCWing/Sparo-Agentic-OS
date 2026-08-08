@@ -9,7 +9,7 @@
 
 import { processingStatusManager } from './ProcessingStatusManager';
 import { FlowChatStore } from '../store/FlowChatStore';
-import { AgentService } from '../../shared/services/agent-service';
+import { AgentService } from './agent-service';
 import { stateMachineManager } from '../state-machine';
 import { EventBatcher } from './EventBatcher';
 import { createLogger } from '@/shared/utils/logger';
@@ -608,6 +608,7 @@ export class FlowChatManager {
     options?: {
       imageContexts?: import('@/infrastructure/api/service-api/ImageContextTypes').ImageContextData[];
       imageDisplayData?: Array<{ id: string; name: string; dataUrl?: string; imagePath?: string; mimeType?: string }>;
+      composerSubmission?: import('@/shared/types/composer').ComposerSubmissionEnvelope;
       persistAgentType?: boolean;
       systemReminderOverride?: string;
       metadata?: Record<string, any>;
@@ -642,6 +643,7 @@ export class FlowChatManager {
     options?: {
       imageContexts?: import('@/infrastructure/api/service-api/ImageContextTypes').ImageContextData[];
       imageDisplayData?: Array<{ id: string; name: string; dataUrl?: string; imagePath?: string; mimeType?: string }>;
+      composerSubmission?: import('@/shared/types/composer').ComposerSubmissionEnvelope;
       persistAgentType?: boolean;
       systemReminderOverride?: string;
       metadata?: Record<string, any>;

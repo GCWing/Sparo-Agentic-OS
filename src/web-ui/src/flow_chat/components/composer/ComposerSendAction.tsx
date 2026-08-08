@@ -4,7 +4,7 @@ import type { SessionDerivedState } from '../../state-machine/types';
 
 interface ComposerSendActionProps {
   derivedState: SessionDerivedState | null;
-  draftValue: string;
+  hasSendablePayload: boolean;
   labels: {
     sendShortcut: string;
     queueShortcut: string;
@@ -17,7 +17,7 @@ interface ComposerSendActionProps {
 
 export function ComposerSendAction({
   derivedState,
-  draftValue,
+  hasSendablePayload,
   labels,
   onSendOrCancel,
   onCancel,
@@ -93,7 +93,7 @@ export function ComposerSendAction({
           aria-label={labels.queueShortcut}
           className="sparo-chat-input__send-action"
           onClick={onSendOrCancel}
-          disabled={!draftValue.trim()}
+          disabled={!hasSendablePayload}
           data-testid="chat-input-queue-btn"
           tooltip={labels.queueShortcut}
           shape="circle"
@@ -111,7 +111,7 @@ export function ComposerSendAction({
       aria-label={labels.sendShortcut}
       className="sparo-chat-input__send-action"
       onClick={onSendOrCancel}
-      disabled={!draftValue.trim()}
+      disabled={!hasSendablePayload}
       data-testid="chat-input-send-btn"
       tooltip={labels.sendShortcut}
       shape="circle"

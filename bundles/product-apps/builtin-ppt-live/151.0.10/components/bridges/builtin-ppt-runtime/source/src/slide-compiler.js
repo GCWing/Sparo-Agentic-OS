@@ -44,6 +44,17 @@ function requiredNumber(value, name, min, max) {
   return value;
 }
 
+function compositionContractError(violations) {
+  const error = new Error(
+    `composition is invalid (${violations.length} issue${violations.length === 1 ? "" : "s"}): ` +
+    violations.map((violation) => `${violation.path}: ${violation.message}`).join("; "),
+  );
+  error.code = "ppt_composition_invalid";
+  error.contractVersion = 1;
+  error.violations = violations;
+  return error;
+}
+
 function normalizeSlotStyle(value, name, presentationSystem) {
   if (value === undefined) return {};
   const style = objectValue(value, name);
@@ -154,18 +165,54 @@ function normalizeComposition(value, recipeId, pageRole, designPackage, presenta
   if (!Array.isArray(composition.slots) || composition.slots.length < 1 || composition.slots.length > 40) {
     throw new Error("composition.slots must contain between 1 and 40 items");
   }
-  const slots = composition.slots.map((item, index) => normalizeSlotItem(item, index, recipe, presentationSystem, assets));
-  if (new Set(slots.map((item) => item.id)).size !== slots.length) throw new Error("composition.slots contains duplicate item ids");
+  const slots = [];
+  const violations = [];
+  for (let index = 0; index < composition.slots.length; index += 1) {
+    try {
+      slots.push(normalizeSlotItem(composition.slots[index], index, recipe, presentationSystem, assets));
+    } catch (error) {
+      violations.push({
+        code: "invalid_slot_element",
+        path: `composition.slots[${index}]`,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  const duplicateIds = [...new Set(slots.map((item) => item.id).filter((id, index, ids) => ids.indexOf(id) !== index))];
+  for (const id of duplicateIds) {
+    violations.push({
+      code: "duplicate_element_id",
+      path: "composition.slots",
+      message: `Element id '${id}' is duplicated`,
+    });
+  }
   for (const slot of recipe.slots) {
     const count = slots.filter((item) => item.slotId === slot.id).length;
-    if (slot.required && count === 0) throw new Error(`Recipe '${recipe.id}' requires slot '${slot.id}'`);
-    if (!slot.repeatable && count > 1) throw new Error(`Recipe '${recipe.id}' slot '${slot.id}' accepts one item`);
+    if (slot.required && count === 0) {
+      violations.push({
+        code: "required_recipe_slot_missing",
+        path: "composition.slots",
+        message: `Recipe '${recipe.id}' requires slot '${slot.id}'`,
+      });
+    }
+    if (!slot.repeatable && count > 1) {
+      violations.push({
+        code: "recipe_slot_not_repeatable",
+        path: "composition.slots",
+        message: `Recipe '${recipe.id}' slot '${slot.id}' accepts one item`,
+      });
+    }
     if (slot.repeatable && count > 0) {
       if (count < Number(slot.minItems || 1) || count > Number(slot.maxItems || 12)) {
-        throw new Error(`Recipe '${recipe.id}' slot '${slot.id}' requires ${slot.minItems || 1}-${slot.maxItems || 12} items`);
+        violations.push({
+          code: "recipe_slot_cardinality_invalid",
+          path: "composition.slots",
+          message: `Recipe '${recipe.id}' slot '${slot.id}' requires ${slot.minItems || 1}-${slot.maxItems || 12} items`,
+        });
       }
     }
   }
+  if (violations.length) throw compositionContractError(violations);
   return { slots };
 }
 

@@ -5,7 +5,7 @@
 //! mobile-web file storage (no disk I/O for uploaded assets).
 
 use log::info;
-use sparo_relay_server::{build_relay_router, MemoryAssetStore, RoomManager};
+use sparo_relay::{build_relay_router, MemoryAssetStore, RoomManager};
 use std::sync::Arc;
 
 /// Start the embedded relay and return a shutdown handle.

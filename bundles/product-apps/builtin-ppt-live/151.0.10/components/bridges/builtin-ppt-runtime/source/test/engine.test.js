@@ -218,6 +218,47 @@ test("initializeWork creates one human-readable presentation directory", async (
   assert.equal(fs.existsSync(path.join(presentationRoot, "visual")), false);
 });
 
+test("attachWorkObject lets two Works operate on the same presentation", async () => {
+  const root = await workspace();
+  const source = await dispatch("inspect", {}, trusted(root));
+  const targetTrusted = {
+    ...trusted(root),
+    workId: "work-2",
+    workObjectId: "object-deck-1",
+    sessionId: "session-2",
+  };
+
+  const attached = await dispatch("attachWorkObject", {
+    sourceWorkId: "work-1",
+  }, targetTrusted);
+
+  assert.equal(attached.deck.deckId, source.deck.deckId);
+  assert.deepEqual(attached.deck.slides, source.deck.slides);
+  assert.equal(attached.project.root, source.project.root);
+  const presentationDirectories = fs.readdirSync(path.join(root, "PPT"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory());
+  assert.equal(presentationDirectories.length, 1);
+  const control = JSON.parse(fs.readFileSync(path.join(
+    source.project.root,
+    ".ppt-live.json",
+  ), "utf8"));
+  assert.equal(control.workId, "work-1");
+  assert.equal(control.workObjectId, "object-deck-1");
+  assert.ok(control.sessionRefs.includes("session-2"));
+
+  await dispatch("commitPresentationDocument", {
+    expectedManuscriptRevision: attached.documents.manuscript.revision,
+    expectedSpeakerScriptRevision: attached.documents.speakerScript.revision,
+    manuscript: structuredManuscript(),
+    speakerScript: structuredSpeakerScript(),
+    intent: "Continue editing the shared presentation from another Work",
+  }, targetTrusted);
+  const changedSource = await dispatch("inspect", {}, trusted(root));
+  const changedTarget = await dispatch("inspect", {}, targetTrusted);
+  assert.equal(changedSource.manuscript.revision, source.manuscript.revision + 1);
+  assert.equal(changedTarget.manuscript.revision, changedSource.manuscript.revision);
+});
+
 test("inspect exposes the parsed Manuscript without a public Blueprint or hidden skill requirements", async () => {
   const root = await workspace();
   const result = await dispatch("inspect", {}, trusted(root));
@@ -321,6 +362,12 @@ test("text-only AI cannot decide the Design Case but an explicit user can", asyn
   }, trusted(root));
   assert.equal(designCase.sampleSlides.length, 3);
   assert.ok(designCase.sampleSlides.every((item) => fs.existsSync(item.previewRef)));
+  assert.ok(designCase.sampleSlides.every((item) => !("renderTree" in item)));
+  assert.ok(designCase.sampleSlides.every((item) => item.nodeCount > 0));
+  const agentSnapshot = await dispatch("inspect", { audience: "agent" }, trusted(root));
+  assert.ok(agentSnapshot.designCase.sampleSlides.every((item) => !("renderTree" in item)));
+  const surfaceSnapshot = await dispatch("inspect", {}, trusted(root));
+  assert.ok(surfaceSnapshot.designCase.sampleSlides.every((item) => item.renderTree?.nodes?.length > 0));
   await assert.rejects(() => dispatch("decideDesignCase", {
     caseId: designCase.caseId,
     decision: "approved",
@@ -334,6 +381,150 @@ test("text-only AI cannot decide the Design Case but an explicit user can", asyn
     reviewCapability: "text-only",
   }, trusted(root));
   assert.equal(approved.status, "approved");
+});
+
+test("composition validation reports all malformed slot payloads together", async () => {
+  const root = await workspace();
+  await commitAndReviewManuscript(root);
+  const snapshot = await dispatch("inspect", {}, trusted(root));
+  const invalid = slide(0, {
+    composition: {
+      slots: [
+        { slotId: "title", kinds: ["text"], required: true },
+        { slotId: "focal", kinds: ["text", "chart"], required: true },
+        { slotId: "support", kinds: ["text"] },
+      ],
+    },
+  });
+  await assert.rejects(
+    () => dispatch("renderDesignCase", {
+      expectedManuscriptRevision: snapshot.manuscript.revision,
+      expectedSystemRevision: snapshot.presentationSystem.revision,
+      slides: [invalid, slide(1), slide(2)],
+    }, trusted(root)),
+    (error) => {
+      assert.equal(error.code, "ppt_composition_invalid");
+      assert.equal(error.contractVersion, 1);
+      assert.ok(error.violations.filter((item) => item.code === "invalid_slot_element").length >= 3);
+      assert.ok(error.violations.some((item) => item.code === "required_recipe_slot_missing"));
+      return true;
+    },
+  );
+});
+
+test("independent page commits safely rebase a shared deck revision", async () => {
+  const root = await workspace();
+  await commitAndReviewManuscript(root);
+  await approveDesignCase(root);
+  const snapshot = await dispatch("inspect", {}, trusted(root));
+  const common = {
+    expectedDeckRevision: snapshot.deck.revision,
+    expectedSlideRevision: 0,
+    expectedSystemRevision: snapshot.presentationSystem.revision,
+    expectedManuscriptRevision: snapshot.manuscript.revision,
+    expectedDesignCaseRevision: snapshot.designCase.revision,
+  };
+  const first = await dispatch("generateSlideVisual", {
+    ...common,
+    slide: slide(0),
+    intent: "Generate the first page from the shared baseline",
+  }, trusted(root));
+  const second = await dispatch("generateSlideVisual", {
+    ...common,
+    slide: slide(1),
+    intent: "Generate the second page from the shared baseline",
+  }, trusted(root));
+  assert.equal(first.events[0].rebasedFromDeckRevision, null);
+  assert.equal(second.events[0].rebasedFromDeckRevision, snapshot.deck.revision);
+  assert.equal(second.events[0].deckRevisionBeforeCommit, first.deck.revision);
+  assert.equal("renderTree" in second.slide, false);
+  assert.equal("composition" in second.slide, false);
+  assert.ok(second.slide.nodeCount > 0);
+  assert.equal(second.deck.revision, snapshot.deck.revision + 2);
+  assert.equal(second.deck.slideCount, 2);
+});
+
+test("rule violations have stable diagnostic ids and do not fail a committed page", async () => {
+  const root = await workspace();
+  await commitAndReviewManuscript(root);
+  await approveDesignCase(root);
+  const snapshot = await dispatch("inspect", {}, trusted(root));
+  const evidenceSlide = slide(0, {
+    pageRole: "evidence",
+    recipeId: "evidence-split",
+    visualMode: "chart",
+    evidenceObject: "Activation evidence",
+    exportStrategy: "native-chart",
+    sourceNote: "",
+    composition: {
+      slots: [
+        { id: "evidence-title", slotId: "title", type: "text", text: PAGES[0].title },
+        {
+          id: "evidence-chart",
+          slotId: "evidence",
+          type: "chart",
+          text: "Activation trend",
+          data: [{ label: "Previous", value: 100 }, { label: "Current", value: 86 }],
+        },
+        { id: "evidence-source", slotId: "source", type: "text", text: "Source shown in the visual only" },
+      ],
+    },
+  });
+  const result = await dispatch("generateSlideVisual", {
+    expectedDeckRevision: snapshot.deck.revision,
+    expectedSlideRevision: 0,
+    expectedSystemRevision: snapshot.presentationSystem.revision,
+    expectedManuscriptRevision: snapshot.manuscript.revision,
+    expectedDesignCaseRevision: snapshot.designCase.revision,
+    slide: evidenceSlide,
+    intent: "Commit an evidence page with a deterministic source diagnostic",
+  }, trusted(root));
+  const violation = result.ruleViolations.find((item) => item.code === "evidence_source_missing");
+  assert.match(violation.id, /^diagnostic-[a-f0-9]{20}$/);
+  const inspectedAgain = await dispatch("inspect", {}, trusted(root));
+  assert.equal(
+    inspectedAgain.ruleViolations.find((item) => item.code === "evidence_source_missing").id,
+    violation.id,
+  );
+});
+
+test("a post-write inspection failure rolls back deck, visual document, and history", async () => {
+  const root = await workspace();
+  await commitAndReviewManuscript(root);
+  await approveDesignCase(root);
+  const before = await dispatch("inspect", {}, trusted(root));
+  const controlFile = path.join(before.project.root, ".ppt-live.json");
+  const originalRename = fs.renameSync;
+  let injected = false;
+  fs.renameSync = function renameWithInjectedFailure(source, destination) {
+    if (!injected && path.resolve(destination) === path.resolve(controlFile)) {
+      const candidate = JSON.parse(fs.readFileSync(source, "utf8"));
+      if (candidate.state?.deck?.slides?.length === 1 && candidate.state?.visualDocument?.pages?.length === 1) {
+        injected = true;
+        throw new Error("Injected post-write inspection failure");
+      }
+    }
+    return originalRename.call(fs, source, destination);
+  };
+  try {
+    await assert.rejects(() => dispatch("generateSlideVisual", {
+      expectedDeckRevision: before.deck.revision,
+      expectedSlideRevision: 0,
+      expectedSystemRevision: before.presentationSystem.revision,
+      expectedManuscriptRevision: before.manuscript.revision,
+      expectedDesignCaseRevision: before.designCase.revision,
+      slide: slide(0),
+      intent: "Exercise transactional rollback",
+    }, trusted(root)), /Injected post-write inspection failure/);
+  } finally {
+    fs.renameSync = originalRename;
+  }
+  assert.equal(injected, true);
+  const after = await dispatch("inspect", {}, trusted(root));
+  assert.equal(after.deck.revision, before.deck.revision);
+  assert.equal(after.deck.slideCount, 0);
+  assert.equal(after.visualDocument.pageCount, 0);
+  assert.deepEqual(after.history, before.history);
 });
 
 test("page visuals are generated in manuscript order without per-page aesthetic review", async () => {

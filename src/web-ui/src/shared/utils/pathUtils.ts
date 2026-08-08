@@ -107,7 +107,8 @@ export function dirnameAbsolutePath(fullPath: string): string {
   const i = Math.max(fullPath.lastIndexOf('/'), fullPath.lastIndexOf('\\'));
   if (i < 0) return '';
   if (i === 0) return fullPath[0] === '/' ? '/' : '';
-  return fullPath.slice(0, i);
+  const parent = fullPath.slice(0, i);
+  return /^[a-zA-Z]:$/.test(parent) ? `${parent}${fullPath[i]}` : parent;
 }
 
 /** Replace the final segment; keeps the separator style before the basename. */

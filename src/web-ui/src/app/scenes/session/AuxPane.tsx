@@ -9,6 +9,7 @@ const log = createLogger('AuxPane');
 interface AuxPaneProps {
   workspacePath?: string;
   isSceneActive?: boolean;
+  isSceneFocused?: boolean;
 }
 
 /**
@@ -18,6 +19,7 @@ interface AuxPaneProps {
 export default function AuxPane({
   workspacePath,
   isSceneActive = true,
+  isSceneFocused = false,
 }: AuxPaneProps) {
   const activeHostKey = useAuxiliarySurfaceStore(state => state.activeHostKey);
   const collapse = useAuxiliarySurfaceStore(state => state.collapse);
@@ -26,9 +28,23 @@ export default function AuxPane({
     log.debug('Panel interaction', { itemId, userInput });
   }, []);
 
+  const restoreToggleFocus = useCallback(() => {
+    document.querySelector<HTMLElement>(
+      '[data-testid="flowchat-header-right-panel-toggle"]',
+    )?.focus();
+  }, []);
+
   const handleRequestClose = useCallback(() => {
-    if (activeHostKey) collapse(activeHostKey, 'user');
-  }, [activeHostKey, collapse]);
+    if (!activeHostKey) return;
+    restoreToggleFocus();
+    collapse(activeHostKey, 'user');
+  }, [activeHostKey, collapse, restoreToggleFocus]);
+
+  const handleLastVisibleTabClosed = useCallback(() => {
+    if (!activeHostKey) return;
+    restoreToggleFocus();
+    collapse(activeHostKey, 'empty');
+  }, [activeHostKey, collapse, restoreToggleFocus]);
 
   return (
     <div className="sparo-aux-pane">
@@ -36,8 +52,11 @@ export default function AuxPane({
         workspacePath={workspacePath}
         mode="agent"
         isSceneActive={isSceneActive}
+        isSceneFocused={isSceneFocused}
         onInteraction={handleInteraction}
-        onRequestClose={handleRequestClose}
+        disablePopOut={isSceneFocused}
+        onRequestClose={isSceneFocused ? undefined : handleRequestClose}
+        onLastVisibleTabClosed={handleLastVisibleTabClosed}
       />
     </div>
   );

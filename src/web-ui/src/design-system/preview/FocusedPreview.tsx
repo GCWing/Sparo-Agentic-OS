@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, ChevronRight, PanelRightOpen, X } from 'lucide-react';
-import { Button, IconButton } from '@/design-system';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import {
+  Button,
+  IconButton,
+  PanelRightClosedIcon,
+  PanelRightOpenIcon,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
+} from '@/design-system';
 import type { PreviewCategory, PreviewExample } from '@/design-system/types';
 import { PreviewUsageGuide } from './PreviewUsageGuide';
 import './FocusedPreview.css';
@@ -85,7 +91,21 @@ export const FocusedPreview: React.FC<FocusedPreviewProps> = ({
             onClick={() => setIsUsageOpen((open) => !open)}
             aria-expanded={isUsageOpen}
           >
-            <PanelRightOpen size={13} aria-hidden="true" />
+            {isUsageOpen ? (
+              <PanelRightOpenIcon
+                size={13}
+                strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                absoluteStrokeWidth
+                aria-hidden="true"
+              />
+            ) : (
+              <PanelRightClosedIcon
+                size={13}
+                strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                absoluteStrokeWidth
+                aria-hidden="true"
+              />
+            )}
             {t('focused.usage')}
           </Button>
         </div>

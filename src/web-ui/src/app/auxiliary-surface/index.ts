@@ -5,9 +5,13 @@ export {
 export { AuxiliarySurfaceCoordinator } from './AuxiliarySurfaceCoordinator';
 export {
   collapseActiveAuxiliarySurface,
+  enterActiveAuxiliarySceneFocus,
+  exitActiveAuxiliarySceneFocus,
   flushAuxiliaryItems,
   openActiveAuxiliaryItem,
+  openActiveAuxiliaryItemAtPresentation,
   openAuxiliaryItem,
+  registerAuxiliarySurfaceRestorer,
   resizeActiveAuxiliarySurface,
   toggleActiveAuxiliarySurface,
 } from './controller';

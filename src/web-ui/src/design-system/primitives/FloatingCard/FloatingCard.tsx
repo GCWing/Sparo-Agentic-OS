@@ -15,6 +15,8 @@ export interface FloatingCardProps
   dismissLabel?: string;
   /** Optional tooltip for the dismiss command. */
   dismissTooltip?: React.ReactNode;
+  /** Optional ref for focus management when the card is composed into a dialog workflow. */
+  dismissButtonRef?: React.Ref<HTMLButtonElement>;
 }
 
 export type FloatingCardActionProps = IconButtonProps;
@@ -54,6 +56,7 @@ export const FloatingCard = forwardRef<HTMLDivElement, FloatingCardProps>(({
   onDismiss,
   dismissLabel = 'Dismiss floating card',
   dismissTooltip,
+  dismissButtonRef,
   ...props
 }, ref) => (
   <div
@@ -69,6 +72,7 @@ export const FloatingCard = forwardRef<HTMLDivElement, FloatingCardProps>(({
     {children}
     {onDismiss && (
       <FloatingCardAction
+        ref={dismissButtonRef}
         className="ds-floating-card__dismiss"
         type="button"
         size="xs"

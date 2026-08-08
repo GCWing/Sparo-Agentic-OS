@@ -5,15 +5,24 @@ import { applyPlayerFrame, currentPreviewSnapshot, ensurePlayerInstanceId, nextP
 import {
   playerFrameNode,
   postPlayerMessage,
+  reportPlayerRuntimeLog,
   requestPlayerHandshake,
+  resetPlayerChannelConnection,
   setPlayerMessageHandler,
   syncPlayerRuntimeDom,
 } from './player-dom.js';
+import {
+  PLAYER_BASELINE_REVISION,
+  isPlayerRuntimeEvidenceMessage,
+  isStalePlayerStateMessage,
+  playerMessageRevision,
+} from './player-state-contract.js';
 import { state } from './state.js';
 import { asArray, clamp, rootElement } from './util.js';
 import { setPlayingState, syncPhaseDom, syncPlaybackDom, syncPlayingDom, syncSelectionOverlayDom } from './views.js';
 
 const snapshotRequests = new Map();
+const PLAYER_COMMAND_SETTLE_TIMEOUT_MS = 2_500;
 let playbackDomFrame = null;
 
 function schedulePlaybackDomSync() {
@@ -32,6 +41,97 @@ function requestPlayerHostEnsure(force = false) {
 
 function requestRender() {
   window.dispatchEvent(new CustomEvent('remotion-live:render-request'));
+}
+
+
+function clearPlayerCommandTimer() {
+  if (!state.playerCommandTimer) return;
+  clearTimeout(state.playerCommandTimer);
+  state.playerCommandTimer = null;
+}
+
+
+function commandLogDetails(command = {}, details = {}) {
+  return {
+    commandId: command.commandId || null,
+    command: command.command || command.type || null,
+    revision: Number.isFinite(Number(command.revision)) ? Number(command.revision) : null,
+    connectionGeneration: state.playerConnectionGeneration,
+    connectionId: state.playerConnectionId,
+    ...details,
+  };
+}
+
+
+function reportPlayerControl(level, message, command, details = {}) {
+  if (command?.type === 'seek' || command?.command === 'seek') return;
+  reportPlayerRuntimeLog(level, message, commandLogDetails(command, details));
+}
+
+
+function resetDesiredStateToActual() {
+  const actual = state.playerActualState || {};
+  const revision = Math.max(
+    Number(state.playerDesiredRevision) || 0,
+    Number(state.playerActualRevision) || PLAYER_BASELINE_REVISION,
+  );
+  state.playerDesiredRevision = revision;
+  state.playerDesiredState = {
+    instanceId: state.playerInstanceId || null,
+    revision,
+    frame: normalizePreviewFrame(actual.frame ?? state.playerRuntimeFrame ?? state.frame),
+    playing: Boolean(actual.playing ?? state.playerRuntimePlaying),
+    muted: Boolean(actual.muted ?? state.playerRuntimeMuted ?? state.muted),
+    volume: clamp(Number(actual.volume ?? state.playerRuntimeVolume ?? state.volume) || 0, 0, 1),
+  };
+  syncPlayingDom();
+}
+
+
+function startPlayerCommandTimer(command) {
+  clearPlayerCommandTimer();
+  state.playerCommandTimer = window.setTimeout(() => {
+    state.playerCommandTimer = null;
+    void verifyTimedOutPlayerCommand(command);
+  }, PLAYER_COMMAND_SETTLE_TIMEOUT_MS);
+}
+
+
+async function verifyTimedOutPlayerCommand(command) {
+  if (state.playerInFlightCommand?.commandId !== command.commandId) return;
+  const snapshot = state.playerChannelConnected
+    ? await requestPlayerSnapshot(750)
+    : null;
+  if (state.playerInFlightCommand?.commandId !== command.commandId) return;
+
+  const timedOut = state.playerInFlightCommand;
+  if (snapshot && settleInFlightCommand(state.playerActualState || snapshot)) {
+    syncPlaybackDom();
+    return;
+  }
+
+  state.playerInFlightCommand = null;
+  state.playerPendingCommand = null;
+  state.playerNeedsReconcile = false;
+  if (!snapshot) {
+    reportPlayerControl('warn', 'Remotion preview command response timed out', timedOut, {
+      accepted: Boolean(timedOut.accepted),
+      timeoutMs: PLAYER_COMMAND_SETTLE_TIMEOUT_MS + 750,
+    });
+    resetPlayerChannelConnection();
+    state.playerRuntimeReady = false;
+    setPlayerPhase('connecting');
+    requestPlayerHandshake();
+    syncPlaybackDom();
+    return;
+  }
+
+  resetDesiredStateToActual();
+  reportPlayerControl('warn', 'Remotion preview command did not settle', timedOut, {
+    accepted: Boolean(timedOut.accepted),
+    timeoutMs: PLAYER_COMMAND_SETTLE_TIMEOUT_MS,
+  });
+  syncPlaybackDom();
 }
 
 
@@ -125,6 +225,7 @@ function markCommandInFlight(command) {
     accepted: false,
     startedAt: Date.now(),
   };
+  startPlayerCommandTimer(command);
   if (command.type === 'seek') {
     state.playerCommittedFrame = null;
     state.playerSeeking = true;
@@ -138,6 +239,7 @@ function postPreparedPlayerCommand(command) {
   if (posted) {
     markCommandInFlight(command);
     state.playerPendingCommand = null;
+    reportPlayerControl('debug', 'Remotion preview command sent', command);
   }
   return posted;
 }
@@ -145,7 +247,16 @@ function postPreparedPlayerCommand(command) {
 
 function queuePlayerCommand(command) {
   // This is a complete desired-state snapshot, not a lossy one-command queue.
+  if (Number(command.revision) > Number(state.playerInFlightCommand?.revision ?? PLAYER_BASELINE_REVISION)) {
+    clearPlayerCommandTimer();
+    state.playerInFlightCommand = null;
+    state.playerNeedsReconcile = false;
+  }
   state.playerPendingCommand = command;
+  reportPlayerControl('debug', 'Remotion preview command queued', command, {
+    channelConnected: Boolean(state.playerChannelConnected),
+    runtimeReady: Boolean(state.playerRuntimeReady),
+  });
 }
 
 
@@ -199,6 +310,8 @@ function currentMessageBelongsToPreview(message, options = {}) {
   if (message.descriptorRevision !== (composition?.descriptorRevision || state.manifest?.descriptorRevision)) return false;
   if (message.instanceId !== state.playerInstanceId) return false;
   if (message.channelNonce !== state.playerChannelNonce) return false;
+  if (message.connectionGeneration !== state.playerConnectionGeneration) return false;
+  if (message.connectionId !== state.playerConnectionId) return false;
   return true;
 }
 
@@ -284,9 +397,17 @@ function commandIsSettled(command, actual) {
 
 
 function settleInFlightCommand(actual) {
-  if (!commandIsSettled(state.playerInFlightCommand, actual)) return;
+  if (!commandIsSettled(state.playerInFlightCommand, actual)) return false;
+  const settled = state.playerInFlightCommand;
+  clearPlayerCommandTimer();
   state.playerInFlightCommand = null;
   state.playerPendingCommand = null;
+  state.playerNeedsReconcile = false;
+  reportPlayerControl('debug', 'Remotion preview command settled', settled, {
+    actualPlaying: Boolean(actual.playing),
+    actualFrame: actual.frame,
+  });
+  return true;
 }
 
 
@@ -324,24 +445,83 @@ function resolveSnapshotRequest(message) {
 }
 
 
+function beginPlayerStateConnection(message) {
+  if (state.playerStateConnectionId === message.connectionId) return false;
+  clearPlayerCommandTimer();
+  state.playerStateConnectionId = message.connectionId;
+  state.playerActualRevision = PLAYER_BASELINE_REVISION;
+  state.playerActualState = null;
+  state.playerCommittedFrame = null;
+  state.playerInFlightCommand = null;
+  state.playerNeedsReconcile = false;
+  state.playerRuntimeReady = false;
+  state.playerRuntimePlaying = false;
+  state.playerRuntimeFrame = null;
+  state.playerBuffering = false;
+  state.playerSeeking = false;
+  reportPlayerRuntimeLog('info', 'Remotion preview state connection opened', {
+    connectionGeneration: state.playerConnectionGeneration,
+    connectionId: message.connectionId,
+    desiredRevision: state.playerDesiredState?.revision ?? null,
+  });
+  return true;
+}
+
+
+function markPlayerRuntimeEvidence(message) {
+  if (!isPlayerRuntimeEvidenceMessage(message)) return;
+  const wasReady = state.playerRuntimeReady;
+  state.playerRuntimeReady = true;
+  state.playerConnectionState = 'connected';
+  state.playerHostError = null;
+  if (!wasReady) syncPlayerRuntimeDom();
+}
+
+
+function rebaseDesiredStateRevision() {
+  const desired = desiredState();
+  const revision = Math.max(
+    Number(desired.revision) || 0,
+    Number(state.playerActualRevision) + 1,
+  );
+  state.playerDesiredRevision = revision;
+  state.playerDesiredState = { ...desired, revision };
+}
+
+
+function reconcileRejectedCommandAfterActualState() {
+  if (!state.playerNeedsReconcile) return;
+  state.playerNeedsReconcile = false;
+  state.playerInFlightCommand = null;
+  clearPlayerCommandTimer();
+  rebaseDesiredStateRevision();
+  flushPlayerCommand();
+}
+
+
 function handlePlayerHostMessage(message = {}, options = {}) {
   if (!currentMessageBelongsToPreview(message, options)) return false;
-  const messageRevision = Number(message.revision);
-  if (
-    message.type !== 'commandAccepted'
-      && Number.isFinite(messageRevision)
-      && messageRevision < (Number(state.playerActualRevision) || 0)
-  ) return true;
 
   if (message.type === 'channelReady') {
+    beginPlayerStateConnection(message);
     setPlayerPhase('connecting');
     flushPlayerCommand();
     return true;
   }
 
+  markPlayerRuntimeEvidence(message);
+  if (isStalePlayerStateMessage(message, state.playerActualRevision)) {
+    reportPlayerRuntimeLog('debug', 'Ignored stale Remotion preview state', {
+      messageType: message.type,
+      messageRevision: playerMessageRevision(message),
+      actualRevision: state.playerActualRevision,
+      connectionGeneration: state.playerConnectionGeneration,
+      connectionId: state.playerConnectionId,
+    });
+    return true;
+  }
+
   if (message.type === 'ready') {
-    state.playerRuntimeReady = true;
-    state.playerHostError = null;
     const actual = mergeActualState({ ...message, buffering: false, seeking: false });
     setPlayingState(Boolean(actual.playing));
     setPlayerPhase(actual.playing ? 'playing' : 'paused');
@@ -362,9 +542,32 @@ function handlePlayerHostMessage(message = {}, options = {}) {
   }
 
   if (message.type === 'commandAccepted') {
+    const accepted = message.accepted !== false;
+    reportPlayerControl(accepted ? 'debug' : 'warn', accepted
+      ? 'Remotion preview command accepted'
+      : 'Remotion preview command rejected', message, {
+      accepted,
+      reason: message.reason || null,
+    });
     if (state.playerInFlightCommand?.commandId === message.commandId) {
-      state.playerInFlightCommand.accepted = true;
+      state.playerInFlightCommand.accepted = accepted;
       state.playerInFlightCommand.acceptedAt = Date.now();
+      if (!accepted) state.playerNeedsReconcile = true;
+    }
+    return true;
+  }
+
+  if (message.type === 'commandFailed') {
+    reportPlayerControl('warn', 'Remotion preview command failed', message, {
+      reason: message.message || null,
+    });
+    if (state.playerInFlightCommand?.commandId === message.commandId) {
+      clearPlayerCommandTimer();
+      state.playerInFlightCommand = null;
+      state.playerPendingCommand = null;
+      state.playerNeedsReconcile = false;
+      resetDesiredStateToActual();
+      syncPlaybackDom();
     }
     return true;
   }
@@ -373,6 +576,7 @@ function handlePlayerHostMessage(message = {}, options = {}) {
     const actual = mergeActualState(message);
     if (message.type === 'frameCommitted') state.playerCommittedFrame = actual.frame;
     settleInFlightCommand(actual);
+    reconcileRejectedCommandAfterActualState();
     state.playerPhase = actual.buffering
       ? 'buffering'
       : actual.seeking
@@ -427,7 +631,9 @@ function handlePlayerHostMessage(message = {}, options = {}) {
     }
     state.playerBuffering = false;
     state.playerSeeking = false;
+    clearPlayerCommandTimer();
     state.playerInFlightCommand = null;
+    state.playerNeedsReconcile = false;
     setPlayingState(false);
     setPlayerPhase('ended');
     syncPlaybackDom();
@@ -435,12 +641,14 @@ function handlePlayerHostMessage(message = {}, options = {}) {
   }
 
   if (message.type === 'error') {
+    clearPlayerCommandTimer();
     state.playerHostError = String(message.message || 'Player preview failed.');
     state.playerRuntimeReady = false;
     state.playerRuntimePlaying = false;
     state.playerBuffering = false;
     state.playerSeeking = false;
     state.playerInFlightCommand = null;
+    state.playerNeedsReconcile = false;
     if (state.playerDesiredState) state.playerDesiredState = { ...state.playerDesiredState, playing: false };
     setPlayingState(false);
     setPlayerPhase('error');

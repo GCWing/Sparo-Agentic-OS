@@ -4,12 +4,15 @@ import type { TFunction } from 'i18next';
 import { notificationService } from '@/shared/notification-system';
 import type { ContextItem } from '../../../../shared/types/context';
 import type { ComposerContextSnapshot } from '../../../../shared/types/composer';
+import type {
+  AttachmentReferenceResolution,
+  AttachmentResolveOptions,
+} from '@/shared/stores/contextStore';
 import { CHAT_INPUT_CONFIG } from '../../../constants/chatInputConfig';
 import type { InputAction } from '../../../reducers/inputReducer';
 import type { RichTextInputHandle } from '../../RichTextInput';
 
 export function useComposerInputActions({
-  currentImageCount,
   currentSessionId,
   dispatchInput,
   inputIsActive,
@@ -18,12 +21,11 @@ export function useComposerInputActions({
   richTextInputRef,
   replaceDraftText,
   clearDraft,
-  addContext,
+  resolveAttachmentReference,
   setHistoryIndex,
   setSavedDraft,
   t,
 }: {
-  currentImageCount: number;
   currentSessionId?: string | null;
   dispatchInput: Dispatch<InputAction>;
   inputIsActive: boolean;
@@ -32,7 +34,10 @@ export function useComposerInputActions({
   richTextInputRef: RefObject<RichTextInputHandle | null>;
   replaceDraftText: (text: string) => void;
   clearDraft: () => void;
-  addContext: (context: ContextItem) => void;
+  resolveAttachmentReference: (
+    context: ContextItem,
+    options?: AttachmentResolveOptions,
+  ) => AttachmentReferenceResolution;
   setHistoryIndex: Dispatch<SetStateAction<number>>;
   setSavedDraft: Dispatch<SetStateAction<ComposerContextSnapshot | null>>;
   t: TFunction<'flow-chat'>;
@@ -94,18 +99,18 @@ export function useComposerInputActions({
   }, [dispatchInput, focusRichTextInputSoon, inputIsActive]);
 
   const handleDropContextAdded = useCallback((context: ContextItem) => {
-    if (context.type === 'image' && currentImageCount >= CHAT_INPUT_CONFIG.image.maxCount) {
+    const resolution = resolveAttachmentReference(context, context.type === 'image'
+      ? { maxAssetsOfType: CHAT_INPUT_CONFIG.image.maxCount }
+      : undefined);
+    if (resolution.kind === 'rejected') {
       notificationService.warning(t('input.maxImagesWarning', { count: CHAT_INPUT_CONFIG.image.maxCount }), { duration: 3000 });
       return;
     }
-    addContext(context);
-    if (context.type !== 'image') {
-      richTextInputRef.current?.insertTag(context);
-    }
+    richTextInputRef.current?.insertTag(resolution.reference, resolution.asset);
     if (!inputIsActive) {
       dispatchInput({ type: 'ACTIVATE' });
     }
-  }, [addContext, currentImageCount, dispatchInput, inputIsActive, richTextInputRef, t]);
+  }, [dispatchInput, inputIsActive, resolveAttachmentReference, richTextInputRef, t]);
 
   return {
     activateComposerInput,

@@ -7,7 +7,14 @@ import {
 import { createAgenticOsHomeSurface } from '@/app/navigation/workspaceSurfaceTypes';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 import { useAuxiliarySurfaceStore } from './auxiliarySurfaceStore';
-import { openAuxiliaryItem } from './controller';
+import {
+  enterActiveAuxiliarySceneFocus,
+  exitActiveAuxiliarySceneFocus,
+  openActiveAuxiliaryItemAtPresentation,
+  openAuxiliaryItem,
+  registerAuxiliarySurfaceRestorer,
+  toggleActiveAuxiliarySurface,
+} from './controller';
 import { homeAuxiliaryHostKey, sessionAuxiliaryHostKey } from './host';
 
 const sessionAHost = sessionAuxiliaryHostKey('session-a');
@@ -144,5 +151,146 @@ describe('auxiliary surface lifecycle', () => {
       presentation: 'closed',
       userDisposition: 'closed',
     });
+  });
+
+  it('collapses and expands without destroying the current tabs', () => {
+    useWorkspaceSurfaceStore.getState().openSurface({
+      kind: 'session',
+      sessionId: 'session-a',
+    });
+    openAuxiliaryItem({
+      hostKey: sessionAHost,
+      item: {
+        type: 'product-app-runtime',
+        title: 'Product App',
+        duplicateCheckKey: 'product-app:session-a',
+      },
+    });
+
+    useAuxiliarySurfaceStore.getState().collapse(sessionAHost, 'user');
+    expect(visibleTabTitles()).toEqual(['Product App']);
+    expect(useAuxiliarySurfaceStore.getState().hosts[sessionAHost]?.presentation)
+      .toBe('closed');
+
+    toggleActiveAuxiliarySurface();
+
+    expect(visibleTabTitles()).toEqual(['Product App']);
+    expect(useAuxiliarySurfaceStore.getState().hosts[sessionAHost]?.presentation)
+      .toBe('docked');
+  });
+
+  it('restores the profile default after the final tab is closed', () => {
+    useWorkspaceSurfaceStore.getState().openSurface({
+      kind: 'session',
+      sessionId: 'session-a',
+    });
+    openAuxiliaryItem({
+      hostKey: sessionAHost,
+      item: {
+        type: 'product-app-runtime',
+        title: 'Old Product App',
+        duplicateCheckKey: 'product-app:session-a',
+      },
+    });
+    const openTab = useAgentCanvasStore.getState().primaryGroup.tabs[0];
+    useAgentCanvasStore.getState().closeTab(openTab.id, 'primary');
+    useAuxiliarySurfaceStore.getState().collapse(sessionAHost, 'empty');
+
+    const unregister = registerAuxiliarySurfaceRestorer(sessionAHost, () => {
+      openAuxiliaryItem({
+        hostKey: sessionAHost,
+        item: {
+          type: 'product-app-runtime',
+          title: 'Current Product App',
+          duplicateCheckKey: 'product-app:session-a',
+        },
+        reveal: 'preserve',
+      });
+    });
+
+    try {
+      toggleActiveAuxiliarySurface();
+
+      expect(visibleTabTitles()).toEqual(['Current Product App']);
+      expect(useAuxiliarySurfaceStore.getState().hosts[sessionAHost]?.presentation)
+        .toBe('docked');
+    } finally {
+      unregister();
+    }
+  });
+
+  it('falls back to the most recently closed tab when no profile default exists', () => {
+    useWorkspaceSurfaceStore.getState().openSurface({
+      kind: 'session',
+      sessionId: 'session-a',
+    });
+    openAuxiliaryItem({
+      hostKey: sessionAHost,
+      item: {
+        type: 'code-editor',
+        title: 'Recently closed file',
+        duplicateCheckKey: 'file:recent',
+      },
+    });
+    const openTab = useAgentCanvasStore.getState().primaryGroup.tabs[0];
+    useAgentCanvasStore.getState().closeTab(openTab.id, 'primary');
+    useAuxiliarySurfaceStore.getState().collapse(sessionAHost, 'empty');
+
+    toggleActiveAuxiliarySurface();
+
+    expect(visibleTabTitles()).toEqual(['Recently closed file']);
+    expect(useAuxiliarySurfaceStore.getState().hosts[sessionAHost]?.presentation)
+      .toBe('docked');
+  });
+
+  it('returns scene focus to the presentation that launched it', () => {
+    useWorkspaceSurfaceStore.getState().openSurface({
+      kind: 'session',
+      sessionId: 'session-a',
+    });
+    openAuxiliaryItem({
+      hostKey: sessionAHost,
+      item: {
+        type: 'markdown-editor',
+        title: 'Composer context',
+        duplicateCheckKey: 'composer-context:test',
+      },
+    });
+    useAuxiliarySurfaceStore.getState().collapse(sessionAHost, 'user');
+
+    expect(enterActiveAuxiliarySceneFocus()).toBe(true);
+    expect(useAuxiliarySurfaceStore.getState().hosts[sessionAHost]?.presentation)
+      .toBe('scene-focus');
+    expect(exitActiveAuxiliarySceneFocus('previous')).toBe(true);
+    expect(useAuxiliarySurfaceStore.getState().hosts[sessionAHost]?.presentation)
+      .toBe('closed');
+
+    useAuxiliarySurfaceStore.getState().reveal(sessionAHost, 'user');
+    enterActiveAuxiliarySceneFocus();
+    exitActiveAuxiliarySceneFocus('previous');
+    expect(useAuxiliarySurfaceStore.getState().hosts[sessionAHost]?.presentation)
+      .toBe('docked');
+  });
+
+  it('opens scene focus inside the current session surface without independent navigation', () => {
+    useWorkspaceSurfaceStore.getState().openSurface({
+      kind: 'session',
+      sessionId: 'session-a',
+    });
+    const activeSurfaceBefore = useWorkspaceSurfaceStore.getState().activeSurface;
+    const sceneHistoryBefore = useWorkspaceSurfaceStore.getState().sceneHistory;
+
+    expect(openActiveAuxiliaryItemAtPresentation({
+      type: 'markdown-editor',
+      title: 'Composer context',
+      duplicateCheckKey: 'composer-context:inside-session',
+    }, 'scene-focus')).toBe(true);
+
+    expect(useWorkspaceSurfaceStore.getState().activeSurface).toEqual(activeSurfaceBefore);
+    expect(useWorkspaceSurfaceStore.getState().sceneHistory).toEqual(sceneHistoryBefore);
+    expect(useAuxiliarySurfaceStore.getState().activeHostKey).toBe(sessionAHost);
+    expect(useAuxiliarySurfaceStore.getState().hosts[sessionAHost]?.presentation)
+      .toBe('scene-focus');
+    expect(visibleTabTitles()).toEqual(['Composer context']);
   });
 });

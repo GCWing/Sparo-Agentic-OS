@@ -1,4 +1,3 @@
-import { useContextStore } from '@/shared/stores/contextStore';
 import type { DirectoryContext, FileContext } from '@/shared/types/context';
 
 export interface FileMentionTarget {
@@ -62,7 +61,6 @@ export function addFileMentionToChat(
   workspacePath?: string,
 ): FileContext | DirectoryContext {
   const context = createFileMentionContext(target, workspacePath);
-  useContextStore.getState().addContext(context);
   window.dispatchEvent(new CustomEvent('insert-context-tag', { detail: { context } }));
   return context;
 }

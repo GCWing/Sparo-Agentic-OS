@@ -1250,7 +1250,7 @@ impl AppRevisionStore {
                     request.app_id
                 )));
             }
-        } else {
+        } else if !current.retired_app_ids.contains(&request.app_id) {
             ensure_app_id_available(&current, &request.app_id)?;
         }
         validate_parent_release(
@@ -1288,6 +1288,7 @@ impl AppRevisionStore {
         };
 
         let mut next = current.clone();
+        next.retired_app_ids.remove(&request.app_id);
         match next.apps.get_mut(&request.app_id) {
             Some(app) => {
                 app.display_name = request.display_name.clone();
@@ -1614,6 +1615,112 @@ impl AppRevisionStore {
         let committed = self.registry.read().await.clone();
         cleanup_unreferenced_artifacts(&self.root, &committed).await?;
         Ok(removed)
+    }
+
+    /// Permanently removes an official System App that is no longer bundled.
+    /// User-owned forks and their source trees survive with stale upstream
+    /// references detached from the removed immutable Releases.
+    pub(super) async fn retire_system_app(&self, app_id: &str) -> CoreResult<bool> {
+        let _mutation = self.mutation_lock.lock().await;
+        validate_identifier("appId", app_id)?;
+        let current = self.registry.read().await.clone();
+        let Some(app) = current.apps.get(app_id).cloned() else {
+            return Ok(false);
+        };
+        if app.owner.kind != AppOwnerKind::System {
+            return Err(CoreError::validation(format!(
+                "Only System-owned apps can be retired during bundle synchronization: {app_id}"
+            )));
+        }
+        if current.drafts.values().any(|draft| draft.app_id == app_id) {
+            return Err(CoreError::validation(format!(
+                "System App {app_id} unexpectedly owns mutable Drafts"
+            )));
+        }
+
+        let removed_release_ids = current
+            .releases
+            .values()
+            .filter(|release| release.app_id == app_id)
+            .map(|release| release.release_id.clone())
+            .collect::<BTreeSet<_>>();
+        let mut next = current;
+        let activation_keys = next.activations.keys().cloned().collect::<Vec<_>>();
+        for key in activation_keys {
+            let Some(mut activation) = next.activations.get(&key).cloned() else {
+                continue;
+            };
+            if activation.selected_app_id != app_id {
+                continue;
+            }
+            let replacement_release = next
+                .releases
+                .values()
+                .filter(|release| release.app_id != app_id && release.slot_id == app.slot_id)
+                .filter(|release| {
+                    next.apps
+                        .get(&release.app_id)
+                        .is_some_and(|candidate| candidate.owner.kind == AppOwnerKind::System)
+                })
+                .min_by(|left, right| compare_releases_descending(left, right))
+                .cloned();
+            if let Some(replacement) = replacement_release {
+                activation.selected_app_id = replacement.app_id.clone();
+                activation.active_release_id = replacement.release_id.clone();
+                next.activations.insert(key, activation);
+            } else {
+                next.activations.remove(&key);
+            }
+        }
+
+        next.apps.remove(app_id);
+        next.releases.retain(|_, release| release.app_id != app_id);
+        for remaining_app in next.apps.values_mut() {
+            if remaining_app
+                .derived_from
+                .as_ref()
+                .is_some_and(|derived| derived.app_id == app_id)
+            {
+                remaining_app.derived_from = None;
+            }
+        }
+        for release in next.releases.values_mut() {
+            if release
+                .parent_release_id
+                .as_ref()
+                .is_some_and(|release_id| removed_release_ids.contains(release_id))
+            {
+                release.parent_release_id = None;
+            }
+            if release
+                .upstream_base_release_id
+                .as_ref()
+                .is_some_and(|release_id| removed_release_ids.contains(release_id))
+            {
+                release.upstream_app_id = None;
+                release.upstream_base_release_id = None;
+            }
+        }
+        for draft in next.drafts.values_mut() {
+            if draft
+                .base_release_id
+                .as_ref()
+                .is_some_and(|release_id| removed_release_ids.contains(release_id))
+            {
+                draft.base_release_id = None;
+                draft.rebase_context = None;
+            } else if draft.rebase_context.as_ref().is_some_and(|context| {
+                removed_release_ids.contains(&context.base_release_id)
+                    || removed_release_ids.contains(&context.target_release_id)
+            }) {
+                draft.rebase_context = None;
+            }
+        }
+        next.retired_app_ids.insert(app_id.to_string());
+        self.commit_registry(next).await?;
+        let committed = self.registry.read().await.clone();
+        cleanup_unreferenced_artifacts(&self.root, &committed).await?;
+        Ok(true)
     }
 
     pub async fn deactivate(

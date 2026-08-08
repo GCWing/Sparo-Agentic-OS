@@ -14,6 +14,7 @@ import type {
 
 const createHostState = (): AuxiliarySurfaceHostState => ({
   presentation: 'closed',
+  sceneFocusReturnPresentation: null,
   userDisposition: 'default',
   defaultVisibility: 'collapsed',
   configuredProfileId: null,
@@ -38,6 +39,8 @@ interface AuxiliarySurfaceState {
     presentation?: Exclude<AuxiliarySurfacePresentation, 'closed'>,
   ) => void;
   collapse: (hostKey: AuxiliarySurfaceHostKey, source: 'user' | 'empty') => void;
+  enterSceneFocus: (hostKey: AuxiliarySurfaceHostKey) => void;
+  exitSceneFocus: (hostKey: AuxiliarySurfaceHostKey, restore?: 'previous' | 'docked') => void;
   setWidth: (width: number) => void;
   markProfileInitialized: (hostKey: AuxiliarySurfaceHostKey, profileId: string) => void;
   forgetHosts: (hostKeys: readonly AuxiliarySurfaceHostKey[]) => void;
@@ -94,7 +97,7 @@ export const useAuxiliarySurfaceStore = create<AuxiliarySurfaceState>((set) => (
         if (visibleItemCount === 0) {
           return current.presentation === 'closed'
             ? current
-            : { ...current, presentation: 'closed' };
+            : { ...current, presentation: 'closed', sceneFocusReturnPresentation: null };
         }
         if (current.entryPolicyApplied) return current;
 
@@ -118,6 +121,9 @@ export const useAuxiliarySurfaceStore = create<AuxiliarySurfaceState>((set) => (
       hosts: updateHost(state.hosts, hostKey, current => ({
         ...current,
         presentation,
+        sceneFocusReturnPresentation: presentation === 'scene-focus'
+          ? current.sceneFocusReturnPresentation
+          : null,
         userDisposition:
           source === 'user' || source === 'explicit'
             ? 'opened'
@@ -132,8 +138,39 @@ export const useAuxiliarySurfaceStore = create<AuxiliarySurfaceState>((set) => (
       hosts: updateHost(state.hosts, hostKey, current => ({
         ...current,
         presentation: 'closed',
+        sceneFocusReturnPresentation: null,
         userDisposition: source === 'user' ? 'closed' : current.userDisposition,
       })),
+    }));
+  },
+
+  enterSceneFocus: (hostKey) => {
+    set(state => ({
+      hosts: updateHost(state.hosts, hostKey, current => {
+        if (current.presentation === 'scene-focus') return current;
+        return {
+          ...current,
+          sceneFocusReturnPresentation: current.presentation,
+          presentation: 'scene-focus',
+          userDisposition: 'opened',
+        };
+      }),
+    }));
+  },
+
+  exitSceneFocus: (hostKey, restore = 'previous') => {
+    set(state => ({
+      hosts: updateHost(state.hosts, hostKey, current => {
+        if (current.presentation !== 'scene-focus') return current;
+        const presentation = restore === 'docked'
+          ? 'docked'
+          : current.sceneFocusReturnPresentation ?? 'docked';
+        return {
+          ...current,
+          presentation,
+          sceneFocusReturnPresentation: null,
+        };
+      }),
     }));
   },
 

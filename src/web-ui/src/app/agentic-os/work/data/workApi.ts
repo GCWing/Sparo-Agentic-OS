@@ -37,6 +37,9 @@ import type {
   WorkRuntimeRun,
   WorkRuntimeRunStatus,
   WorkLocator,
+  WorkObjectLocator,
+  WorkObjectRecord,
+  WorkObjectRef,
   WorkScope,
   WorkBuilderFactStatus,
   WorkBuilderIssue,
@@ -65,6 +68,17 @@ type RawWorkScope =
 type RawWorkLocator = {
   scope: RawWorkScope;
   workId: string;
+};
+
+type RawWorkObjectLocator = {
+  scope: RawWorkScope;
+  objectId: string;
+};
+
+type RawWorkObjectRef = {
+  locator: RawWorkObjectLocator;
+  kindId: string;
+  role: WorkObjectRef['role'];
 };
 
 type RawWorkSurfaceRef =
@@ -226,12 +240,35 @@ type RawWorkRecord = {
   execution_bindings: RawWorkExecutionBinding[];
   runtime_instances?: RawRuntimeInstanceRef[];
   artifact_refs: RawArtifactRef[];
+  object_refs?: RawWorkObjectRef[];
   memory_refs: RawMemoryRef[];
   system_managed?: boolean;
   system_process_kind?: string | null;
   topic_work_id?: string | null;
   created_at: number;
   updated_at: number;
+};
+
+type RawWorkObjectRecord = {
+  id: string;
+  kindId: string;
+  title: string;
+  scope: RawWorkScope;
+  workspacePath?: string | null;
+  app: RawWorkAppRef;
+  storage: {
+    owner: WorkObjectRecord['storage']['owner'];
+    uri?: string | null;
+  };
+  headRevision: number;
+  lifecycle: WorkObjectRecord['lifecycle'];
+  origin: {
+    kind: WorkObjectRecord['origin']['kind'];
+    sourceObject?: RawWorkObjectLocator | null;
+    sourceRevision?: number | null;
+  };
+  createdAt: number;
+  updatedAt: number;
 };
 
 type RawWorkDeleteOptions = {
@@ -412,6 +449,51 @@ function fromRawScope(scope: RawWorkScope): WorkScope {
   return scope.kind === 'workspace'
     ? { kind: 'workspace', workspaceId: scope.workspaceId }
     : { kind: 'global' };
+}
+
+function toRawWorkObjectLocator(locator: WorkObjectLocator): RawWorkObjectLocator {
+  return {
+    scope: toRawScope(locator.scope),
+    objectId: locator.objectId,
+  };
+}
+
+function fromRawWorkObjectLocator(locator: RawWorkObjectLocator): WorkObjectLocator {
+  return {
+    scope: fromRawScope(locator.scope),
+    objectId: locator.objectId,
+  };
+}
+
+function fromRawWorkObjectRef(objectRef: RawWorkObjectRef): WorkObjectRef {
+  return {
+    locator: fromRawWorkObjectLocator(objectRef.locator),
+    kindId: objectRef.kindId,
+    role: objectRef.role,
+  };
+}
+
+function fromRawWorkObjectRecord(record: RawWorkObjectRecord): WorkObjectRecord {
+  return {
+    id: record.id,
+    kindId: record.kindId,
+    title: record.title,
+    scope: fromRawScope(record.scope),
+    workspacePath: record.workspacePath,
+    app: fromRawAppRef(record.app),
+    storage: record.storage,
+    headRevision: record.headRevision,
+    lifecycle: record.lifecycle,
+    origin: {
+      kind: record.origin.kind,
+      sourceObject: record.origin.sourceObject
+        ? fromRawWorkObjectLocator(record.origin.sourceObject)
+        : record.origin.sourceObject,
+      sourceRevision: record.origin.sourceRevision,
+    },
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
 }
 
 function toRawAppRef(app: WorkAppRef): RawWorkAppRef {
@@ -721,6 +803,7 @@ export function fromRawWorkRecord(record: RawWorkRecord): WorkRecord {
     executionBindings: record.execution_bindings.map(fromRawExecutionBinding),
     runtimeInstances: (record.runtime_instances ?? []).map(fromRawRuntimeInstanceRef),
     artifactRefs: record.artifact_refs.map(fromRawArtifactRef),
+    objectRefs: (record.object_refs ?? []).map(fromRawWorkObjectRef),
     memoryRefs: record.memory_refs.map(fromRawMemoryRef),
     systemManaged: Boolean(record.system_managed),
     systemProcessKind: record.system_process_kind ?? null,
@@ -1048,6 +1131,38 @@ export class AgenticOsWorkApi {
     }
   }
 
+  async listWorkObjects(request: {
+    scope?: WorkScope | null;
+    appId?: string | null;
+  } = {}): Promise<WorkObjectRecord[]> {
+    try {
+      const response = await api.invoke<{ objects: RawWorkObjectRecord[] }>(
+        'agentic_os_list_work_objects',
+        {
+          request: {
+            scope: request.scope ? toRawScope(request.scope) : undefined,
+            app_id: request.appId ?? undefined,
+          },
+        },
+      );
+      return response.objects.map(fromRawWorkObjectRecord);
+    } catch (error) {
+      throw createTauriCommandError('agentic_os_list_work_objects', error, request);
+    }
+  }
+
+  async getWorkObject(locator: WorkObjectLocator): Promise<WorkObjectRecord> {
+    try {
+      const response = await api.invoke<{ object: RawWorkObjectRecord }>(
+        'agentic_os_get_work_object',
+        { request: { locator: toRawWorkObjectLocator(locator) } },
+      );
+      return fromRawWorkObjectRecord(response.object);
+    } catch (error) {
+      throw createTauriCommandError('agentic_os_get_work_object', error, { locator });
+    }
+  }
+
   async deleteWork(locator: WorkLocator, options?: WorkDeleteOptions): Promise<WorkDeleteResult> {
     try {
       const response = await api.invoke<{ deleted: boolean; cleanup_report?: RawWorkCleanupReport }>(
@@ -1084,6 +1199,26 @@ export class AgenticOsWorkApi {
       return fromRawWorkRecord(response.work);
     } catch (error) {
       throw createTauriCommandError('agentic_os_create_work', error, request);
+    }
+  }
+
+  async createWorkForObject(
+    sourceWorkLocator: WorkLocator,
+    request: CreateWorkRequest,
+  ): Promise<WorkRecord> {
+    try {
+      const response = await api.invoke<{ work: RawWorkRecord }>('agentic_os_create_work_for_object', {
+        request: {
+          source_work_locator: toRawLocator(sourceWorkLocator),
+          work: toRawCreateWorkRequest(request),
+        },
+      });
+      return fromRawWorkRecord(response.work);
+    } catch (error) {
+      throw createTauriCommandError('agentic_os_create_work_for_object', error, {
+        sourceWorkLocator,
+        request,
+      });
     }
   }
 

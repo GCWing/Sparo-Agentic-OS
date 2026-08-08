@@ -6,7 +6,12 @@ const { hashContent, readJson, writeJson, isProcessAlive, httpStatus, tailPlayer
 const { compositionForInput } = require("./project");
 const { RUNTIME_SCHEMA_VERSION } = require("./project-runtime");
 const { artifactRoot } = require("./artifacts");
-const { PLAYER_CONTROL_PROTOCOL_VERSION, PLAYER_HOST_RUNTIME_VERSION, PLAYER_HOST_BOOT_WAIT_MS } = require("./constants");
+const {
+  PLAYER_BASELINE_REVISION,
+  PLAYER_CONTROL_PROTOCOL_VERSION,
+  PLAYER_HOST_RUNTIME_VERSION,
+  PLAYER_HOST_BOOT_WAIT_MS,
+} = require("./constants");
 
 const playerHostFlights = new Map();
 const playerHostWorkspaceTails = new Map();
@@ -33,6 +38,7 @@ function playerHostBundleId(manifest) {
   return hashContent(JSON.stringify({
     runtimeVersion: PLAYER_HOST_RUNTIME_VERSION,
     protocolVersion: PLAYER_CONTROL_PROTOCOL_VERSION,
+    baselineRevision: PLAYER_BASELINE_REVISION,
     buildId: manifest.buildId,
     entryPoint: manifest.entryPoint,
   }));
@@ -100,10 +106,11 @@ const resolvedProps = composition.serializedResolvedProps
   : composition.resolvedProps;
 const instanceId = initialParams.get("instanceId") || "default";
 const channelNonce = initialParams.get("channelNonce") || "";
+const connectionGeneration = Number(initialParams.get("connectionGeneration")) || 0;
 const RegisteredRoot = Internals.getRoot();
 const ELEMENT_SELECTOR = "img,video,canvas,svg,h1,h2,h3,h4,h5,h6,p,span,strong,em,small,div,section,article,main,header,footer,li,button";
 const SKIP_CLASS_PATTERN = /(remotion|player|rl-player|__remotion)/i;
-let controlPort: MessagePort | null = null;
+let activeConnectionId: string | null = null;
 
 function clampFrame(value: unknown) {
   const frame = Math.round(Number(value) || 0);
@@ -111,8 +118,8 @@ function clampFrame(value: unknown) {
 }
 
 function post(type: string, payload: Record<string, unknown> = {}) {
-  if (!controlPort) return false;
-  controlPort.postMessage({
+  if (!activeConnectionId) return false;
+  window.parent?.postMessage({
     ...payload,
     source: "sparo-remotion-player-host",
     runtimeVersion,
@@ -123,7 +130,9 @@ function post(type: string, payload: Record<string, unknown> = {}) {
     descriptorRevision: composition.descriptorRevision,
     instanceId,
     channelNonce,
-  });
+    connectionGeneration,
+    connectionId: activeConnectionId,
+  }, "*");
   return true;
 }
 
@@ -138,6 +147,8 @@ function announceBootstrap() {
     descriptorRevision: composition.descriptorRevision,
     instanceId,
     channelNonce,
+    connectionGeneration,
+    transport: "window-message",
   }, "*");
 }
 
@@ -269,7 +280,7 @@ function PlayerRuntime({Component}: {Component: React.ComponentType<Record<strin
   const seekingRef = useRef(false);
   const mutedRef = useRef(true);
   const volumeRef = useRef(1);
-  const activeRevisionRef = useRef(-1);
+  const activeRevisionRef = useRef(${PLAYER_BASELINE_REVISION});
   const initialFrame = useMemo(() => {
     return clampFrame(initialParams.get("frame"));
   }, []);
@@ -370,10 +381,19 @@ function PlayerRuntime({Component}: {Component: React.ComponentType<Record<strin
     }
 
     if (desired.playing === true) {
+      const reportPlayFailure = (error: unknown) => {
+        post("commandFailed", {
+          commandId: message.commandId,
+          command: message.command,
+          revision,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        postActualState();
+      };
       try {
-        player.play();
+        Promise.resolve(player.play()).catch(reportPlayFailure);
       } catch (error) {
-        post("error", {message: error instanceof Error ? error.message : String(error), revision});
+        reportPlayFailure(error);
       }
     } else {
       player.pause();
@@ -536,42 +556,47 @@ function PlayerRuntime({Component}: {Component: React.ComponentType<Record<strin
       if (message.descriptorRevision !== composition.descriptorRevision) return;
       if (message.instanceId !== instanceId) return;
       if (!channelNonce || message.channelNonce !== channelNonce) return;
-      const port = event.ports?.[0];
-      if (!port) return;
+      if (message.connectionGeneration !== connectionGeneration) return;
+      if (message.transport !== "window-message") return;
+      if (typeof message.connectionId !== "string" || !message.connectionId) return;
 
       // Nested opaque frames in WebView2 may not preserve WindowProxy object
-      // identity across postMessage. Authenticate the one-time connection with
-      // the URL-bound nonce plus the complete immutable preview identity; the
-      // transferred MessagePort is the capability used after this handshake.
-
-      controlPort?.close();
-      controlPort = port;
-      controlPort.onmessage = (portEvent) => {
-        const command = portEvent.data || {};
-        if (command.source !== "sparo-remotion-live") return;
-        if (command.protocolVersion !== protocolVersion) return;
-        if (command.compositionId !== composition.id) return;
-        if (command.projectRevision !== projectRevision) return;
-        if (command.descriptorRevision !== composition.descriptorRevision) return;
-        if (command.instanceId !== instanceId) return;
-        if (command.channelNonce !== channelNonce) return;
-        if (!ensurePlayerReady()) {
-          if (command.type === "reconcile") {
-            pendingCommandsRef.current = pendingCommandsRef.current.filter((item) => item.type !== "reconcile");
-          }
-          pendingCommandsRef.current.push(command);
-          return;
-        }
-        runCommand(command);
-      };
-      controlPort.start();
+      // identity across postMessage. Authenticate every message with the
+      // URL-bound nonce, generation, connection id, and immutable revisions.
+      activeConnectionId = message.connectionId;
+      readyPostedRef.current = false;
       post("channelReady", {revision: activeRevisionRef.current});
       ensurePlayerReady();
     };
+    const onCommand = (event: MessageEvent) => {
+      const command = event.data || {};
+      if (command.source !== "sparo-remotion-live" || command.type === "connect") return;
+      if (command.protocolVersion !== protocolVersion) return;
+      if (command.compositionId !== composition.id) return;
+      if (command.projectRevision !== projectRevision) return;
+      if (command.descriptorRevision !== composition.descriptorRevision) return;
+      if (command.instanceId !== instanceId) return;
+      if (command.channelNonce !== channelNonce) return;
+      if (command.connectionGeneration !== connectionGeneration) return;
+      if (!activeConnectionId || command.connectionId !== activeConnectionId) return;
+      if (command.type === "ping") {
+        post("pong", {sentAt: command.sentAt, receivedAt: Date.now()});
+        return;
+      }
+      if (!ensurePlayerReady()) {
+        if (command.type === "reconcile") {
+          pendingCommandsRef.current = pendingCommandsRef.current.filter((item) => item.type !== "reconcile");
+        }
+        pendingCommandsRef.current.push(command);
+        return;
+      }
+      runCommand(command);
+    };
     window.addEventListener("message", onConnect);
+    window.addEventListener("message", onCommand);
     announceBootstrap();
     const bootstrapTimer = window.setInterval(() => {
-      if (controlPort) {
+      if (activeConnectionId) {
         window.clearInterval(bootstrapTimer);
         return;
       }
@@ -580,8 +605,8 @@ function PlayerRuntime({Component}: {Component: React.ComponentType<Record<strin
     return () => {
       window.clearInterval(bootstrapTimer);
       window.removeEventListener("message", onConnect);
-      controlPort?.close();
-      controlPort = null;
+      window.removeEventListener("message", onCommand);
+      activeConnectionId = null;
     };
   }, [ensurePlayerReady, runCommand]);
 

@@ -3,6 +3,11 @@
 .notification-container {
   --notification-stack-peek: 22px;
   --notification-stack-gap: 10px;
+  --notification-stack-motion: var(--ds-motion-base, 180ms);
+  --notification-stack-easing: var(
+    --ds-easing-decelerate,
+    cubic-bezier(0.16, 1, 0.3, 1)
+  );
   --notification-expanded-card-shadow:
     0 0 0 1px color-mix(
       in srgb,
@@ -32,24 +37,25 @@
   isolation: isolate;
   max-height: calc(100vh - 72px);
   overflow: visible;
-  transition: gap 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: gap var(--notification-stack-motion) var(--notification-stack-easing);
 
   &__item {
     --notification-layer-shadow-strength: 52%;
 
     position: relative;
     display: flex;
+    align-items: flex-start;
     justify-content: flex-end;
     pointer-events: auto;
     flex-shrink: 0;
-    max-height: calc(100vh - 72px);
+    max-height: var(--notification-item-height, calc(100vh - 72px));
     opacity: 1;
     transform: translateX(0) scale(1);
     transform-origin: top center;
     transition:
-      max-height 260ms cubic-bezier(0.16, 1, 0.3, 1),
-      opacity 160ms ease,
-      transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+      max-height var(--notification-stack-motion) var(--notification-stack-easing),
+      opacity var(--ds-motion-fast, 150ms) var(--ds-easing-standard, ease),
+      transform var(--notification-stack-motion) var(--notification-stack-easing);
 
     &:not(:last-child) {
       max-height: var(--notification-stack-peek);
@@ -147,7 +153,7 @@
     gap: var(--notification-stack-gap);
 
     .notification-container__item {
-      max-height: calc(100vh - 72px);
+      max-height: var(--notification-item-height, calc(100vh - 72px));
       overflow: visible;
       opacity: 1;
       pointer-events: auto;

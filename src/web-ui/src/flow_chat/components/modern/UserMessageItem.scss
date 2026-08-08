@@ -457,6 +457,7 @@
   background: transparent;
   font-size: 0.68rem;
   font-weight: 500;
+  line-height: 1.35;
   color: var(--ds-chat-text-disabled);
   user-select: none;
   white-space: nowrap;
@@ -728,17 +729,28 @@
   white-space: pre-wrap;
 }
 
+.user-message-item__composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-1);
+  margin-top: var(--ds-space-2);
+
+  .user-message-item__context-tag {
+    margin: 0;
+  }
+}
+
 .user-message-item__context-tag {
   display: inline-flex;
   align-items: center;
   gap: var(--ds-space-1);
   max-width: 220px;
   margin: 0 var(--ds-space-1);
-  padding: 1px var(--ds-space-2);
+  padding: 0;
   border: 0;
   border-radius: var(--ds-radius-full);
-  background: color-mix(in srgb, var(--ds-chat-accent) 12%, transparent);
-  color: var(--ds-chat-accent);
+  background: transparent;
+  color: var(--ds-chat-text-primary);
   font: inherit;
   font-size: var(--flowchat-font-size-sm);
   vertical-align: baseline;
@@ -751,7 +763,11 @@
   }
 
   &:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--ds-chat-accent) 20%, transparent);
+    background: transparent;
+
+    .composer-attachment-identity--capsule {
+      background: color-mix(in srgb, currentColor 16%, transparent);
+    }
   }
 
   &:focus-visible {

@@ -283,6 +283,7 @@ function normalizeWorkRecord(rawValue: unknown, fallbackWorkId?: string): WorkRe
     executionBindings: raw.executionBindings ?? raw.execution_bindings ?? [],
     runtimeInstances: raw.runtimeInstances ?? raw.runtime_instances ?? [],
     artifactRefs: raw.artifactRefs ?? raw.artifact_refs ?? [],
+    objectRefs: raw.objectRefs ?? raw.object_refs ?? [],
     memoryRefs: raw.memoryRefs ?? raw.memory_refs ?? [],
     systemManaged: Boolean(raw.systemManaged ?? raw.system_managed),
     systemProcessKind: (stringValue(raw, 'systemProcessKind', 'system_process_kind') ?? null),

@@ -38,6 +38,7 @@ const COMPONENT_DIGEST_DOMAIN: &[u8] = b"sparo-system-component-v1\0";
 pub struct SystemAppSeedResult {
     pub components_added: usize,
     pub components_reused: usize,
+    pub apps_retired: usize,
     pub releases_added: usize,
     pub releases_reused: usize,
     pub releases_replaced: usize,
@@ -114,6 +115,7 @@ pub async fn seed_system_app_releases(
     let mut shared_components = None;
 
     let mut newest_sources = BTreeMap::<String, (Version, PathBuf)>::new();
+    let mut declared_app_ids = BTreeSet::new();
     for source in collect_package_sources(&SYSTEM_PRODUCT_APP_BUNDLES, &filesystem_root, APP_JSON) {
         let identity = match package_source_segments(&source, 2, "Product App") {
             Ok(identity) => identity,
@@ -127,6 +129,7 @@ pub async fn seed_system_app_releases(
                 continue;
             }
         };
+        declared_app_ids.insert(identity[0].clone());
         let version = match Version::parse(&identity[1]) {
             Ok(version) => version,
             Err(error) => {
@@ -147,6 +150,28 @@ pub async fn seed_system_app_releases(
             .is_none_or(|(current, _)| version > *current);
         if replace {
             newest_sources.insert(identity[0].clone(), (version, source));
+        }
+    }
+
+    let installed_system_apps = revision_store
+        .list_apps()
+        .await
+        .into_iter()
+        .filter(|app| app.owner == AppOwner::system())
+        .collect::<Vec<_>>();
+    for app in installed_system_apps {
+        if declared_app_ids.contains(&app.app_id) {
+            continue;
+        }
+        match revision_store.retire_system_app(&app.app_id).await {
+            Ok(true) => result.apps_retired += 1,
+            Ok(false) => {}
+            Err(error) => result.issues.push(SystemAppSeedIssue {
+                source: "retired-system-app".to_string(),
+                app_id: Some(app.app_id),
+                version: None,
+                message: error.to_string(),
+            }),
         }
     }
 
@@ -775,6 +800,7 @@ fn filesystem_components_root() -> PathBuf {
 mod tests {
     use tempfile::TempDir;
 
+    use super::super::catalog::{AppIconSpec, AppWorkMultiplicity};
     use super::super::revision_store::{
         ActivateReleaseRequest, AppActivationScope, ForkReleaseRequest, PublishDraftRequest,
     };
@@ -782,6 +808,38 @@ mod tests {
 
     fn test_path_manager(temp: &TempDir) -> PathManager {
         PathManager::with_user_root_for_tests(temp.path().join("app-root"))
+    }
+
+    fn test_system_metadata(version: &str) -> ReleaseMetadata {
+        let digest = |seed: &str| digest_bytes(b"system-app-retirement-test", seed.as_bytes());
+        ReleaseMetadata {
+            version: version.to_string(),
+            component_lock_digest: digest(&format!("lock-{version}")),
+            config_revision: digest(&format!("config-{version}")),
+            data_schema_version: "1.0.0".to_string(),
+            runtime_compatibility: ">=0.1.0".to_string(),
+            capability_fingerprint: digest("capabilities"),
+            evaluation_report_digest: digest(&format!("evaluation-{version}")),
+            runtime: ReleaseRuntimeSpec {
+                launch: None,
+                primary_surface: None,
+                primary_surface_mode: None,
+                work_multiplicity: AppWorkMultiplicity::Multiple,
+                icon: AppIconSpec::Monogram {
+                    label: "Test".to_string(),
+                    seed: None,
+                    background: None,
+                },
+                category: String::new(),
+                tags: Vec::new(),
+            },
+            label: None,
+            notes: None,
+            provenance: ReleaseProvenanceKind::System,
+            signature: None,
+            upstream_app_id: None,
+            upstream_base_release_id: None,
+        }
     }
 
     #[test]
@@ -894,6 +952,57 @@ mod tests {
             .contains("does not match manifest identity"));
         assert!(store.list_apps().await.is_empty());
         assert!(store.list_releases(None).await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn system_seed_retires_apps_removed_from_bundles() {
+        let temp = TempDir::new().expect("temp dir");
+        let path_manager = test_path_manager(&temp);
+        let store = AppRevisionStore::open(path_manager.app_root())
+            .await
+            .expect("revision store");
+        let package = temp.path().join("retired-system-app");
+        fs::create_dir_all(&package).await.expect("package");
+        fs::write(package.join("app.json"), b"{}")
+            .await
+            .expect("package marker");
+        let app_id = "system.removed-bundle-test";
+        let slot_id = "system.removed-bundle-test";
+        let request = || ImportReleaseFromPackageRequest {
+            app_id: app_id.to_string(),
+            slot_id: slot_id.to_string(),
+            display_name: "Removed Bundle Test".to_string(),
+            description: None,
+            owner: AppOwner::system(),
+            parent_release_id: None,
+            metadata: test_system_metadata("1.0.0"),
+        };
+        store
+            .sync_system_release_from_package(&package, request())
+            .await
+            .expect("legacy system app");
+        assert!(store
+            .get_active(&AppActivationScope::System, slot_id)
+            .await
+            .is_some());
+
+        let seeded = seed_system_app_releases(&path_manager, &store)
+            .await
+            .expect("system seed");
+
+        assert_eq!(seeded.apps_retired, 1);
+        assert!(store.get_app(app_id).await.is_none());
+        assert!(store.list_releases(Some(app_id)).await.is_empty());
+        assert!(store
+            .get_active(&AppActivationScope::System, slot_id)
+            .await
+            .is_none());
+
+        store
+            .sync_system_release_from_package(&package, request())
+            .await
+            .expect("reintroduced system app");
+        assert!(store.get_app(app_id).await.is_some());
     }
 
     #[tokio::test]

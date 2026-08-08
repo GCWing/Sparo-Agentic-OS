@@ -930,9 +930,9 @@
             "idle": "等待调用"
           },
           "metrics": {
-            "builtin": "内置",
-            "connected": "连接",
-            "specialists": "专家"
+            "skills": "技能",
+            "tools": "工具",
+            "subagents": "子代理"
           },
           "sections": {
             "execution": "执行能力",
@@ -942,7 +942,10 @@
             "servers": "{{count}} 个服务",
             "specialists": "{{count}} 个可调用",
             "connectedOf": "{{connected}} / {{count}} 已连接",
-            "tools": "{{count}} 个工具"
+            "tools": "{{count}} 个工具",
+            "suites": "{{count}} 个套装",
+            "mcpTools": "{{count}} 个 MCP 工具",
+            "enabledOf": "{{enabled}} / {{count}} 已启用"
           },
           "execution": {
             "builtin": "内置工具",
@@ -953,6 +956,7 @@
             "mcpToolsDescription": "由已连接服务提供的扩展工具"
           },
           "actions": {
+            "skills": "打开技能",
             "tools": "打开工具中心",
             "subagents": "管理子代理"
           },
@@ -963,6 +967,7 @@
             "noneEnabledDescription": "前往子代理场景选择可调用的专家。"
           },
           "errors": {
+            "skills": "技能暂不可用",
             "execution": "执行能力状态暂不可用",
             "servers": "MCP 状态暂不可用",
             "tools": "工具目录暂不可用",

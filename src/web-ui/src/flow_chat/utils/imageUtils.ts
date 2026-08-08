@@ -3,7 +3,9 @@
  */
 
 import type { ImageContext } from '@/shared/types/context';
-import { isImageFile as checkIsImageFile } from '@/infrastructure/language-detection';
+import { registerMemoryImageAsset } from '@/shared/media/imageAssetStore';
+import { imageMimeTypeFromPath, isImageFilename } from '@/shared/media/imageFormats';
+import { createBinaryAttachmentIdentity } from '@/shared/context-system/attachmentIdentity';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('imageUtils');
@@ -25,6 +27,72 @@ function generateClipboardImageName(mimeType: string): string {
   return `clipboard-${stamp}.${ext}`;
 }
 
+interface InspectedImageFile {
+  width: number;
+  height: number;
+  thumbnailUrl: string;
+}
+
+async function inspectAndIdentifyImage(file: File): Promise<{
+  inspection?: InspectedImageFile;
+  identity?: ImageContext['identity'];
+}> {
+  const [inspectionResult, identityResult] = await Promise.allSettled([
+    inspectImageFile(file, 200),
+    createBinaryAttachmentIdentity(file),
+  ]);
+  if (inspectionResult.status === 'rejected') {
+    log.warn('Failed to inspect image', { fileName: file.name, error: inspectionResult.reason });
+  }
+  if (identityResult.status === 'rejected') {
+    log.warn('Failed to identify image', { fileName: file.name, error: identityResult.reason });
+  }
+  return {
+    inspection: inspectionResult.status === 'fulfilled' ? inspectionResult.value : undefined,
+    identity: identityResult.status === 'fulfilled' ? identityResult.value : undefined,
+  };
+}
+
+function inspectImageFile(file: File, maxSize: number): Promise<InspectedImageFile> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    const cleanup = () => URL.revokeObjectURL(objectUrl);
+
+    image.onload = () => {
+      try {
+        const naturalWidth = image.naturalWidth || image.width;
+        const naturalHeight = image.naturalHeight || image.height;
+        const scale = Math.min(1, maxSize / Math.max(naturalWidth, naturalHeight));
+        const thumbnailWidth = Math.max(1, Math.round(naturalWidth * scale));
+        const thumbnailHeight = Math.max(1, Math.round(naturalHeight * scale));
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Failed to get canvas context');
+
+        canvas.width = thumbnailWidth;
+        canvas.height = thumbnailHeight;
+        context.drawImage(image, 0, 0, thumbnailWidth, thumbnailHeight);
+        resolve({
+          width: naturalWidth,
+          height: naturalHeight,
+          thumbnailUrl: canvas.toDataURL('image/jpeg', 0.8),
+        });
+      } catch (error) {
+        reject(error);
+      } finally {
+        cleanup();
+      }
+    };
+    image.onerror = () => {
+      cleanup();
+      reject(new Error('Image loading failed'));
+    };
+    image.decoding = 'async';
+    image.src = objectUrl;
+  });
+}
+
 /**
  * Generate image thumbnail
  * @param file Image file
@@ -35,58 +103,7 @@ export async function generateThumbnail(
   file: File,
   maxSize: number = 200
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      const img = new Image();
-      
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-          reject(new Error('Failed to get canvas context'));
-          return;
-        }
-        
-        let width = img.width;
-        let height = img.height;
-        
-        if (width > height) {
-          if (width > maxSize) {
-            height = (height * maxSize) / width;
-            width = maxSize;
-          }
-        } else {
-          if (height > maxSize) {
-            width = (width * maxSize) / height;
-            height = maxSize;
-          }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        const thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        resolve(thumbnailDataUrl);
-      };
-      
-      img.onerror = () => {
-        reject(new Error('Image loading failed'));
-      };
-      
-      img.src = e.target?.result as string;
-    };
-    
-    reader.onerror = () => {
-      reject(new Error('File reading failed'));
-    };
-    
-    reader.readAsDataURL(file);
-  });
+  return (await inspectImageFile(file, maxSize)).thumbnailUrl;
 }
 
 /**
@@ -146,32 +163,8 @@ export function validateImageFile(file: File): {
 export async function getImageDimensions(
   file: File
 ): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      const img = new Image();
-      
-      img.onload = () => {
-        resolve({
-          width: img.width,
-          height: img.height
-        });
-      };
-      
-      img.onerror = () => {
-        reject(new Error('Failed to get image dimensions'));
-      };
-      
-      img.src = e.target?.result as string;
-    };
-    
-    reader.onerror = () => {
-      reject(new Error('File reading failed'));
-    };
-    
-    reader.readAsDataURL(file);
-  });
+  const inspected = await inspectImageFile(file, 1);
+  return { width: inspected.width, height: inspected.height };
 }
 
 /**
@@ -180,17 +173,7 @@ export async function getImageDimensions(
  * @returns MIME type
  */
 export function getMimeTypeFromFilename(filename: string): string {
-  const ext = filename.toLowerCase().split('.').pop();
-  
-  const mimeMap: Record<string, string> = {
-    'png': 'image/png',
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'gif': 'image/gif',
-    'webp': 'image/webp',
-  };
-  
-  return mimeMap[ext || ''] || 'image/jpeg';
+  return imageMimeTypeFromPath(filename, 'image/jpeg');
 }
 
 /**
@@ -206,59 +189,29 @@ export async function createImageContextFromFile(
     throw new Error(validation.error);
   }
   
-  let dimensions = { width: 0, height: 0 };
-  try {
-    dimensions = await getImageDimensions(file);
-  } catch (error) {
-    log.warn('Failed to get image dimensions', { fileName: file.name, error });
-  }
+  const { inspection, identity } = await inspectAndIdentifyImage(file);
   
-  let thumbnailUrl: string | undefined;
-  try {
-    thumbnailUrl = await generateThumbnail(file);
-  } catch (error) {
-    log.warn('Failed to generate thumbnail', { fileName: file.name, error });
-  }
-  
+  const id = `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const imagePath = (file as File & { path?: string }).path || '';
   const imageContext: ImageContext = {
-    id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id,
     type: 'image',
-    imagePath: (file as any).path || '', // Electron/Tauri environments may have a path property.
     imageName: file.name,
-    width: dimensions.width,
-    height: dimensions.height,
+    width: inspection?.width,
+    height: inspection?.height,
     fileSize: file.size,
     mimeType: file.type,
     source: 'file',
-    isLocal: Boolean((file as any).path),
+    identity,
+    sourceRef: imagePath
+      ? { kind: 'local-file', path: imagePath }
+      : registerMemoryImageAsset(id, file),
     timestamp: Date.now(),
-    thumbnailUrl,
+    thumbnailUrl: inspection?.thumbnailUrl,
     metadata: {}
   };
-  
-  // If there is no path (web environment), read as data URL.
-  if (!imageContext.imagePath) {
-    imageContext.dataUrl = await readFileAsDataUrl(file);
-    imageContext.isLocal = false;
-  }
-  
-  return imageContext;
-}
 
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      resolve(e.target?.result as string);
-    };
-    
-    reader.onerror = () => {
-      reject(new Error('File reading failed'));
-    };
-    
-    reader.readAsDataURL(file);
-  });
+  return imageContext;
 }
 
 /**
@@ -274,26 +227,12 @@ export async function createImageContextFromClipboard(
     throw new Error(validation.error);
   }
   
-  let dimensions = { width: 0, height: 0 };
-  try {
-    dimensions = await getImageDimensions(file);
-  } catch (error) {
-    log.warn('Failed to get image dimensions', { fileName: file.name, error });
-  }
+  const { inspection, identity } = await inspectAndIdentifyImage(file);
   
-  let thumbnailUrl: string | undefined;
-  try {
-    thumbnailUrl = await generateThumbnail(file);
-  } catch (error) {
-    log.warn('Failed to generate thumbnail', { fileName: file.name, error });
-  }
-  
-  const dataUrl = await readFileAsDataUrl(file);
-  
+  const id = `img-clipboard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const imageContext: ImageContext = {
-    id: `img-clipboard-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id,
     type: 'image',
-    imagePath: '', // Clipboard images do not have a path.
     imageName: (() => {
       const raw = file.name || '';
       const genericPattern = /^image\.\w+$/i;
@@ -302,15 +241,15 @@ export async function createImageContextFromClipboard(
       }
       return raw;
     })(),
-    width: dimensions.width,
-    height: dimensions.height,
+    width: inspection?.width,
+    height: inspection?.height,
     fileSize: file.size,
     mimeType: file.type,
-    dataUrl,
     source: 'clipboard',
-    isLocal: false,
+    identity,
+    sourceRef: registerMemoryImageAsset(id, file),
     timestamp: Date.now(),
-    thumbnailUrl,
+    thumbnailUrl: inspection?.thumbnailUrl,
     metadata: {
       fromClipboard: true
     }
@@ -326,7 +265,7 @@ export async function createImageContextFromClipboard(
  * @returns Whether it is an image
  */
 export function isImageFile(filename: string): boolean {
-  return checkIsImageFile(filename);
+  return isImageFilename(filename);
 }
 
 /**

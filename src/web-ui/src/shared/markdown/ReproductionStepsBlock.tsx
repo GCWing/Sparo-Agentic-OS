@@ -23,7 +23,12 @@ function getStepsKey(steps: string): string {
 
 export interface ReproductionStepsBlockProps {
   steps: string;
-  onProceed?: () => void;
+  onProceed: (completion: ReproductionCompletion) => Promise<void> | void;
+}
+
+export interface ReproductionCompletion {
+  message: string;
+  shortMessage: string;
 }
 
 export const ReproductionStepsBlock: React.FC<ReproductionStepsBlockProps> = ({
@@ -48,26 +53,19 @@ export const ReproductionStepsBlock: React.FC<ReproductionStepsBlockProps> = ({
     setIsProceeding(true);
     
     try {
-      const { FlowChatManager } = await import('@/flow_chat/services/FlowChatManager');
-      const flowChatManager = FlowChatManager.getInstance();
+      await onProceed({
+        message: t('reproductionSteps.userCompleted'),
+        shortMessage: t('reproductionSteps.userCompletedShort'),
+      });
       
-      // Log collection note: read .sparo_os/debug.log
-      await flowChatManager.sendMessage(
-        t('reproductionSteps.userCompleted'),
-        undefined,
-        t('reproductionSteps.userCompletedShort')
-      );
-      
-      log.info('Proceed instruction sent');
-      
-      onProceed?.();
+      log.info('Proceed action completed');
       
       proceededStepsSet.add(stepsKey);
       setHasProceeded(true);
       setIsExpanded(false);
       
     } catch (error) {
-      log.error('Failed to proceed', error);
+      log.error('Failed to proceed', { error });
       notificationService.error(t('reproductionSteps.operationFailed'));
     } finally {
       setIsProceeding(false);

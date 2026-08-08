@@ -59,7 +59,7 @@ function applyPlayerHostOutput(output) {
     state.playerRuntimeReady = false;
     state.playerConnectionState = 'disconnected';
     state.playerPhase = 'connecting';
-    resetPlayerChannelConnection({ rotateNonce: true });
+    resetPlayerChannelConnection({ rotateNonce: true, resetRecovery: true });
   }
 
   if (output?.ready

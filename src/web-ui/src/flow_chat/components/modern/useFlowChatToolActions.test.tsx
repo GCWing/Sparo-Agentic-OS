@@ -23,7 +23,7 @@ vi.mock('../../services/FlowChatManager', () => ({
   },
 }));
 
-vi.mock('@/shared/services/agent-service', () => ({
+vi.mock('@/flow_chat/services/agent-service', () => ({
   agentService: {
     confirmToolExecution: mocks.confirmToolExecution,
   },
@@ -75,7 +75,11 @@ function addPendingTool(sessionId: string, toolId: string, input: unknown): stri
     startTime: 1,
   };
 
-  flowChatStore.createSession(sessionId, {});
+  flowChatStore.createSession(sessionId, {
+    workspacePath: 'D:/workspace/test',
+    workspaceId: 'ws_test',
+    storageScope: 'workspace',
+  });
   flowChatStore.addDialogTurn(sessionId, turn);
   return turnId;
 }

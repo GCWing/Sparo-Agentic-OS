@@ -16,6 +16,7 @@ use sparo_core::agentic::coordination::{
 use sparo_core::agentic::core::*;
 use sparo_core::agentic::image_analysis::ImageContextData;
 use sparo_core::agentic::tools::image_context::get_image_context;
+use sparo_core::agentic::{compile_composer_submission, ComposerSubmissionEnvelope};
 
 fn published_settings_agent_error(error: &impl std::fmt::Display) -> String {
     public_settings_agent_error(error).code().to_string()
@@ -117,6 +118,38 @@ pub struct StartDialogTurnRequest {
     pub persist_agent_type: Option<bool>,
     #[serde(default)]
     pub image_contexts: Option<Vec<ImageContextData>>,
+    #[serde(default)]
+    pub composer_submission: Option<ComposerSubmissionEnvelope>,
+}
+
+pub(crate) fn order_composer_images(
+    expected_ids: &[String],
+    image_contexts: Option<Vec<ImageContextData>>,
+) -> Result<Option<Vec<ImageContextData>>, String> {
+    let mut images_by_id = image_contexts
+        .unwrap_or_default()
+        .into_iter()
+        .map(|image| (image.id.clone(), image))
+        .collect::<std::collections::HashMap<_, _>>();
+
+    let mut ordered = Vec::with_capacity(expected_ids.len());
+    for id in expected_ids {
+        let image = images_by_id.remove(id).ok_or_else(|| {
+            format!(
+                "Composer image attachment is missing its image payload: {}",
+                id
+            )
+        })?;
+        ordered.push(image);
+    }
+    if let Some((id, _)) = images_by_id.into_iter().next() {
+        return Err(format!(
+            "Image payload does not belong to the Composer submission: {}",
+            id
+        ));
+    }
+
+    Ok((!ordered.is_empty()).then_some(ordered))
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -458,7 +491,17 @@ pub async fn start_dialog_turn(
         user_message_metadata,
         persist_agent_type,
         image_contexts,
+        composer_submission,
     } = request;
+
+    let (user_input, image_contexts) = if let Some(submission) = composer_submission.as_ref() {
+        let compiled =
+            compile_composer_submission(submission).map_err(|error| error.to_string())?;
+        let ordered_images = order_composer_images(&compiled.image_attachment_ids, image_contexts)?;
+        (compiled.user_input, ordered_images)
+    } else {
+        (user_input, image_contexts)
+    };
 
     if coordinator
         .is_active_settings_agent_session(&session_id)
@@ -679,7 +722,7 @@ fn is_blank_text(value: Option<&String>) -> bool {
     value.map(|s| s.trim().is_empty()).unwrap_or(true)
 }
 
-fn resolve_missing_image_payloads(
+pub(crate) fn resolve_missing_image_payloads(
     image_contexts: Vec<ImageContextData>,
 ) -> Result<Vec<ImageContextData>, String> {
     let mut resolved = Vec::with_capacity(image_contexts.len());

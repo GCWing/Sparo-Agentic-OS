@@ -83,4 +83,20 @@ describe('WorkIcon', () => {
     expect(image?.getAttribute('src')).toBe('asset://slides/icon.svg');
     expect(container.querySelector('svg')).toBeNull();
   });
+
+  it('uses the compact optical stroke for fallback Work glyphs', async () => {
+    await act(async () => {
+      root.render(
+        <WorkIcon
+          work={{ kind: 'one_shot', subject: { kind: 'goal' } }}
+          size={18}
+        />,
+      );
+    });
+
+    const svg = container.querySelector('svg');
+    const glyph = svg?.querySelector('g');
+    expect(svg?.getAttribute('width')).toBe('18');
+    expect(Number(glyph?.getAttribute('stroke-width')) * 18 / 48).toBeCloseTo(1.25);
+  });
 });

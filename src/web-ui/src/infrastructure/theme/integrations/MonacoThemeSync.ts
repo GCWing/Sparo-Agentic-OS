@@ -2,7 +2,10 @@
 
 import * as monaco from 'monaco-editor';
 import { ThemeConfig } from '../types';
-import { SparoOsDarkTheme, SPARO_BUILTIN_DARK_MONACO_THEME_ID } from '@/tools/editor/themes/sparo-dark.theme';
+import {
+  SparoOsDarkTheme,
+  SPARO_BUILTIN_DARK_MONACO_THEME_ID,
+} from '../monaco/sparoDarkTheme';
 import { createLogger } from '@/shared/utils/logger';
 
 const log = createLogger('MonacoThemeSync');

@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useCanvasStore } from '@/app/components/panels/content-canvas';
+import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import {
   selectFocusedSessionId,
   useWorkspaceSurfaceStore,
@@ -15,7 +16,12 @@ import {
 } from '@/shared/types/app-scope';
 import { createLogger } from '@/shared/utils/logger';
 import { useAuxiliarySurfaceStore } from './auxiliarySurfaceStore';
-import { openAuxiliaryItem } from './controller';
+import {
+  openActiveAuxiliaryItemAtPresentation,
+  openAuxiliaryItem,
+  registerAuxiliarySurfaceRestorer,
+} from './controller';
+import { registerComposerContextWorkspaceHost } from '@/flow_chat/domain/composerContextWorkspacePort';
 
 const log = createLogger('AuxiliarySurfaceCoordinator');
 
@@ -38,6 +44,15 @@ function workSessionScopeToAppScope(
  * It does not own navigation and never mutates an inactive host.
  */
 export function AuxiliarySurfaceCoordinator(): null {
+  useEffect(() => registerComposerContextWorkspaceHost({
+    open: ({ item, presentation }) => openActiveAuxiliaryItemAtPresentation(
+      item as Parameters<typeof openActiveAuxiliaryItemAtPresentation>[0],
+      presentation,
+    ),
+    hasItem: duplicateCheckKey => Boolean(
+      useAgentCanvasStore.getState().findTabByMetadata({ duplicateCheckKey }),
+    ),
+  }), []);
   const { profile } = useSessionProfile();
   const focusedSessionId = useWorkspaceSurfaceStore(selectFocusedSessionId);
   const activeSession = useActiveSession();
@@ -98,6 +113,42 @@ export function AuxiliarySurfaceCoordinator(): null {
     if (!activeHostKey) return;
     reconcileItems(activeHostKey, visibleItemCount);
   }, [activeHostKey, reconcileItems, visibleItemCount]);
+
+  useEffect(() => {
+    if (
+      !activeHostKey
+      || !activeSession
+      || activeSession.sessionId !== focusedSessionId
+      || isSessionTranscriptLoading({ loadPhase: activeSession.loadPhase })
+      || !profile.auxiliarySurface.restore
+      || !profileExtra
+    ) {
+      return;
+    }
+
+    return registerAuxiliarySurfaceRestorer(activeHostKey, () => {
+      const result = profile.auxiliarySurface.restore?.(
+        activeSession.sessionId,
+        profileExtra,
+      );
+      if (!result) return;
+      const items = Array.isArray(result) ? result : [result];
+      if (items.length === 0) return;
+
+      log.debug('Restoring profile auxiliary items', {
+        hostKey: activeHostKey,
+        profileId: profile.id,
+        itemTypes: items.map(item => item.type),
+      });
+      items.forEach(item => {
+        openAuxiliaryItem({
+          hostKey: activeHostKey,
+          item,
+          reveal: 'preserve',
+        });
+      });
+    });
+  }, [activeHostKey, activeSession, focusedSessionId, profile, profileExtra]);
 
   useEffect(() => {
     if (

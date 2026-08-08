@@ -36,35 +36,19 @@ interface UseComposerKeyboardParams {
 }
 
 function isCursorAtEditorStart(range: Range, editor: HTMLDivElement): boolean {
-  return range.collapsed && range.startOffset === 0 &&
-    (range.startContainer === editor ||
-      (range.startContainer.nodeType === Node.TEXT_NODE &&
-        range.startContainer.previousSibling === null &&
-        range.startContainer.parentNode === editor));
+  if (!range.collapsed || !editor.contains(range.startContainer)) return false;
+  const contentBeforeCaret = range.cloneRange();
+  contentBeforeCaret.selectNodeContents(editor);
+  contentBeforeCaret.setEnd(range.startContainer, range.startOffset);
+  return contentBeforeCaret.toString().length === 0;
 }
 
 function isCursorAtEditorEnd(range: Range, editor: HTMLDivElement): boolean {
-  if (!range.collapsed) return false;
-  const editorContent = editor.textContent || '';
-  let cursorPos = 0;
-  const traverse = (node: Node): boolean => {
-    if (node === range.startContainer) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        cursorPos += range.startOffset;
-      }
-      return true;
-    }
-    if (node.nodeType === Node.TEXT_NODE) {
-      cursorPos += (node.textContent || '').length;
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      for (const child of Array.from(node.childNodes)) {
-        if (traverse(child)) return true;
-      }
-    }
-    return false;
-  };
-  traverse(editor);
-  return cursorPos === editorContent.length;
+  if (!range.collapsed || !editor.contains(range.endContainer)) return false;
+  const contentAfterCaret = range.cloneRange();
+  contentAfterCaret.selectNodeContents(editor);
+  contentAfterCaret.setStart(range.endContainer, range.endOffset);
+  return contentAfterCaret.toString().length === 0;
 }
 
 export function useComposerKeyboard({

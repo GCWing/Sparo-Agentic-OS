@@ -1524,6 +1524,7 @@ mod tests {
             session_id: None,
             turn_id: None,
             work_id: Some("work-1".to_string()),
+            work_object_id: None,
             work_title: Some("Test presentation".to_string()),
             runtime_instance_id: Some("runtime-1".to_string()),
         }

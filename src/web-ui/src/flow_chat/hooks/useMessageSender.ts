@@ -19,6 +19,10 @@ import type {
 import type { TriggerSource } from '@/shared/types/session-history';
 import type { AIModelConfig, DefaultModelsConfig } from '@/infrastructure/config/types';
 import { createLogger } from '@/shared/utils/logger';
+import {
+  imageAssetFilePath,
+  resolveImageAssetDataUrl,
+} from '@/shared/media/imageAssetStore';
 import { descriptorFromAgentType } from '../domain/sessionDescriptor';
 import {
   isSpreadsheetFocusBoundToSession,
@@ -26,7 +30,10 @@ import {
   useExcelLiveFocusStore,
 } from '@/app/agentic-os/excel-live/excelLiveFocusStore';
 import { formatSpreadsheetFocusContext } from '../domain/composerContextRegistry';
-import { getComposerContextIds, isComposerContextSnapshot } from '@/shared/types/composer';
+import {
+  hasSendableComposerSubmission,
+  type ComposerSubmissionEnvelope,
+} from '@/shared/types/composer';
 
 const log = createLogger('FlowChat');
 
@@ -86,6 +93,7 @@ interface UseMessageSenderReturn {
       triggerSource?: TriggerSource;
       systemReminderOverride?: string;
       localDialogTurnId?: string;
+      composerSubmission?: ComposerSubmissionEnvelope;
     }
   ) => Promise<void>;
   /** Whether a send is in progress */
@@ -110,9 +118,13 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
       triggerSource?: TriggerSource;
       systemReminderOverride?: string;
       localDialogTurnId?: string;
+      composerSubmission?: ComposerSubmissionEnvelope;
     }
   ) => {
-    if (!message.trim()) {
+    if (!message.trim() && !(
+      options?.composerSubmission
+      && hasSendableComposerSubmission(options.composerSubmission)
+    )) {
       return;
     }
 
@@ -171,35 +183,40 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
         : explicitContexts;
 
       const imageContexts = mergedContexts.filter(ctx => ctx.type === 'image') as ImageContext[];
-      const clipboardImages = imageContexts.filter(ctx => !ctx.isLocal && ctx.dataUrl);
+      const resolvedImageContexts = await Promise.all(imageContexts.map(async context => ({
+        context,
+        imagePath: imageAssetFilePath(context),
+        dataUrl: await resolveImageAssetDataUrl(context),
+      })));
+      const uploadableImages = resolvedImageContexts.filter(image => Boolean(image.dataUrl));
 
-      if (clipboardImages.length > 0) {
+      if (uploadableImages.length > 0) {
         try {
           const { api } = await import('@/infrastructure/api/service-api/ApiClient');
           const uploadData = {
             request: {
-              images: clipboardImages.map(ctx => ({
-                id: ctx.id,
-                image_path: ctx.imagePath || null,
-                data_url: ctx.dataUrl || null,
-                mime_type: ctx.mimeType,
-                image_name: ctx.imageName,
-                file_size: ctx.fileSize,
-                width: ctx.width || null,
-                height: ctx.height || null,
-                source: ctx.source,
+              images: uploadableImages.map(({ context, imagePath, dataUrl }) => ({
+                id: context.id,
+                image_path: imagePath || null,
+                data_url: dataUrl || null,
+                mime_type: context.mimeType,
+                image_name: context.imageName,
+                file_size: context.fileSize,
+                width: context.width || null,
+                height: context.height || null,
+                source: context.source,
               }))
             }
           };
 
           await api.invoke('upload_image_contexts', uploadData);
           log.debug('Clipboard images uploaded', {
-            imageCount: clipboardImages.length,
-            ids: clipboardImages.map(img => img.id),
+            imageCount: uploadableImages.length,
+            ids: uploadableImages.map(image => image.context.id),
           });
         } catch (error) {
           log.error('Failed to upload clipboard images', {
-            imageCount: clipboardImages.length,
+            imageCount: uploadableImages.length,
             error: (error as Error)?.message ?? 'unknown',
           });
           notificationService.error('Image upload failed. Please try again.', { duration: 3000 });
@@ -208,40 +225,70 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
       }
 
       let fullMessage = trimmedMessage;
-      const displayMessage = options?.displayMessage?.trim() || trimmedMessage;
       const sendCapturedAt = Date.now();
-
-      const submittedComposerContext = options?.metadata?.composerContext;
-      const referencedContextIds = isComposerContextSnapshot(submittedComposerContext)
-        ? new Set(getComposerContextIds(submittedComposerContext.document))
-        : new Set<string>();
-      if (ambientFocus && !referencedContextIds.has(ambientFocus.id)) {
-        fullMessage = `${trimmedMessage}\n\n${formatSpreadsheetFocusContext(ambientFocus, sendCapturedAt)}`;
+      let composerSubmission = options?.composerSubmission;
+      if (ambientFocus && composerSubmission) {
+        const alreadyIncluded = composerSubmission.attachments.some(
+          attachment => attachment.id === ambientFocus.id,
+        );
+        if (!alreadyIncluded) {
+          const nextOrdinal = composerSubmission.attachments.reduce(
+            (largest, attachment) => Math.max(largest, attachment.ordinal),
+            0,
+          ) + 1;
+          composerSubmission = {
+            ...composerSubmission,
+            attachments: [
+              ...composerSubmission.attachments,
+              {
+                id: ambientFocus.id,
+                ordinal: nextOrdinal,
+                type: ambientFocus.type,
+                title: `${ambientFocus.sheetName}!${ambientFocus.a1}`,
+                modelContent: formatSpreadsheetFocusContext(ambientFocus, sendCapturedAt),
+              },
+            ],
+          };
+        }
+      } else if (ambientFocus) {
+        fullMessage = [trimmedMessage, formatSpreadsheetFocusContext(ambientFocus, sendCapturedAt)]
+          .filter(Boolean)
+          .join('\n\n');
       }
+
+      const displayMessage = options?.displayMessage?.trim()
+        || trimmedMessage
+        || composerSubmission?.attachments
+          .map(attachment => `[Attachment ${attachment.ordinal}: ${attachment.title}]`)
+          .join(' ')
+        || '';
 
       // Always pass imageContexts to the backend; the coordinator decides
       // whether to pre-analyse via a vision model or attach directly.
       const imageContextsForBackend = imageContexts.length > 0
         ? {
-            imageContexts: imageContexts.map(ctx => ({
-              id: ctx.id,
-              image_path: ctx.isLocal ? ctx.imagePath : undefined,
+            imageContexts: resolvedImageContexts.map(({ context, imagePath }) => ({
+              id: context.id,
+              image_path: imagePath,
               data_url: undefined,
-              mime_type: ctx.mimeType,
+              mime_type: context.mimeType,
               metadata: {
-                name: ctx.imageName,
-                width: ctx.width,
-                height: ctx.height,
-                file_size: ctx.fileSize,
-                source: ctx.source,
+                name: context.imageName,
+                width: context.width,
+                height: context.height,
+                file_size: context.fileSize,
+                source: context.source,
+                attachment_number: composerSubmission?.attachments.find(
+                  attachment => attachment.id === context.id,
+                )?.ordinal,
               },
             })),
-            imageDisplayData: imageContexts.map(ctx => ({
-              id: ctx.id,
-              name: ctx.imageName || 'Image',
-              dataUrl: ctx.dataUrl,
-              imagePath: ctx.isLocal ? ctx.imagePath : undefined,
-              mimeType: ctx.mimeType,
+            imageDisplayData: resolvedImageContexts.map(({ context, imagePath, dataUrl }) => ({
+              id: context.id,
+              name: context.imageName || 'Image',
+              dataUrl,
+              imagePath,
+              mimeType: context.mimeType,
             })),
           }
         : undefined;
@@ -265,7 +312,7 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
           }
         : options?.metadata;
       const resolvedSendContext = await resolveSendContext?.({
-        message: trimmedMessage,
+        message: trimmedMessage || displayMessage,
         sessionId,
       });
       const messageMetadata = resolvedSendContext?.metadata
@@ -288,12 +335,13 @@ export function useMessageSender(props: UseMessageSenderProps): UseMessageSender
           systemReminderOverride:
             resolvedSendContext?.systemReminderOverride ?? options?.systemReminderOverride,
           localDialogTurnId: options?.localDialogTurnId,
+          composerSubmission,
         }
       );
 
       onExitTemplateMode?.();
 
-      onSuccess?.(trimmedMessage);
+      onSuccess?.(displayMessage);
       log.info('Message sent successfully', {
         sessionId,
         composerAgentType: currentAgentType || 'Runno',

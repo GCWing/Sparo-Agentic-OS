@@ -1,9 +1,9 @@
  
 
-import type { FileSystemNode } from '../../../tools/file-system/types';
+import type { FileSystemNode } from '../../types/file-system';
 import type { FileContext, DirectoryContext, ImageContext, ContextItem } from '../../types/context';
 import type { IDragSource, DragPayload, PreviewData } from '../../types/drag';
-import { isImageFile, getMimeTypeFromFilename } from '../../../flow_chat/utils/imageUtils';
+import { imageMimeTypeFromPath, isImageFilename } from '../../media/imageFormats';
 import { i18nService } from '@/infrastructure/i18n';
 export class FileTreeDragSource implements IDragSource<FileSystemNode> {
   readonly sourceId = 'file-tree-primary';
@@ -31,17 +31,16 @@ export class FileTreeDragSource implements IDragSource<FileSystemNode> {
       } as DirectoryContext;
     } else {
       
-      if (isImageFile(node.name)) {
+      if (isImageFilename(node.name)) {
         
         contextData = {
           id,
           type: 'image',
-          imagePath: node.path,
           imageName: node.name,
           fileSize: node.size || 0,
-          mimeType: getMimeTypeFromFilename(node.name),
+          mimeType: imageMimeTypeFromPath(node.name, 'image/jpeg'),
           source: 'file',
-          isLocal: true,
+          sourceRef: { kind: 'local-file', path: node.path },
           timestamp: Date.now(),
           metadata: {
             isDirectory: false,

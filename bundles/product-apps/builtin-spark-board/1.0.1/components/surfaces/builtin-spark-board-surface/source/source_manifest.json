@@ -1,8 +1,0 @@
-{
-  "uiEntry": "ui.js",
-  "workerEntry": "worker.js",
-  "styleEntries": [
-    "style.css"
-  ],
-  "buildMode": "nativeEsm"
-}

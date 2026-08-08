@@ -174,6 +174,7 @@ const AppsPreview: React.FC<WorkspaceHubPreviewProps> = ({
       scope: systemAppScope(),
       title: app.name,
       objective: app.description || app.name,
+      intent: { kind: 'resume_last' },
     }).catch((error) => {
       log.error('Failed to launch app from Workspace Hub', { appId: app.id, error });
       useAppsStore.getState().openAppDetail(app.id);
