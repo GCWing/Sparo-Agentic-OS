@@ -12,6 +12,7 @@ export {
   useActiveTabId,
   useLayout,
   useDragging,
-  switchAgentCanvasWorkspace,
-  removeAgentCanvasSnapshot,
+  activateAgentCanvasHost,
+  getActiveAgentCanvasHostKey,
+  removeAgentCanvasHost,
 } from './canvasStore';

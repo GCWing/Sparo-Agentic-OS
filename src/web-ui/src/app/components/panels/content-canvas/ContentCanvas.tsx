@@ -1,6 +1,6 @@
 /**
  * ContentCanvas main container component.
- * Core component for the right panel, aggregating submodules.
+ * Core canvas used by auxiliary and standalone workbench surfaces.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -8,9 +8,15 @@ import { EditorArea } from './editor-area';
 import { AnchorZone } from './anchor-zone';
 import { EmptyState } from './empty-state';
 import { useCanvasStore } from './stores';
-import { useTabLifecycle, useKeyboardShortcuts, usePanelTabCoordinator } from './hooks';
+import { useTabLifecycle, useKeyboardShortcuts } from './hooks';
 import type { AnchorPosition } from './types';
 import { openMainSession, selectActiveChildSessionTab } from '@/flow_chat/services/childSessionPanels';
+import {
+  enterActiveAuxiliarySceneFocus,
+  exitActiveAuxiliarySceneFocus,
+  selectActiveAuxiliaryHostState,
+  useAuxiliarySurfaceStore,
+} from '@/app/auxiliary-surface';
 import './ContentCanvas.scss';
 export interface ContentCanvasProps {
   /** Workspace path */
@@ -19,20 +25,29 @@ export interface ContentCanvasProps {
   mode?: 'agent' | 'project';
   /** Whether the containing scene is currently visible */
   isSceneActive?: boolean;
+  /** Whether this canvas currently owns the session scene focus presentation. */
+  isSceneFocused?: boolean;
   /** Interaction callback */
   onInteraction?: (itemId: string, userInput: string) => Promise<void>;
   /** Before-close callback */
   onBeforeClose?: (content: any) => Promise<boolean>;
   /** Disable pop-out and panel-close controls (used in panel-view scene) */
   disablePopOut?: boolean;
+  /** Request that the owning host hide this canvas. */
+  onRequestClose?: () => void;
+  /** Notify the owning host when the final visible tab is closed. */
+  onLastVisibleTabClosed?: () => void;
 }
 
 export const ContentCanvas: React.FC<ContentCanvasProps> = ({
   workspacePath,
   mode = 'agent',
   isSceneActive = true,
+  isSceneFocused = false,
   onInteraction,
   disablePopOut = false,
+  onRequestClose,
+  onLastVisibleTabClosed,
 }) => {
   // Store state
   const {
@@ -46,15 +61,24 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
     | { childSessionId: string; parentSessionId: string; workspacePath?: string }
     | undefined;
   const lastSyncedChildSessionTabIdRef = useRef<string | null>(null);
+  const activeAuxiliaryHost = useAuxiliarySurfaceStore(selectActiveAuxiliaryHostState);
   // Initialize hooks
-  const { handleCloseWithDirtyCheck, handleCloseAllWithDirtyCheck } = useTabLifecycle({ mode });
-  useKeyboardShortcuts({ enabled: true, handleCloseWithDirtyCheck });
-  // Panel/tab state coordinator (auto manage expand/collapse)
-  const { collapsePanel } = usePanelTabCoordinator({
-    autoCollapseOnEmpty: true,
-    autoExpandOnTabOpen: true,
+  const { handleCloseWithDirtyCheck, handleCloseAllWithDirtyCheck } = useTabLifecycle({
+    mode,
+    onLastVisibleTabClosed,
   });
-
+  const toggleSceneFocus = useCallback(() => {
+    if (activeAuxiliaryHost?.presentation === 'scene-focus') {
+      exitActiveAuxiliarySceneFocus('previous');
+    } else {
+      enterActiveAuxiliarySceneFocus();
+    }
+  }, [activeAuxiliaryHost?.presentation]);
+  useKeyboardShortcuts({
+    enabled: true,
+    handleCloseWithDirtyCheck,
+    onToggleSceneFocus: mode === 'agent' ? toggleSceneFocus : undefined,
+  });
   useEffect(() => {
     if (mode !== 'agent' || !activeChildSessionTab?.id || !activeChildSessionData?.parentSessionId) {
       lastSyncedChildSessionTabIdRef.current = null;
@@ -94,7 +118,7 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
   const renderContent = () => {
     // Show empty state when primary group has no visible tabs
     if (!hasPrimaryVisibleTabs) {
-      return <EmptyState onClose={disablePopOut ? undefined : collapsePanel} />;
+      return <EmptyState onClose={disablePopOut ? undefined : onRequestClose} />;
     }
 
     return (
@@ -108,6 +132,10 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
             onTabCloseWithDirtyCheck={handleCloseWithDirtyCheck}
             onTabCloseAllWithDirtyCheck={handleCloseAllWithDirtyCheck}
             disablePopOut={disablePopOut}
+            onRequestClose={onRequestClose}
+            onRequestSceneFocus={mode === 'agent' && !isSceneFocused
+              ? toggleSceneFocus
+              : undefined}
           />
         </div>
 
@@ -131,7 +159,7 @@ export const ContentCanvas: React.FC<ContentCanvasProps> = ({
 
   return (
     <div
-      className={`canvas-content-canvas ${layout.isMaximized ? 'is-maximized' : ''}`}
+      className={`canvas-content-canvas ${mode === 'project' && layout.isMaximized ? 'is-maximized' : ''}`}
       data-shortcut-scope="canvas"
     >
       {/* Main content */}

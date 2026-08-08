@@ -5,6 +5,7 @@ import {
   DailyLetterIcon,
   FilesIcon,
   MemoryIcon,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
   SettingsIcon,
   SkillsIcon,
   SubagentIcon,
@@ -119,7 +120,7 @@ export const WORKSPACE_HUB_ITEM_DEFINITIONS = [
     id: 'capabilities',
     group: 'secondary',
     Icon: Blocks,
-    labelKey: 'nav.items.capabilities',
+    labelKey: 'nav.menuPanel.sectionExtensions',
     openTarget: { kind: 'preview-only' },
     matches: (surface) => surface.kind === 'scene'
       && (surface.sceneId === 'tools' || surface.sceneId === 'subagents'),
@@ -179,9 +180,19 @@ export function resolveWorkspaceHubItem(surface: WorkspaceSurface): WorkspaceHub
   return WORKSPACE_HUB_ITEM_DEFINITIONS.find((item) => item.matches(surface))?.id ?? 'work-center';
 }
 
-export function renderWorkspaceHubItemIcon(itemId: WorkspaceHubItemId, size = 22): React.ReactNode {
+export function renderWorkspaceHubItemIcon(itemId: WorkspaceHubItemId, size = 20): React.ReactNode {
   const { Icon } = getWorkspaceHubItem(itemId);
-  return <Icon size={size} strokeWidth={1.8} absoluteStrokeWidth aria-hidden="true" />;
+  const compactStrokeWidth = itemId === 'capabilities'
+    ? 1.6
+    : SPARO_ICON_OPTICAL_STROKE_WIDTH.compact;
+  return (
+    <Icon
+      size={size}
+      strokeWidth={compactStrokeWidth}
+      absoluteStrokeWidth
+      aria-hidden="true"
+    />
+  );
 }
 
 export function isWorkspaceHubPreviewItem(

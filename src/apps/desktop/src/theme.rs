@@ -33,16 +33,6 @@ pub struct ThemeConfig {
 impl ThemeConfig {
     pub fn get_builtin_theme(theme_id: &str) -> Option<Self> {
         match theme_id {
-            "slate" => Some(Self {
-                id: theme_id.to_string(),
-                bg_primary: "#14161a".to_string(),
-                bg_secondary: "#22262c".to_string(),
-                bg_scene: "#22262c".to_string(),
-                is_light: false,
-                text_primary: "#eef0f3".to_string(),
-                text_muted: "rgba(255, 255, 255, 0.4)".to_string(),
-                accent_color: "#B7372F".to_string(),
-            }),
             "dark" => Some(Self {
                 id: theme_id.to_string(),
                 bg_primary: "#0e0e10".to_string(),
@@ -53,26 +43,6 @@ impl ThemeConfig {
                 text_muted: "rgba(255, 255, 255, 0.4)".to_string(),
                 accent_color: "#B7372F".to_string(),
             }),
-            "sparo-cyber" => Some(Self {
-                id: theme_id.to_string(),
-                bg_primary: "#101010".to_string(),
-                bg_secondary: "#151515".to_string(),
-                bg_scene: "#141414".to_string(),
-                is_light: false,
-                text_primary: "#e0f2ff".to_string(),
-                text_muted: "rgba(255, 255, 255, 0.4)".to_string(),
-                accent_color: "#00e6ff".to_string(),
-            }),
-            "sparo-china-night" => Some(Self {
-                id: theme_id.to_string(),
-                bg_primary: "#1a1814".to_string(),
-                bg_secondary: "#141210".to_string(),
-                bg_scene: "#1e1c17".to_string(),
-                is_light: false,
-                text_primary: "#e8e6e1".to_string(),
-                text_muted: "rgba(255, 255, 255, 0.4)".to_string(),
-                accent_color: "#c4a35a".to_string(),
-            }),
             "light" => Some(Self {
                 id: theme_id.to_string(),
                 bg_primary: "#F8FAFC".to_string(),
@@ -82,16 +52,6 @@ impl ThemeConfig {
                 text_primary: "#0F172A".to_string(),
                 text_muted: "#5B6B8C".to_string(),
                 accent_color: "#B7372F".to_string(),
-            }),
-            "sparo-china-style" => Some(Self {
-                id: theme_id.to_string(),
-                bg_primary: "#faf8f0".to_string(),
-                bg_secondary: "#f5f3e8".to_string(),
-                bg_scene: "#fdfcf6".to_string(),
-                is_light: true,
-                text_primary: "#1a1a1a".to_string(),
-                text_muted: "rgba(0, 0, 0, 0.5)".to_string(),
-                accent_color: "#2e5e8a".to_string(),
             }),
             _ => None,
         }
@@ -169,13 +129,15 @@ impl ThemeConfig {
     }
 
     fn resolve_builtin_theme_id(theme_id: &str) -> &str {
-        if theme_id == "system" {
-            return match dark_light::detect() {
+        match theme_id {
+            "system" => match dark_light::detect() {
                 Mode::Dark => "dark",
                 Mode::Light | Mode::Default => "light",
-            };
+            },
+            "sparo-china-style" => "light",
+            "slate" | "sparo-china-night" | "sparo-cyber" => "dark",
+            _ => theme_id,
         }
-        theme_id
     }
 
     fn from_custom_theme(theme: &serde_json::Value) -> Result<Self, String> {
@@ -344,6 +306,27 @@ mod tests {
         assert_eq!(theme.id, "light");
         assert_eq!(theme.bg_primary, "#F8FAFC");
         assert!(theme.is_light);
+    }
+
+    #[test]
+    fn startup_config_maps_retired_builtin_themes_to_light_or_dark() {
+        let retired_light = ThemeConfig::from_startup_config_value(&json!({
+            "themes": {
+                "current": "sparo-china-style"
+            }
+        }))
+        .expect("retired light theme should map to light");
+        let retired_dark = ThemeConfig::from_startup_config_value(&json!({
+            "themes": {
+                "current": "slate"
+            }
+        }))
+        .expect("retired dark theme should map to dark");
+
+        assert_eq!(retired_light.id, "light");
+        assert!(retired_light.is_light);
+        assert_eq!(retired_dark.id, "dark");
+        assert!(!retired_dark.is_light);
     }
 
     #[test]

@@ -32,7 +32,7 @@ export const isFileViewerType = (type: PanelContentType): boolean => {
 /**
  * Options for creating a tab.
  */
-export interface CreateTabOptions {
+export interface CanvasItemDescriptor {
   /** Content type */
   type: PanelContentType;
   /** Title */
@@ -41,8 +41,6 @@ export interface CreateTabOptions {
   data?: any;
   /** Metadata */
   metadata?: Record<string, any>;
-  /** Whether to check duplicates */
-  checkDuplicate?: boolean;
   /** Duplicate check key */
   duplicateCheckKey?: string;
   /** Whether to replace existing tab */
@@ -52,23 +50,3 @@ export interface CreateTabOptions {
   /** Enable split view (auto-switch to horizontal split) */
   enableSplitView?: boolean;
 }
-
-/**
- * Create-tab event detail.
- */
-export interface CreateTabEventDetail extends CreateTabOptions {
-  /** App mode / target canvas */
-  mode?: 'agent' | 'project';
-}
-
-/**
- * Tab event names.
- */
-export const TAB_EVENTS = {
-  /** Create tab in agent mode */
-  AGENT_CREATE_TAB: 'agent-create-tab',
-  /** Create tab in project mode */
-  PROJECT_CREATE_TAB: 'project-create-tab',
-  /** Expand right panel */
-  EXPAND_RIGHT_PANEL: 'expand-right-panel',
-} as const;

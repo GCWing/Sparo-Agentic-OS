@@ -525,6 +525,8 @@
     "devWingExpand": "Expand dev tools"
   },
   "canvas": {
+    "collapsePanel": "Collapse right panel",
+    "focusInScene": "Focus in scene",
     "noContentOpen": "No content open",
     "filesCount": "{{count}} files",
     "searchPlaceholder": "Search file name or path...",

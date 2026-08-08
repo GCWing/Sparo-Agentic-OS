@@ -19,18 +19,11 @@ export const NotificationContainer: React.FC = () => {
     n => n.variant !== 'silent'
   );
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const collapseTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [needsScroll, setNeedsScroll] = React.useState(false);
   const notificationLayoutKey = visibleNotifications
     .map(notification => notification.id)
     .join('|');
-
-  React.useEffect(() => () => {
-    if (collapseTimerRef.current !== null) {
-      clearTimeout(collapseTimerRef.current);
-    }
-  }, []);
 
   React.useLayoutEffect(() => {
     const container = containerRef.current;
@@ -41,15 +34,15 @@ export const NotificationContainer: React.FC = () => {
     const items = Array.from(container.children).filter(
       (child): child is HTMLElement => child instanceof HTMLElement
     );
-    const frontItem = items[items.length - 1];
-    if (!(frontItem instanceof HTMLElement)) {
+    const frontCard = items[items.length - 1]?.firstElementChild;
+    if (!(frontCard instanceof HTMLElement)) {
       return;
     }
 
     const syncLayout = () => {
       container.style.setProperty(
         '--notification-front-height',
-        `${frontItem.getBoundingClientRect().height}px`
+        `${frontCard.offsetHeight}px`
       );
 
       const styles = getComputedStyle(container);
@@ -59,11 +52,13 @@ export const NotificationContainer: React.FC = () => {
       ) || 0;
       const expandedContentHeight = items.reduce((height, item) => {
         const card = item.firstElementChild;
-        return height + (
+        const itemHeight = (
           card instanceof HTMLElement
-            ? card.getBoundingClientRect().height
+            ? Math.max(card.scrollHeight, card.offsetHeight)
             : item.scrollHeight
         );
+        item.style.setProperty('--notification-item-height', `${itemHeight}px`);
+        return height + itemHeight;
       }, paddingBlock) + expandedGap * Math.max(items.length - 1, 0);
 
       setNeedsScroll(expandedContentHeight > window.innerHeight - 72);
@@ -81,6 +76,7 @@ export const NotificationContainer: React.FC = () => {
       resizeObserver.disconnect();
       window.removeEventListener('resize', syncLayout);
       container.style.removeProperty('--notification-front-height');
+      items.forEach(item => item.style.removeProperty('--notification-item-height'));
     };
   }, [notificationLayoutKey]);
 
@@ -89,18 +85,11 @@ export const NotificationContainer: React.FC = () => {
   }
 
   const handlePointerEnter = () => {
-    if (collapseTimerRef.current !== null) {
-      clearTimeout(collapseTimerRef.current);
-      collapseTimerRef.current = null;
-    }
     setIsExpanded(true);
   };
 
   const handlePointerLeave = () => {
-    collapseTimerRef.current = setTimeout(() => {
-      setIsExpanded(false);
-      collapseTimerRef.current = null;
-    }, 320);
+    setIsExpanded(false);
   };
 
   return (

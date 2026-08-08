@@ -3,7 +3,6 @@
 import { api } from './ApiClient';
 import { createTauriCommandError } from '../errors/TauriCommandError';
 import { createLogger } from '@/shared/utils/logger';
-import { flowChatStore } from '@/flow_chat/store/FlowChatStore';
 
 const log = createLogger('SnapshotAPI');
 
@@ -14,10 +13,16 @@ const requireWorkspacePath = (workspacePath?: string): string => {
   return workspacePath;
 };
 
-const requireSessionWorkspacePath = (sessionId: string, workspacePath?: string): string => {
+export type SessionWorkspacePathResolver = (sessionId: string) => string | undefined;
+let sessionWorkspacePathResolver: SessionWorkspacePathResolver | null = null;
+
+const requireSessionWorkspacePath = (
+  sessionId: string,
+  workspacePath: string | undefined,
+): string => {
   const resolved =
     workspacePath ||
-    flowChatStore.getState().sessions.get(sessionId)?.workspacePath;
+    sessionWorkspacePathResolver?.(sessionId);
   if (!resolved) {
     throw new Error(`workspacePath is required for snapshot session: ${sessionId}`);
   }
@@ -129,6 +134,9 @@ export interface CleanupSandboxDataRequest {
 }
 
 export class SnapshotAPI {
+  setSessionWorkspacePathResolver(resolver: SessionWorkspacePathResolver): void {
+    sessionWorkspacePathResolver = resolver;
+  }
    
   async getSessionStats(sessionId: string, workspacePath?: string): Promise<{
     session_id: string;

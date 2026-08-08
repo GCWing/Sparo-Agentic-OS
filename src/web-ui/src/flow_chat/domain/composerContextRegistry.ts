@@ -10,18 +10,14 @@ import {
   Image,
   Link,
   Layers,
+  Network,
   MousePointer2,
   Sheet,
   SquareTerminal,
   type LucideIcon,
 } from 'lucide-react';
-import { openSessionSidecarPanel } from '@/app/session-profiles';
-import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
-import {
-  spreadsheetFormulaResultsTrustworthy,
-} from '@/app/agentic-os/excel-live/excelLiveFocusStore';
-import { systemAPI } from '@/infrastructure/api';
 import { i18nService } from '@/infrastructure/i18n';
+import { getImageAssetPreviewUrl } from '@/shared/media/imageAssetStore';
 import type {
   ContextItem,
   ContextType,
@@ -33,12 +29,16 @@ import type {
 import type {
   ComposerContextSnapshot,
   ComposerDocument,
+  ComposerSubmissionEnvelope,
+  ComposerSubmissionIntent,
+  ContextReference,
 } from '@/shared/types/composer';
-import { getComposerContextIds } from '@/shared/types/composer';
-import { openFileInBestTarget } from '@/shared/utils/tabUtils';
-import { createLogger } from '@/shared/utils/logger';
-
-const log = createLogger('ComposerContextRegistry');
+import { getComposerReferenceIds } from '@/shared/types/composer';
+import {
+  isComposerContextWorkspaceOpen,
+  requestComposerContextWorkspace,
+  type ComposerWorkspaceItemDescriptor,
+} from './composerContextWorkspacePort';
 
 export type ContextInjectionMode = 'inline' | 'attached' | 'out-of-band';
 
@@ -62,6 +62,10 @@ interface ContextTypeAdapter<T extends ContextItem> {
   presentation: (context: T, t: TFunction<'flow-chat'>) => ContextPresentation;
   serializeForModel: (context: T, capturedAt: number) => string;
   open?: (context: T, options: OpenContextOptions) => void | Promise<void>;
+  createWorkspaceItem?: (
+    context: T,
+    options: OpenContextOptions,
+  ) => ComposerWorkspaceItemDescriptor;
   snapshot?: (context: T) => T;
 }
 
@@ -77,6 +81,40 @@ function basePresentation(
   canOpen = false,
 ): ContextPresentation {
   return { label, detail, icon, color, canOpen };
+}
+
+function markdownWorkspaceItem(
+  context: ContextItem,
+  title: string,
+  content: string,
+  options: OpenContextOptions,
+  readOnly = true,
+): ComposerWorkspaceItemDescriptor {
+  const duplicateCheckKey = `context-workspace:${options.draftKey || 'draft'}:${context.id}`;
+  return {
+    type: 'markdown-editor',
+    title,
+    duplicateCheckKey,
+    replaceExisting: true,
+    data: {
+      initialContent: content,
+      fileName: title,
+      workspacePath: options.workspacePath,
+      readOnly,
+      onContentChange: readOnly || !options.onUpdate
+        ? undefined
+        : (nextContent: string) => options.onUpdate?.(context.id, {
+            ...(context.type === 'text-fragment'
+              ? { content: nextContent, charCount: Array.from(nextContent).length }
+              : {}),
+          }),
+    },
+    metadata: {
+      contextId: context.id,
+      contextType: context.type,
+      duplicateCheckKey,
+    },
+  };
 }
 
 function textFragmentPreview(content: string): string {
@@ -97,6 +135,20 @@ function formatSpreadsheetCoverage(coverage: SpreadsheetFocusCacheCoverage | und
   if (typeof cached === 'number' && typeof selected === 'number') return `${cached}/${selected} cells`;
   if (typeof coverage.ratio === 'number') return `${Math.round(coverage.ratio * 100)}%`;
   return JSON.stringify(coverage);
+}
+
+function spreadsheetFormulaResultsTrustworthy(context: SpreadsheetFocusContext): boolean {
+  if (context.formulaResultsFresh === false) return false;
+  const token = String(
+    context.calculationStatus?.status ?? context.calculationStatus?.state ?? '',
+  ).trim().toLowerCase();
+  if (['cached', 'stale', 'pending', 'dirty', 'unknown', 'failed', 'error'].includes(token)) {
+    return false;
+  }
+  if (['current', 'fresh', 'ready', 'calculated', 'recalculated', 'ok', 'not-required'].includes(token)) {
+    return true;
+  }
+  return context.formulaResultsFresh === true;
 }
 
 export function formatSpreadsheetFocusContext(
@@ -142,28 +194,12 @@ function openTextFragment(context: TextFragmentContext, options: OpenContextOpti
     ? `message-context:${context.id}`
     : `composer-context:${options.draftKey || 'draft'}:${context.id}`;
 
-  openSessionSidecarPanel({
-    type: 'markdown-editor',
-    title,
-    duplicateCheckKey,
-    replaceExisting: true,
-    data: {
-      initialContent: context.content,
-      fileName: title,
-      workspacePath: options.workspacePath,
-      readOnly: options.readOnly,
-      onContentChange: options.readOnly || !options.onUpdate
-        ? undefined
-        : (content: string) => options.onUpdate?.(context.id, {
-            content,
-            charCount: Array.from(content).length,
-          }),
-    },
-    metadata: {
-      contextId: context.id,
-      contextType: context.type,
+  requestComposerContextWorkspace({
+    item: {
+      ...markdownWorkspaceItem(context, title, context.content, options, options.readOnly),
       duplicateCheckKey,
     },
+    presentation: 'docked',
   });
 }
 
@@ -185,6 +221,13 @@ const adapters: { [K in ContextType]: ContextTypeAdapter<Extract<ContextItem, { 
     ),
     serializeForModel: context => context.content,
     open: openTextFragment,
+    createWorkspaceItem: (context, options) => markdownWorkspaceItem(
+      context,
+      i18nService.t('flow-chat:input.context.longTextTitle', { defaultValue: 'Long text' }),
+      context.content,
+      options,
+      options.readOnly,
+    ),
   },
   'skill-selection': {
     injectionMode: 'inline',
@@ -208,16 +251,25 @@ const adapters: { [K in ContextType]: ContextTypeAdapter<Extract<ContextItem, { 
     injectionMode: 'attached',
     presentation: context => basePresentation(context.fileName, fileDetail(context.filePath), File, 'blue', true),
     serializeForModel: context => `[File: ${context.relativePath || context.filePath}]`,
-    open: (context, options) => openFileInBestTarget({
-      filePath: context.filePath,
-      fileName: context.fileName,
-      workspacePath: options.workspacePath,
+    createWorkspaceItem: (context, options) => ({
+      type: /\.(md|mdx|markdown)$/i.test(context.fileName) ? 'markdown-editor' : 'code-editor',
+      title: context.fileName,
+      duplicateCheckKey: `context-workspace:${options.draftKey || 'draft'}:${context.id}`,
+      replaceExisting: true,
+      data: { filePath: context.filePath, workspacePath: options.workspacePath },
+      metadata: { contextId: context.id, contextType: context.type },
     }),
   },
   directory: {
     injectionMode: 'attached',
     presentation: context => basePresentation(context.directoryName, context.directoryPath, Folder, 'purple'),
     serializeForModel: context => `[Directory${context.recursive ? ' (recursive)' : ''}: ${context.directoryPath}]`,
+    createWorkspaceItem: (context, options) => markdownWorkspaceItem(
+      context,
+      context.directoryName,
+      `# ${context.directoryName}\n\n${context.directoryPath}`,
+      options,
+    ),
   },
   'code-snippet': {
     injectionMode: 'inline',
@@ -232,20 +284,46 @@ const adapters: { [K in ContextType]: ContextTypeAdapter<Extract<ContextItem, { 
       `[Code Snippet: ${context.filePath}:${context.startLine}-${context.endLine}]`,
       `\`\`\`${context.language || ''}`,
       context.selectedText,
-      '\`\`\`',
+      '```',
     ].join('\n'),
-    open: (context, options) => openFileInBestTarget({
-      filePath: context.filePath,
-      fileName: context.fileName,
-      workspacePath: options.workspacePath,
-      jumpToRange: { start: context.startLine, end: context.endLine },
+    createWorkspaceItem: (context, options) => ({
+      type: 'code-editor',
+      title: context.fileName,
+      duplicateCheckKey: `context-workspace:${options.draftKey || 'draft'}:${context.id}`,
+      replaceExisting: true,
+      data: {
+        filePath: context.filePath,
+        workspacePath: options.workspacePath,
+        jumpToRange: { start: context.startLine, end: context.endLine },
+      },
+      metadata: { contextId: context.id, contextType: context.type },
     }),
   },
   image: {
     injectionMode: 'out-of-band',
-    presentation: context => basePresentation(context.imageName, context.imagePath, Image, 'yellow'),
+    presentation: context => basePresentation(
+      context.imageName,
+      context.sourceRef.kind === 'local-file' ? context.sourceRef.path : '',
+      Image,
+      'yellow',
+    ),
     serializeForModel: () => '',
-    snapshot: context => ({ ...context, dataUrl: undefined, thumbnailUrl: undefined }),
+    createWorkspaceItem: (context, options) => ({
+      type: 'image-viewer',
+      title: context.imageName,
+      duplicateCheckKey: `context-workspace:${options.draftKey || 'draft'}:${context.id}`,
+      replaceExisting: true,
+      data: {
+        sourceRef: context.sourceRef,
+        previewUrl: getImageAssetPreviewUrl(context),
+        mimeType: context.mimeType,
+        fileSize: context.fileSize,
+        width: context.width,
+        height: context.height,
+      },
+      metadata: { contextId: context.id, contextType: context.type },
+    }),
+    snapshot: context => ({ ...context, thumbnailUrl: undefined }),
   },
   'terminal-command': {
     injectionMode: 'inline',
@@ -265,13 +343,18 @@ const adapters: { [K in ContextType]: ContextTypeAdapter<Extract<ContextItem, { 
     injectionMode: 'attached',
     presentation: context => basePresentation(context.title || context.url, context.url, Link, 'blue', true),
     serializeForModel: context => `[URL: ${context.url}]`,
-    open: async context => {
-      try {
-        await systemAPI.openExternal(context.url);
-      } catch (error) {
-        log.error('Failed to open context URL', { url: context.url, error });
-      }
-    },
+    createWorkspaceItem: (context, options) => markdownWorkspaceItem(
+      context,
+      context.title || context.url,
+      [
+        `# ${context.title || context.url}`,
+        '',
+        context.description || '',
+        '',
+        context.url,
+      ].filter(Boolean).join('\n'),
+      options,
+    ),
   },
   'web-element': {
     injectionMode: 'inline',
@@ -300,6 +383,29 @@ const adapters: { [K in ContextType]: ContextTypeAdapter<Extract<ContextItem, { 
       `Element Summary:\n\`\`\`json\n${JSON.stringify(context.element, null, 2)}\n\`\`\``,
     ].join('\n'),
   },
+  'intent-canvas': {
+    injectionMode: 'attached',
+    presentation: context => basePresentation(
+      context.rootNodeLabel || context.title,
+      `${context.nodeCount} nodes · ${context.scope}`,
+      Network,
+      'purple',
+      true,
+    ),
+    serializeForModel: context => [
+      `[Intent Canvas: ${context.title}]`,
+      `Canvas: ${context.canvasId}; revision=${context.revision}; scope=${context.scope}`,
+      context.rootNodeId ? `Root node: ${context.rootNodeId}` : '',
+      context.selectedNodeIds?.length ? `Selected nodes: ${context.selectedNodeIds.join(', ')}` : '',
+      context.serializedContent,
+    ].filter(Boolean).join('\n'),
+    createWorkspaceItem: (context, options) => markdownWorkspaceItem(
+      context,
+      context.title,
+      context.serializedContent,
+      options,
+    ),
+  },
   'spreadsheet-focus': {
     injectionMode: 'out-of-band',
     presentation: context => basePresentation(
@@ -320,6 +426,28 @@ export function getContextPresentation(
   return adapter.presentation(context, t);
 }
 
+/** Concise content-owned title shared by inline, tray, and Peek surfaces. */
+export function getContextDisplayTitle(
+  context: ContextItem,
+  t: TFunction<'flow-chat'>,
+): string {
+  switch (context.type) {
+    case 'text-fragment':
+      return context.content.split(/\r?\n/).find(line => line.trim())?.trim()
+        || getContextPresentation(context, t).label;
+    case 'url':
+      return context.title || context.url;
+    case 'code-snippet':
+      return `${context.fileName}:${context.startLine}-${context.endLine}`;
+    case 'intent-canvas':
+      return context.title;
+    case 'image':
+      return context.imageName;
+    default:
+      return getContextPresentation(context, t).label;
+  }
+}
+
 export function getContextInjectionMode(context: ContextItem): ContextInjectionMode {
   return (adapters[context.type] as ContextTypeAdapter<ContextItem>).injectionMode;
 }
@@ -329,52 +457,157 @@ export function openComposerContext(
   options: OpenContextOptions,
 ): void {
   const adapter = adapters[context.type] as ContextTypeAdapter<ContextItem>;
-  void adapter.open?.(context, options);
+  if (adapter.open) {
+    void adapter.open(context, options);
+    return;
+  }
+  openComposerContextWorkspace(context, options, 'docked');
+}
+
+function createContextWorkspaceItem(
+  context: ContextItem,
+  options: OpenContextOptions,
+): ComposerWorkspaceItemDescriptor {
+  const adapter = adapters[context.type] as ContextTypeAdapter<ContextItem>;
+  if (adapter.createWorkspaceItem) return adapter.createWorkspaceItem(context, options);
+  return markdownWorkspaceItem(
+    context,
+    context.type,
+    adapter.serializeForModel(context, Date.now()),
+    options,
+  );
+}
+
+export function openComposerContextWorkspace(
+  context: ContextItem,
+  options: OpenContextOptions,
+  presentation: 'docked' | 'scene-focus',
+): boolean {
+  const item = createContextWorkspaceItem(context, options);
+  return requestComposerContextWorkspace({ item, presentation });
+}
+
+function contextForReference(
+  referenceId: string,
+  referencesById: Map<string, ContextReference>,
+  assetsById: Map<string, ContextItem>,
+): ContextItem | undefined {
+  const reference = referencesById.get(referenceId);
+  return reference ? assetsById.get(reference.assetId) : undefined;
+}
+
+export function createComposerSubmissionEnvelope(
+  document: ComposerDocument,
+  references: ContextReference[],
+  assets: ContextItem[],
+  intent: ComposerSubmissionIntent,
+  t: TFunction<'flow-chat'>,
+  capturedAt = Date.now(),
+): ComposerSubmissionEnvelope {
+  const referencesById = new Map(references.map(reference => [reference.id, reference]));
+  const assetIds = new Set(assets.map(asset => asset.id));
+
+  return {
+    schemaVersion: 1,
+    intent,
+    document: {
+      nodes: document.nodes.reduce<ComposerSubmissionEnvelope['document']['nodes']>((nodes, node) => {
+        if (node.type === 'text') {
+          nodes.push({ type: 'text', text: node.text });
+          return nodes;
+        }
+        const reference = referencesById.get(node.referenceId);
+        if (reference && assetIds.has(reference.assetId)) {
+          nodes.push({ type: 'attachment_ref', attachmentId: reference.assetId });
+        }
+        return nodes;
+      }, []),
+    },
+    attachments: assets.map((asset, index) => {
+      const modelContent = (adapters[asset.type] as ContextTypeAdapter<ContextItem>)
+        .serializeForModel(asset, capturedAt);
+      return {
+        id: asset.id,
+        ordinal: index + 1,
+        type: asset.type,
+        title: getContextDisplayTitle(asset, t),
+        ...(modelContent ? { modelContent } : {}),
+        ...(asset.type === 'image' ? { mimeType: asset.mimeType } : {}),
+      };
+    }),
+    createdAt: capturedAt,
+  };
 }
 
 export function serializeComposerDocumentForModel(
   document: ComposerDocument,
-  contexts: ContextItem[],
+  references: ContextReference[],
+  assets: ContextItem[],
   capturedAt = Date.now(),
 ): string {
-  const byId = new Map(contexts.map(context => [context.id, context]));
-  return document.nodes.map(node => {
+  const referencesById = new Map(references.map(reference => [reference.id, reference]));
+  const attachmentNumberById = new Map(assets.map((asset, index) => [asset.id, index + 1]));
+  const inline = document.nodes.map(node => {
     if (node.type === 'text') return node.text;
-    const context = byId.get(node.contextId);
-    if (!context) return '';
-    return (adapters[context.type] as ContextTypeAdapter<ContextItem>)
-      .serializeForModel(context, capturedAt);
+    const reference = referencesById.get(node.referenceId);
+    if (!reference) return '';
+    const attachmentNumber = attachmentNumberById.get(reference.assetId);
+    return attachmentNumber ? `[Attachment ${attachmentNumber}]` : '';
   }).join('');
+
+  const attachmentBlocks = assets
+    .map((context, index) => {
+      const serialized = (adapters[context.type] as ContextTypeAdapter<ContextItem>)
+        .serializeForModel(context, capturedAt);
+      if (!serialized) return '';
+      return `[Attachment ${index + 1}: ${context.type}]\n${serialized}`;
+    })
+    .filter(Boolean);
+  return [inline, ...attachmentBlocks].filter(Boolean).join('\n\n');
 }
 
 export function serializeComposerDocumentForDisplay(
   document: ComposerDocument,
-  contexts: ContextItem[],
+  references: ContextReference[],
+  assets: ContextItem[],
   t: TFunction<'flow-chat'>,
 ): string {
-  const byId = new Map(contexts.map(context => [context.id, context]));
-  return document.nodes.map(node => {
+  const referencesById = new Map(references.map(reference => [reference.id, reference]));
+  const assetsById = new Map(assets.map(asset => [asset.id, asset]));
+  const inlineAssetIds = new Set<string>();
+  const inline = document.nodes.map(node => {
     if (node.type === 'text') return node.text;
-    const context = byId.get(node.contextId);
+    const reference = referencesById.get(node.referenceId);
+    if (!reference) return '';
+    const context = contextForReference(node.referenceId, referencesById, assetsById);
+    if (context) inlineAssetIds.add(context.id);
     return context ? `[${getContextPresentation(context, t).label}]` : '';
   }).join('');
+
+  const unattached = assets
+    .filter(asset => !inlineAssetIds.has(asset.id))
+    .map(asset => `[${getContextPresentation(asset, t).label}]`)
+    .filter(Boolean);
+  return [inline, ...unattached].filter(Boolean).join('\n\n');
 }
 
 export function createComposerContextSnapshot(
   document: ComposerDocument,
-  contexts: ContextItem[],
+  references: ContextReference[],
+  assets: ContextItem[],
 ): ComposerContextSnapshot {
-  const referencedIds = new Set(getComposerContextIds(document));
-  const referencedContexts = contexts
-    .filter(context => referencedIds.has(context.id) || context.type === 'image')
-    .map(context => {
-      const adapter = adapters[context.type] as ContextTypeAdapter<ContextItem>;
-      return adapter.snapshot ? adapter.snapshot(context) : structuredClone(context);
+  const documentReferenceIds = new Set(getComposerReferenceIds(document));
+  const documentReferences = references.filter(reference => documentReferenceIds.has(reference.id));
+  const attachmentSnapshots = assets
+    .map(asset => {
+      const adapter = adapters[asset.type] as ContextTypeAdapter<ContextItem>;
+      return adapter.snapshot ? adapter.snapshot(asset) : structuredClone(asset);
     });
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     document: structuredClone(document),
-    contexts: referencedContexts,
+    references: structuredClone(documentReferences),
+    assets: attachmentSnapshots,
     createdAt: Date.now(),
   };
 }
@@ -383,27 +616,23 @@ export function freezeComposerDraftContextEditors(
   snapshot: ComposerContextSnapshot,
   draftKey: string,
 ): void {
-  const store = useAgentCanvasStore.getState();
-  snapshot.contexts.forEach(context => {
+  snapshot.assets.forEach(context => {
     if (context.type !== 'text-fragment') return;
     const duplicateCheckKey = `composer-context:${draftKey}:${context.id}`;
-    if (!store.findTabByMetadata({ duplicateCheckKey })) return;
-    openSessionSidecarPanel({
-      type: 'markdown-editor',
-      title: `${i18nService.t('flow-chat:input.context.longTextTitle', { defaultValue: 'Long text' })} · ${context.charCount.toLocaleString()}`,
-      duplicateCheckKey,
-      replaceExisting: true,
-      data: {
-        initialContent: context.content,
-        fileName: i18nService.t('flow-chat:input.context.longTextTitle', { defaultValue: 'Long text' }),
-        readOnly: true,
-      },
-      metadata: {
-        contextId: context.id,
-        contextType: context.type,
-        submittedAt: snapshot.createdAt,
+    if (!isComposerContextWorkspaceOpen(duplicateCheckKey)) return;
+    const title = `${i18nService.t('flow-chat:input.context.longTextTitle', { defaultValue: 'Long text' })} · ${context.charCount.toLocaleString()}`;
+    requestComposerContextWorkspace({
+      item: {
+        ...markdownWorkspaceItem(context, title, context.content, { readOnly: true }, true),
         duplicateCheckKey,
+        metadata: {
+          contextId: context.id,
+          contextType: context.type,
+          submittedAt: snapshot.createdAt,
+          duplicateCheckKey,
+        },
       },
+      presentation: 'docked',
     });
   });
 }
@@ -413,31 +642,20 @@ export function restoreComposerDraftContextEditors(
   draftKey: string,
   onUpdate: (contextId: string, updates: Partial<ContextItem>) => void,
 ): void {
-  const store = useAgentCanvasStore.getState();
-  snapshot.contexts.forEach(context => {
+  snapshot.assets.forEach(context => {
     if (context.type !== 'text-fragment') return;
     const duplicateCheckKey = `composer-context:${draftKey}:${context.id}`;
-    if (!store.findTabByMetadata({ duplicateCheckKey })) return;
+    if (!isComposerContextWorkspaceOpen(duplicateCheckKey)) return;
     const title = i18nService.t('flow-chat:input.context.longTextTitle', { defaultValue: 'Long text' });
-    openSessionSidecarPanel({
-      type: 'markdown-editor',
-      title,
-      duplicateCheckKey,
-      replaceExisting: true,
-      data: {
-        initialContent: context.content,
-        fileName: title,
-        readOnly: false,
-        onContentChange: (content: string) => onUpdate(context.id, {
-          content,
-          charCount: Array.from(content).length,
-        }),
-      },
-      metadata: {
-        contextId: context.id,
-        contextType: context.type,
+    requestComposerContextWorkspace({
+      item: {
+        ...markdownWorkspaceItem(context, title, context.content, {
+          readOnly: false,
+          onUpdate,
+        }, false),
         duplicateCheckKey,
       },
+      presentation: 'docked',
     });
   });
 }

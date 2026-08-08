@@ -10,14 +10,14 @@
 
 import { useCallback, useEffect } from 'react';
 import { useCanvasStore, useAgentCanvasStore, useProjectCanvasStore } from '../stores';
-import type { EditorGroupId, PanelContent, CreateTabEventDetail } from '../types';
-import { TAB_EVENTS } from '../types';
+import type { EditorGroupId, PanelContent } from '../types';
 import { useI18n } from '@/infrastructure/i18n';
-import { drainPendingTabs } from '@/shared/services/pendingTabQueue';
 import { confirmDialog } from '@/design-system';
 interface UseTabLifecycleOptions {
   /** App mode / target canvas */
   mode?: 'agent' | 'project';
+  /** Called after a close operation removes the final visible tab. */
+  onLastVisibleTabClosed?: () => void;
 }
 
 interface UseTabLifecycleReturn {
@@ -44,7 +44,7 @@ interface UseTabLifecycleReturn {
  * Tab lifecycle management hook.
  */
 export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLifecycleReturn => {
-  const { mode = 'agent' } = options;
+  const { mode = 'agent', onLastVisibleTabClosed } = options;
   const { t } = useI18n('components');
   const canvasStoreApi =
     mode === 'project' ? useProjectCanvasStore : useAgentCanvasStore;
@@ -55,12 +55,9 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
     togglePinTab,
     findTabByMetadata,
     switchToTab,
-    updateTabContent,
     closeTab,
     closeAllTabs,
     activeGroupId,
-    layout,
-    setSplitMode,
   } = useCanvasStore();
 
   /**
@@ -120,12 +117,26 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
     togglePinTab(tabId, groupId);
   }, [togglePinTab]);
 
+  const getGroup = useCallback((groupId: EditorGroupId) => {
+    const state = canvasStoreApi.getState();
+    if (groupId === 'primary') return state.primaryGroup;
+    if (groupId === 'secondary') return state.secondaryGroup;
+    return state.tertiaryGroup;
+  }, [canvasStoreApi]);
+
+  const notifyIfCanvasIsEmpty = useCallback(() => {
+    const hasVisibleTabs = canvasStoreApi.getState().getAllTabs()
+      .some(tab => tab.isHidden !== true);
+    if (!hasVisibleTabs) {
+      onLastVisibleTabClosed?.();
+    }
+  }, [canvasStoreApi, onLastVisibleTabClosed]);
+
   /**
    * Dirty check before closing a tab.
    */
   const handleCloseWithDirtyCheck = useCallback(async (tabId: string, groupId: EditorGroupId): Promise<boolean> => {
-    const { primaryGroup: latestPrimaryGroup, secondaryGroup: latestSecondaryGroup } = canvasStoreApi.getState();
-    const group = groupId === 'primary' ? latestPrimaryGroup : latestSecondaryGroup;
+    const group = getGroup(groupId);
     const tab = group.tabs.find(t => t.id === tabId);
 
     if (!tab) {
@@ -146,19 +157,20 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
     }
 
     closeTab(tabId, groupId);
+    notifyIfCanvasIsEmpty();
     return true;
-  }, [canvasStoreApi, closeTab, t]);
+  }, [closeTab, getGroup, notifyIfCanvasIsEmpty, t]);
 
   /**
    * Dirty check before closing all tabs.
    */
   const handleCloseAllWithDirtyCheck = useCallback(async (groupId: EditorGroupId): Promise<boolean> => {
-    const { primaryGroup: latestPrimaryGroup, secondaryGroup: latestSecondaryGroup } = canvasStoreApi.getState();
-    const group = groupId === 'primary' ? latestPrimaryGroup : latestSecondaryGroup;
+    const group = getGroup(groupId);
     const dirtyTabs = group.tabs.filter(t => t.isDirty);
 
     if (dirtyTabs.length === 0) {
       closeAllTabs(groupId);
+      notifyIfCanvasIsEmpty();
       return true;
     }
 
@@ -176,8 +188,9 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
     }
 
     closeAllTabs(groupId);
+    notifyIfCanvasIsEmpty();
     return true;
-  }, [canvasStoreApi, closeAllTabs, t]);
+  }, [closeAllTabs, getGroup, notifyIfCanvasIsEmpty, t]);
 
   /**
    * Listen for left-panel terminal close events to sync right-panel tabs.
@@ -214,83 +227,6 @@ export const useTabLifecycle = (options: UseTabLifecycleOptions = {}): UseTabLif
       window.removeEventListener('terminal-session-renamed', handleTerminalSessionRenamed as EventListener);
     };
   }, [mode]);
-
-  /**
-   * Listen for external tab creation events.
-   */
-  useEffect(() => {
-    const eventName =
-      mode === 'project'
-        ? TAB_EVENTS.PROJECT_CREATE_TAB
-        : TAB_EVENTS.AGENT_CREATE_TAB;
-
-    const handleCreateTab = (event: CustomEvent<CreateTabEventDetail>) => {
-      const {
-        type,
-        title,
-        data,
-        metadata,
-        checkDuplicate,
-        duplicateCheckKey,
-        replaceExisting,
-        targetGroup,
-        enableSplitView,
-      } = event.detail;
-      
-      const content: PanelContent = {
-        type,
-        title,
-        data,
-        metadata: { ...metadata, duplicateCheckKey },
-      };
-
-      // If split view is enabled, switch to vertical split first (top/bottom)
-      if (enableSplitView && layout.splitMode === 'none') {
-        setSplitMode('vertical');
-      }
-      
-      // Check duplicates
-      if (checkDuplicate && duplicateCheckKey) {
-        const existing = findTabByMetadata({ duplicateCheckKey });
-        if (existing) {
-          const hasJumpInfo = data?.jumpToRange || data?.jumpToLine || data?.jumpToColumn;
-
-          if (replaceExisting || hasJumpInfo) {
-            // Update content
-            updateTabContent(existing.tab.id, existing.groupId, content);
-          }
-          
-          // Switch to existing tab
-          switchToTab(existing.tab.id, existing.groupId);
-          
-          // Trigger right panel expansion
-          window.dispatchEvent(new CustomEvent(TAB_EVENTS.EXPAND_RIGHT_PANEL));
-          return;
-        }
-      }
-      
-      // Determine target group: use specified group when split enabled, otherwise active group
-      const groupId = (enableSplitView && targetGroup) ? targetGroup : (targetGroup || activeGroupId);
-
-      // Open all tabs in active state by default (no preview replacement)
-      addTab(content, 'active', groupId);
-      
-      // Trigger right panel expansion
-      window.dispatchEvent(new CustomEvent(TAB_EVENTS.EXPAND_RIGHT_PANEL));
-    };
-
-    window.addEventListener(eventName, handleCreateTab as EventListener);
-
-    // Drain any tab events that were enqueued before this listener was
-    // registered (happens when the scene was just mounted for the first time).
-    const pendingMode = mode === 'project' ? 'project' : 'agent';
-    const pending = drainPendingTabs(pendingMode);
-    pending.forEach(detail => handleCreateTab({ detail } as CustomEvent<CreateTabEventDetail>));
-    
-    return () => {
-      window.removeEventListener(eventName, handleCreateTab as EventListener);
-    };
-  }, [mode, findTabByMetadata, updateTabContent, switchToTab, addTab, activeGroupId, layout.splitMode, setSplitMode]);
 
   return {
     openPreview,

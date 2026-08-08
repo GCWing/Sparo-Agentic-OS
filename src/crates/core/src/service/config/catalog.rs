@@ -26,15 +26,8 @@ pub const SETTING_AI_DEFAULT_SPEECH_RECOGNITION: &str = "core.ai.default_models.
 pub const SETTING_MCP_SERVERS: &str = "core.mcp_servers";
 pub const SETTING_DEBUG_INGEST_PORT: &str = "core.product_apps.bitfun_coder.debug.ingest_port";
 
-pub(crate) const BUILTIN_THEME_OPTIONS: [(&str, &str); 7] = [
-    ("system", "System"),
-    ("light", "Light"),
-    ("slate", "Slate"),
-    ("dark", "Dark"),
-    ("sparo-china-style", "Sparo China Style"),
-    ("sparo-china-night", "Sparo China Night"),
-    ("sparo-cyber", "Sparo Cyber"),
-];
+pub(crate) const BUILTIN_THEME_OPTIONS: [(&str, &str); 3] =
+    [("system", "System"), ("light", "Light"), ("dark", "Dark")];
 
 /// Risk assigned by trusted catalog metadata.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -2679,10 +2672,14 @@ mod tests {
             theme.options_provider,
             Some(SettingOptionsProvider::AvailableThemes)
         );
-        assert!(theme
-            .resolved_options
-            .iter()
-            .any(|option| option.value == "custom-theme" && option.label == "Custom theme"));
+        assert_eq!(
+            theme
+                .resolved_options
+                .iter()
+                .map(|option| option.value.as_str())
+                .collect::<Vec<_>>(),
+            vec!["system", "light", "dark", "custom-theme"],
+        );
 
         let shell = catalog
             .find("core.terminal.default_shell")

@@ -87,7 +87,7 @@ sparo-ai-adapters = { path = "../ai-adapters" }
 cli-credential = { path = "../libs/cli-credential" }
 
 # Tool runtime
-tool-runtime = { path = "src/agentic/tools/implementations/tool-runtime" }
+tool-runtime = { path = "../tool-runtime" }
 
 # agentshell - agent-first terminal library
 agentshell = { workspace = true }
@@ -114,17 +114,11 @@ qrcode = { workspace = true }
 tokio-tungstenite = { workspace = true }
 sherpa-onnx = { workspace = true }
 
-# Relay server shared library (embedded relay reuses standalone relay logic)
-sparo-relay-server = { path = "../../apps/relay-server" }
+# Shared Remote Connect relay logic used by the embedded relay.
+sparo-relay = { path = "../relay" }
 
 # Event layer dependency (lowest layer)
 sparo-events = { path = "../events" }
-
-# Transport layer dependency
-sparo-transport = { path = "../transport" }
-
-# Tauri dependency (optional, enabled only when needed)
-tauri = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
 win32job = { workspace = true }
@@ -132,10 +126,6 @@ rustls = { version = "0.23", default-features = false }
 windows-sys = { version = "0.59", features = ["Win32_Storage_FileSystem"] }
 rustls-native-certs = "0.8"
 schannel = "0.1"
-
-[features]
-default = []
-tauri-support = ["tauri"]  # Optional tauri support
 
 [dev-dependencies]
 tempfile = "3"

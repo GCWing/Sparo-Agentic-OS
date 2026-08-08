@@ -1,7 +1,7 @@
 /**
  * Design artifacts browser — lists all artifacts in the current workspace with
  * search, archive toggles, and quick "Open in Canvas" actions. Rendered as a
- * dedicated `design-artifacts-browser` Tab in the right panel.
+ * dedicated `design-artifacts-browser` auxiliary item.
  */
 
 import React, { useEffect, useMemo, useState } from 'react';

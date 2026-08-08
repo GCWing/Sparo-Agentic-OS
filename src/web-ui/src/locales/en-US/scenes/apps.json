@@ -177,6 +177,7 @@
       "launch": "Launch",
       "stop": "Stop",
       "newWork": "New",
+      "createForObject": "New work on this artifact",
       "continue": "Continue",
       "back": "Back",
       "close": "Close",
@@ -247,6 +248,7 @@
       "installBeforeLaunch": "Install {{name}} before launching it.",
       "noLaunch": "{{name}} has no launch target.",
       "launchFailed": "Failed to launch {{name}}: {{error}}",
+      "createForObjectFailed": "Failed to start new work on {{name}}: {{error}}",
       "stopped": "{{name}} stopped",
       "stopFailed": "Failed to stop {{name}}: {{error}}",
       "closeWorkFailed": "Failed to close work {{name}}: {{error}}",
@@ -365,6 +367,7 @@
     },
     "workStack": {
       "continueLabel": "Continue \"{{title}}\"",
+      "createForObjectLabel": "Start new work on \"{{title}}\"",
       "moreCount": "View all {{count}} works",
       "collapse": "Collapse",
       "relatedLabel": "Related work for {{name}}",

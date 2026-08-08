@@ -6426,11 +6426,9 @@ dependencies = [
  "similar",
  "sparo-ai-adapters",
  "sparo-events",
- "sparo-relay-server",
- "sparo-transport",
+ "sparo-relay",
  "sse-stream",
  "tar",
- "tauri",
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
@@ -6521,10 +6519,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "sparo-relay-server"
+name = "sparo-relay"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "axum",
  "base64 0.22.1",
  "chrono",
@@ -6534,6 +6531,18 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "tokio",
+ "tower-http",
+ "tracing",
+]
+
+[[package]]
+name = "sparo-relay-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "sparo-relay",
  "tokio",
  "tower-http",
  "tracing",
@@ -6547,13 +6556,10 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
- "dashmap",
  "log",
- "serde",
  "serde_json",
  "sparo-events",
  "tauri",
- "tokio",
 ]
 
 [[package]]

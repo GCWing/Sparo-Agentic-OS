@@ -38,6 +38,7 @@ use super::subject::{
 use super::surface::WorkSurfaceRef;
 use super::title::{WorkTitleSource, WorkTitleState};
 use super::types::{WorkKind, WorkLocator, WorkScope, WorkStatus, WorkVisibility};
+use super::work_object::{WorkObjectLocator, WorkObjectRecord, WorkObjectRole};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -78,6 +79,34 @@ pub struct CreateWorkRequest {
     pub delegation: Option<WorkDelegationContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub topic_work_id: Option<WorkId>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnsurePrimaryWorkObjectRequest {
+    pub work_locator: WorkLocator,
+    pub kind_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnsurePrimaryWorkObjectResponse {
+    pub work: WorkRecord,
+    pub object: WorkObjectRecord,
+    pub created: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateWorkForObjectRequest {
+    pub source_work_locator: WorkLocator,
+    pub work: CreateWorkRequest,
+    pub primary_object_kind_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateWorkForObjectResponse {
+    pub work: WorkRecord,
+    pub object: WorkObjectRecord,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -382,6 +411,141 @@ impl WorkService {
         })
     }
 
+    pub async fn list_work_objects(&self) -> CoreResult<Vec<WorkObjectRecord>> {
+        self.store.list_work_objects().await
+    }
+
+    pub async fn get_work_object(
+        &self,
+        locator: &WorkObjectLocator,
+    ) -> CoreResult<WorkObjectRecord> {
+        self.store.get_work_object(locator).await?.ok_or_else(|| {
+            CoreError::NotFound(format!(
+                "WorkObject not found: scope={:?} object_id={}",
+                locator.scope, locator.object_id
+            ))
+        })
+    }
+
+    pub async fn ensure_primary_work_object(
+        &self,
+        request: EnsurePrimaryWorkObjectRequest,
+    ) -> CoreResult<EnsurePrimaryWorkObjectResponse> {
+        validate_required("kind_id", &request.kind_id)?;
+        let mut work = self.get(&request.work_locator).await?;
+
+        if let Some(existing_ref) = work.primary_object_ref() {
+            let object = self.get_work_object(&existing_ref.locator).await?;
+            if object.kind_id != request.kind_id {
+                return Err(CoreError::validation(format!(
+                    "Work {} already has primary WorkObject kind={} requested={}",
+                    work.id, object.kind_id, request.kind_id
+                )));
+            }
+            return Ok(EnsurePrimaryWorkObjectResponse {
+                work,
+                object,
+                created: false,
+            });
+        }
+
+        let app = work.subject.app_ref().cloned().ok_or_else(|| {
+            CoreError::validation("subject.kind=app is required to create a primary WorkObject")
+        })?;
+        let now = now_millis();
+        let object = WorkObjectRecord::new(
+            request.kind_id,
+            request.title.unwrap_or_else(|| work.title.clone()),
+            work.scope.clone(),
+            work.workspace_path.clone(),
+            app,
+            now,
+        );
+        self.store.put_work_object(&object).await?;
+        work.object_refs
+            .push(object.as_ref(WorkObjectRole::Primary));
+        work.touch(now);
+        if let Err(error) = self.store.put(&work).await {
+            let _ = self.store.delete_work_object(&object.locator()).await;
+            return Err(error);
+        }
+        Ok(EnsurePrimaryWorkObjectResponse {
+            work,
+            object,
+            created: true,
+        })
+    }
+
+    pub async fn create_work_for_object(
+        &self,
+        request: CreateWorkForObjectRequest,
+    ) -> CoreResult<CreateWorkForObjectResponse> {
+        validate_required("primary_object_kind_id", &request.primary_object_kind_id)?;
+        let source_work = self.get(&request.source_work_locator).await?;
+        if source_work.scope != request.work.scope
+            || source_work.workspace_path != request.work.workspace_path
+        {
+            return Err(CoreError::validation(
+                "source Work and new Work must use the same workspace scope",
+            ));
+        }
+        let source_app = source_work.subject.app_ref().ok_or_else(|| {
+            CoreError::validation("source subject.kind=app is required to reuse a WorkObject")
+        })?;
+        let target_app = request.work.subject.app_ref().ok_or_else(|| {
+            CoreError::validation("target subject.kind=app is required to reuse a WorkObject")
+        })?;
+        if source_app.kind != target_app.kind
+            || source_app.slot_id != target_app.slot_id
+            || source_app.app_id != target_app.app_id
+        {
+            return Err(CoreError::validation(
+                "source Work belongs to a different application",
+            ));
+        }
+
+        let source = self
+            .ensure_primary_work_object(EnsurePrimaryWorkObjectRequest {
+                work_locator: source_work.locator(),
+                kind_id: request.primary_object_kind_id.clone(),
+                title: Some(source_work.title.clone()),
+            })
+            .await?
+            .object;
+        let mut work = self.create(request.work).await?;
+        work.object_refs
+            .push(source.as_ref(WorkObjectRole::Primary));
+        work.touch(now_millis());
+        if let Err(error) = self.store.put(&work).await {
+            let _ = self.store.delete(&work.locator()).await;
+            return Err(error);
+        }
+        Ok(CreateWorkForObjectResponse {
+            work,
+            object: source,
+        })
+    }
+
+    pub async fn locate_by_id(&self, work_id: &WorkId) -> CoreResult<WorkLocator> {
+        let mut matches = self
+            .store
+            .list()
+            .await?
+            .into_iter()
+            .filter(|work| &work.id == work_id);
+        let Some(work) = matches.next() else {
+            return Err(CoreError::NotFound(format!(
+                "Work not found: work_id={work_id}"
+            )));
+        };
+        if matches.next().is_some() {
+            return Err(CoreError::validation(format!(
+                "Work ID is ambiguous across scopes: work_id={work_id}"
+            )));
+        }
+        Ok(work.locator())
+    }
+
     pub async fn delete(&self, locator: &WorkLocator) -> CoreResult<DeleteWorkResponse> {
         self.delete_with_options(locator, WorkDeleteOptions::default())
             .await
@@ -421,6 +585,24 @@ impl WorkService {
 
         let deleted = self.store.delete(locator).await?;
         if deleted {
+            let remaining_works = self.store.list().await?;
+            for object_ref in &record.object_refs {
+                let still_referenced = remaining_works.iter().any(|work| {
+                    work.object_refs
+                        .iter()
+                        .any(|candidate| candidate.locator == object_ref.locator)
+                });
+                if !still_referenced {
+                    if let Err(error) = self.store.delete_work_object(&object_ref.locator).await {
+                        log::warn!(
+                            "Failed to delete orphaned WorkObject after Work deletion: work_id={} object_id={} error={}",
+                            record.id,
+                            object_ref.locator.object_id,
+                            error
+                        );
+                    }
+                }
+            }
             self.hook_bus
                 .notify_deleted(&context, cleanup_report.clone())
                 .await;
@@ -4406,6 +4588,134 @@ fn runtime_log_level_str(level: WorkRuntimeLogLevel) -> &'static str {
         WorkRuntimeLogLevel::Info => "info",
         WorkRuntimeLogLevel::Warn => "warn",
         WorkRuntimeLogLevel::Error => "error",
+    }
+}
+
+#[cfg(test)]
+mod work_object_tests {
+    use super::*;
+    use crate::agentic_os::work::store::MemoryWorkStore;
+
+    #[tokio::test]
+    async fn ensures_one_primary_object_for_an_app_work() {
+        let service = WorkService::new(Arc::new(MemoryWorkStore::new()));
+        let app = WorkAppRef::product_app("ppt-live", "ppt-live", "release-1", "config-1", "1");
+        let work = service
+            .create(CreateWorkRequest {
+                kind: WorkKind::AppWorkflow,
+                title: "Quarterly review".to_string(),
+                objective: "Create a presentation".to_string(),
+                subject: WorkSubject::App {
+                    app,
+                    intent: WorkAppIntent::Use,
+                },
+                app_refs: Vec::new(),
+                scope: WorkScope::Global,
+                workspace_path: None,
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                primary_surface: None,
+                assignment: None,
+                title_state: None,
+                delegation: None,
+                topic_work_id: None,
+            })
+            .await
+            .unwrap();
+
+        let first = service
+            .ensure_primary_work_object(EnsurePrimaryWorkObjectRequest {
+                work_locator: work.locator(),
+                kind_id: "deck".to_string(),
+                title: None,
+            })
+            .await
+            .unwrap();
+        let second = service
+            .ensure_primary_work_object(EnsurePrimaryWorkObjectRequest {
+                work_locator: work.locator(),
+                kind_id: "deck".to_string(),
+                title: None,
+            })
+            .await
+            .unwrap();
+
+        assert!(first.created);
+        assert!(!second.created);
+        assert_eq!(first.object.id, second.object.id);
+        assert_eq!(first.work.object_refs.len(), 1);
+        assert_eq!(service.list_work_objects().await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn creates_new_work_for_the_same_existing_object() {
+        let service = WorkService::new(Arc::new(MemoryWorkStore::new()));
+        let app = WorkAppRef::product_app("ppt-live", "ppt-live", "release-1", "config-1", "1");
+        let source = service
+            .create(CreateWorkRequest {
+                kind: WorkKind::AppWorkflow,
+                title: "Quarterly review".to_string(),
+                objective: "Create a presentation".to_string(),
+                subject: WorkSubject::App {
+                    app: app.clone(),
+                    intent: WorkAppIntent::Use,
+                },
+                app_refs: Vec::new(),
+                scope: WorkScope::Global,
+                workspace_path: None,
+                visibility: WorkVisibility::Primary,
+                primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                primary_surface: None,
+                assignment: None,
+                title_state: None,
+                delegation: None,
+                topic_work_id: None,
+            })
+            .await
+            .unwrap();
+
+        let created = service
+            .create_work_for_object(CreateWorkForObjectRequest {
+                source_work_locator: source.locator(),
+                primary_object_kind_id: "deck".to_string(),
+                work: CreateWorkRequest {
+                    kind: WorkKind::AppWorkflow,
+                    title: "Quarterly review follow-up".to_string(),
+                    objective: source.objective.clone(),
+                    subject: WorkSubject::App {
+                        app,
+                        intent: WorkAppIntent::Use,
+                    },
+                    app_refs: Vec::new(),
+                    scope: WorkScope::Global,
+                    workspace_path: None,
+                    visibility: WorkVisibility::Primary,
+                    primary_surface_policy: PrimarySurfacePolicy::WorkCenter,
+                    primary_surface: None,
+                    assignment: None,
+                    title_state: None,
+                    delegation: None,
+                    topic_work_id: None,
+                },
+            })
+            .await
+            .unwrap();
+
+        let source = service.get(&source.locator()).await.unwrap();
+        assert_eq!(created.work.object_refs.len(), 1);
+        assert_eq!(
+            created.work.primary_object_ref(),
+            source.primary_object_ref()
+        );
+        assert_eq!(
+            created.object.locator(),
+            source.primary_object_ref().unwrap().locator
+        );
+        assert_eq!(service.list_work_objects().await.unwrap().len(), 1);
+
+        service.delete(&created.work.locator()).await.unwrap();
+        let remaining_objects = service.list_work_objects().await.unwrap();
+        assert_eq!(remaining_objects, vec![created.object]);
     }
 }
 

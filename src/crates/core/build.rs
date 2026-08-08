@@ -12,7 +12,7 @@ fn main() {
     emit_rerun_if_changed(&bundles_root.join("bridge-components"));
 
     let product_apps_root = bundles_root.join("product-apps");
-    let staged_product_apps = stage_latest_product_app_bundles(&product_apps_root)
+    let staged_product_apps = stage_product_app_bundles(&product_apps_root)
         .unwrap_or_else(|message| panic!("Product App bundle staging failed: {message}"));
     if let Err(message) = validate_product_app_bundles(&staged_product_apps) {
         panic!("Product App bundle validation failed: {message}");
@@ -40,9 +40,7 @@ fn main() {
     }
 }
 
-fn stage_latest_product_app_bundles(
-    apps_root: &std::path::Path,
-) -> Result<std::path::PathBuf, String> {
+fn stage_product_app_bundles(apps_root: &std::path::Path) -> Result<std::path::PathBuf, String> {
     let out_dir = std::env::var("OUT_DIR").map_err(|error| error.to_string())?;
     let destination_root = std::path::Path::new(&out_dir).join("current-product-apps");
     if destination_root.exists() {
@@ -58,7 +56,7 @@ fn stage_latest_product_app_bundles(
         if !app_path.is_dir() {
             continue;
         }
-        let mut latest: Option<(semver::Version, std::path::PathBuf)> = None;
+        let mut package: Option<(semver::Version, std::path::PathBuf)> = None;
         for version_entry in std::fs::read_dir(&app_path).map_err(|error| error.to_string())? {
             let version_path = version_entry.map_err(|error| error.to_string())?.path();
             if !version_path.is_dir() {
@@ -80,14 +78,17 @@ fn stage_latest_product_app_bundles(
                     version_path.display()
                 )
             })?;
-            if latest
-                .as_ref()
-                .is_none_or(|(current, _)| version > *current)
-            {
-                latest = Some((version, version_path));
+            if let Some((_existing_version, existing_path)) = &package {
+                return Err(format!(
+                    "Product App '{}' contains multiple editable versions ('{}' and '{}'); keep only the current version and use Git history or release artifacts for older packages",
+                    app_path.display(),
+                    existing_path.display(),
+                    version_path.display(),
+                ));
             }
+            package = Some((version, version_path));
         }
-        let Some((version, source)) = latest else {
+        let Some((version, source)) = package else {
             continue;
         };
         let app_name = app_path

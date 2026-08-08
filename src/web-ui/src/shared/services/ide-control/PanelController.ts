@@ -13,6 +13,19 @@ import {
   PanelOpenConfig,
 } from './types';
 import { createLogger } from '@/shared/utils/logger';
+import { openProjectCanvasItem } from '@/app/components/panels/content-canvas/openCanvasItem';
+import type {
+  CanvasItemDescriptor,
+  PanelContentType,
+} from '@/app/components/panels/content-canvas/types';
+import {
+  openActiveAuxiliaryItem,
+  toggleActiveAuxiliarySurface,
+  useAuxiliarySurfaceStore,
+} from '@/app/auxiliary-surface';
+import {
+  useAgentCanvasStore,
+} from '@/app/components/panels/content-canvas/stores';
 
 const log = createLogger('PanelController');
 
@@ -51,64 +64,67 @@ export class PanelController implements IdeController {
 
     
     const mode = options?.mode || 'agent';
-    const eventName =
-      mode === 'project' ? 'project-create-tab' : 'agent-create-tab';
-
-    
     const tabDetail = this.buildTabDetail(panelType, panelConfig || {}, options);
-
-    
-    if (position === 'right' && options?.expand_panel !== false) {
-      window.dispatchEvent(new CustomEvent('expand-right-panel'));
-      
-      
-      await this.waitForPanelExpansion();
-    }
-
-    
-    window.dispatchEvent(
-      new CustomEvent(eventName, {
-        detail: tabDetail,
-      })
-    );
-
-    
-    if (options?.auto_focus !== false) {
-      
-      setTimeout(() => {
-        this.focusPanel(panelType);
-      }, 100);
+    if (mode === 'project') {
+      openProjectCanvasItem(tabDetail);
+    } else {
+      openActiveAuxiliaryItem(
+        tabDetail,
+        position === 'right' && options?.expand_panel === false ? 'preserve' : 'explicit',
+      );
     }
   }
 
    
   async closePanel(panelType: PanelType): Promise<void> {
-    
-    window.dispatchEvent(
-      new CustomEvent('ide-close-panel', {
-        detail: { panelType },
-      })
-    );
+    const store = useAgentCanvasStore.getState();
+    (['primary', 'secondary', 'tertiary'] as const).forEach(groupId => {
+      const group =
+        groupId === 'primary'
+          ? store.primaryGroup
+          : groupId === 'secondary'
+            ? store.secondaryGroup
+            : store.tertiaryGroup;
+      group.tabs
+        .filter(tab => tab.content.type === panelType)
+        .forEach(tab => store.closeTab(tab.id, groupId, { forceRemove: true }));
+    });
   }
 
    
   async togglePanel(panelType: PanelType): Promise<void> {
-    
-    window.dispatchEvent(
-      new CustomEvent('ide-toggle-panel', {
-        detail: { panelType },
-      })
-    );
+    const store = useAgentCanvasStore.getState();
+    const existing = store.getAllTabs().find(tab => tab.content.type === panelType);
+    if (existing) {
+      toggleActiveAuxiliarySurface();
+      return;
+    }
+    await this.openPanel({
+      panelType,
+      position: 'right',
+      config: {},
+    });
   }
 
    
   focusPanel(panelType: PanelType): void {
-    
-    window.dispatchEvent(
-      new CustomEvent('ide-focus-panel', {
-        detail: { panelType },
+    const store = useAgentCanvasStore.getState();
+    const matching = (['primary', 'secondary', 'tertiary'] as const)
+      .map(groupId => {
+        const group =
+          groupId === 'primary'
+            ? store.primaryGroup
+            : groupId === 'secondary'
+              ? store.secondaryGroup
+              : store.tertiaryGroup;
+        const tab = group.tabs.find(candidate => candidate.content.type === panelType);
+        return tab ? { tab, groupId } : null;
       })
-    );
+      .find(candidate => candidate !== null);
+    if (!matching) return;
+    store.switchToTab(matching.tab.id, matching.groupId);
+    const hostKey = useAuxiliarySurfaceStore.getState().activeHostKey;
+    if (hostKey) useAuxiliarySurfaceStore.getState().reveal(hostKey, 'explicit');
   }
 
    
@@ -116,16 +132,15 @@ export class PanelController implements IdeController {
     panelType: PanelType,
     config: PanelConfig,
     options?: IdeControlOptions
-  ): any {
+  ): CanvasItemDescriptor {
     const duplicateCheckKey = this.getDuplicateCheckKey(panelType, config);
     const baseDetail = {
-      type: panelType,
+      type: panelType as PanelContentType,
       title: this.getPanelTitle(panelType, config),
       data: config.data || {},
       metadata: {
         duplicateCheckKey,
       },
-      checkDuplicate: options?.check_duplicate ?? true,
       replaceExisting: options?.replace_existing ?? false,
       duplicateCheckKey, 
     };
@@ -280,13 +295,6 @@ export class PanelController implements IdeController {
   }
 
    
-  private async waitForPanelExpansion(): Promise<void> {
-    return new Promise((resolve) => {
-      
-      setTimeout(resolve, 300);
-    });
-  }
-
    
   private sendExecutionResult(requestId: string, success: boolean, message: string): void {
     

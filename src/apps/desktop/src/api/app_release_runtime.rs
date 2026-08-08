@@ -397,10 +397,16 @@ pub fn validate_product_app_ref(
     validate_ref_against_binding(app_ref, &release.binding()?)
 }
 
+#[derive(Debug, Clone)]
+pub struct PrimaryWorkObjectDeclaration {
+    pub kind_id: String,
+    pub reusable_across_works: bool,
+}
+
 pub async fn authorize_create_work_request(
     state: &AppState,
     request: &mut CreateWorkRequest,
-) -> Result<(), String> {
+) -> Result<Option<PrimaryWorkObjectDeclaration>, String> {
     let subject_ref = match &request.subject {
         WorkSubject::App { app, .. } if app.kind == WorkAppKind::ProductApp => Some(app.clone()),
         _ => None,
@@ -426,6 +432,7 @@ pub async fn authorize_create_work_request(
         all_refs.push(app_ref);
     }
     let releases = authorize_refs(state, &all_refs, &request.scope).await?;
+    let mut primary_work_object_kind = None;
     if let Some(primary_ref) = primary_ref {
         let release = release_for_ref(&releases, &primary_ref)?;
         normalize_authoritative_launch(
@@ -435,15 +442,21 @@ pub async fn authorize_create_work_request(
             &mut request.primary_surface,
             &mut request.assignment,
         )?;
+        primary_work_object_kind = release.package.app.work_object_kinds.first().map(|kind| {
+            PrimaryWorkObjectDeclaration {
+                kind_id: kind.id.clone(),
+                reusable_across_works: kind.reusable_across_works,
+            }
+        });
         register_authoritative_agent_release(state, release).await?;
     }
-    Ok(())
+    Ok(primary_work_object_kind)
 }
 
 pub async fn authorize_resolve_app_work_request(
     state: &AppState,
     request: &mut ResolveAppWorkRequest,
-) -> Result<(), String> {
+) -> Result<Option<PrimaryWorkObjectDeclaration>, String> {
     let subject_ref = (request.app.kind == WorkAppKind::ProductApp).then(|| request.app.clone());
     let executor_refs = request
         .app_refs
@@ -465,6 +478,7 @@ pub async fn authorize_resolve_app_work_request(
         all_refs.push(app_ref);
     }
     let releases = authorize_refs(state, &all_refs, &request.scope).await?;
+    let mut primary_work_object_kind = None;
     if let Some(primary_ref) = primary_ref {
         let release = release_for_ref(&releases, &primary_ref)?;
         normalize_authoritative_launch(
@@ -474,9 +488,15 @@ pub async fn authorize_resolve_app_work_request(
             &mut request.primary_surface,
             &mut request.assignment,
         )?;
+        primary_work_object_kind = release.package.app.work_object_kinds.first().map(|kind| {
+            PrimaryWorkObjectDeclaration {
+                kind_id: kind.id.clone(),
+                reusable_across_works: kind.reusable_across_works,
+            }
+        });
         register_authoritative_agent_release(state, release).await?;
     }
-    Ok(())
+    Ok(primary_work_object_kind)
 }
 
 pub async fn authorize_start_work_request(

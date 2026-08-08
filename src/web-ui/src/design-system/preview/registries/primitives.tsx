@@ -31,7 +31,10 @@ import {
   ModeSwitch,
   StatusDot,
   StatusPill,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
+  SparoAgentIcon,
   SparoLogoMark,
+  SparoSubagentIcon,
   SparoSystemIcon,
   systemIconNames,
   type DateRangeValue,
@@ -282,7 +285,7 @@ export const primitivePreviewCategories: PreviewCategory[] = [
       {
         id: 'ds-sparo-system-icons',
         name: 'Sparo semantic icon families',
-        description: 'First-party system, work-type, navigation, search/filter, file-transfer, and edit/manage icons sourced from the standalone @sparo/icons package.',
+        description: 'First-party system, work-type, panel-control, navigation, search/filter, file-transfer, and edit/manage icons sourced from the standalone @sparo/icons package.',
         category: 'ds-primitives',
         render: () => (
           <div className="recipe-preview-inline" style={{ flexWrap: 'wrap' }}>
@@ -291,11 +294,23 @@ export const primitivePreviewCategories: PreviewCategory[] = [
                 key={name}
                 name={name}
                 size={28}
-                strokeWidth={1.8}
+                strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.regular}
                 absoluteStrokeWidth
                 title={name}
               />
             ))}
+            <SparoAgentIcon
+              size={20}
+              strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+              absoluteStrokeWidth
+              aria-label="Agent"
+            />
+            <SparoSubagentIcon
+              size={20}
+              strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+              absoluteStrokeWidth
+              aria-label="Subagent"
+            />
           </div>
         ),
         ai: {

@@ -2,8 +2,15 @@ import { useCallback, useEffect } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 import type { TFunction } from 'i18next';
 import type { ContextItem, ImageContext } from '@/shared/types/context';
-import type { ComposerContextSnapshot } from '@/shared/types/composer';
-import { isComposerContextSnapshot } from '@/shared/types/composer';
+import type {
+  ComposerContextSnapshot,
+} from '@/shared/types/composer';
+import type {
+  AttachmentReferenceResolution,
+  AttachmentResolution,
+  AttachmentResolveOptions,
+} from '@/shared/stores/contextStore';
+import { parseComposerContextSnapshot } from '@/shared/types/composer';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
@@ -25,11 +32,17 @@ interface UseComposerExternalEventsParams {
   inputValue: string;
   inputValueRef: MutableRefObject<string>;
   isActive: boolean;
-  currentImageCount: number;
   activateInput: () => void;
   setInputValue: (value: string) => void;
   setInputTarget: (target: ChatInputTarget) => void;
-  addContext: (context: ContextItem) => void;
+  resolveAttachment: (
+    context: ContextItem,
+    options?: AttachmentResolveOptions,
+  ) => AttachmentResolution;
+  resolveAttachmentReference: (
+    context: ContextItem,
+    options?: AttachmentResolveOptions,
+  ) => AttachmentReferenceResolution;
   restoreComposerSnapshot: (snapshot: ComposerContextSnapshot) => void;
   enabled?: boolean;
   allowContextInput?: boolean;
@@ -42,11 +55,11 @@ export function useComposerExternalEvents({
   inputValue,
   inputValueRef,
   isActive,
-  currentImageCount,
   activateInput,
   setInputValue,
   setInputTarget,
-  addContext,
+  resolveAttachment,
+  resolveAttachmentReference,
   restoreComposerSnapshot,
   enabled = true,
   allowContextInput = true,
@@ -80,7 +93,8 @@ export function useComposerExternalEvents({
         if (customEvent.detail?.onlyIfEmpty && inputValueRef.current.trim()) return;
         applyRequestedTarget(customEvent.detail?.target);
         const snapshot = customEvent.detail?.composerContext;
-        if (isComposerContextSnapshot(snapshot)) restoreComposerSnapshot(snapshot);
+        const parsedSnapshot = parseComposerContextSnapshot(snapshot);
+        if (parsedSnapshot) restoreComposerSnapshot(parsedSnapshot);
         else {
           activateInput();
           setInputValue(message);
@@ -174,10 +188,9 @@ export function useComposerExternalEvents({
           setInputValue(textContent);
         }
 
-        let imgCount = currentImageCount;
+        let rejectedByLimit = false;
         for (const block of params.content) {
           if (block.type === 'image') {
-            if (imgCount >= CHAT_INPUT_CONFIG.image.maxCount) break;
             try {
               const mimeType = block.mimeType || 'image/png';
               const binaryString = atob(block.data);
@@ -188,12 +201,20 @@ export function useComposerExternalEvents({
               const blob = new Blob([bytes], { type: mimeType });
               const file = new File([blob], `image.${mimeType.split('/')[1] || 'png'}`, { type: mimeType });
               const imageContext = await createImageContextFromClipboard(file);
-              addContext(imageContext);
-              imgCount++;
+              const resolution = resolveAttachment(imageContext, {
+                maxAssetsOfType: CHAT_INPUT_CONFIG.image.maxCount,
+              });
+              if (resolution.kind === 'rejected') rejectedByLimit = true;
             } catch (err) {
               log.error('Failed to add image from MCP App message', { err });
             }
           }
+        }
+        if (rejectedByLimit) {
+          notificationService.warning(
+            t('input.maxImagesWarning', { count: CHAT_INPUT_CONFIG.image.maxCount }),
+            { duration: 3000 },
+          );
         }
 
         editorRef.current?.focus();
@@ -216,13 +237,13 @@ export function useComposerExternalEvents({
     };
   }, [
     activateInput,
-    addContext,
+    resolveAttachment,
     allowContextInput,
-    currentImageCount,
     editorRef,
     enabled,
     inputValue,
     setInputValue,
+    t,
   ]);
 
   useEffect(() => {
@@ -232,25 +253,15 @@ export function useComposerExternalEvents({
       const context = customEvent.detail?.context;
 
       if (context) {
-        addContext(context);
+        const resolution = resolveAttachmentReference(context);
+        if (resolution.kind === 'rejected') return;
         if (!isActive) {
           activateInput();
         }
 
         setTimeout(() => {
-          const el = editorRef.current?.element;
-          if (el) {
-            if (!el.textContent?.trim() && !el.querySelector('[data-context-id]')) {
-              el.innerHTML = '';
-            }
-            el.focus();
-            const sel = window.getSelection();
-            if (sel) {
-              sel.selectAllChildren(el);
-              sel.collapseToEnd();
-            }
-            editorRef.current?.insertTag(context);
-          }
+          editorRef.current?.focus();
+          editorRef.current?.insertTag(resolution.reference, resolution.asset);
         }, 50);
       }
     };
@@ -259,7 +270,7 @@ export function useComposerExternalEvents({
     return () => {
       window.removeEventListener('insert-context-tag', handleInsertContextTag);
     };
-  }, [activateInput, addContext, allowContextInput, editorRef, enabled, isActive]);
+  }, [activateInput, allowContextInput, editorRef, enabled, isActive, resolveAttachmentReference]);
 
   useEffect(() => {
     if (!enabled || !allowContextInput) return;
@@ -269,18 +280,23 @@ export function useComposerExternalEvents({
 
       if (!file) return;
 
-      if (currentImageCount >= CHAT_INPUT_CONFIG.image.maxCount) {
-        notificationService.warning(t('input.maxImagesWarning', { count: CHAT_INPUT_CONFIG.image.maxCount }), { duration: 3000 });
-        return;
-      }
-
       try {
         const imageContext: ImageContext = await createImageContextFromClipboard(file);
-        addContext(imageContext);
+        const resolution = resolveAttachmentReference(imageContext, {
+          maxAssetsOfType: CHAT_INPUT_CONFIG.image.maxCount,
+        });
+        if (resolution.kind === 'rejected') {
+          notificationService.warning(
+            t('input.maxImagesWarning', { count: CHAT_INPUT_CONFIG.image.maxCount }),
+            { duration: 3000 },
+          );
+          return;
+        }
 
         if (!isActive) {
           activateInput();
         }
+        editorRef.current?.insertTag(resolution.reference, resolution.asset);
       } catch (error) {
         log.error('Failed to process clipboard image', { fileName: file.name, error });
         notificationService.error(
@@ -290,21 +306,31 @@ export function useComposerExternalEvents({
       }
     };
 
-    const inputElement = editorRef.current?.element;
-    if (inputElement) {
+    let inputElement: HTMLDivElement | null = null;
+    let attachFrame: number | null = null;
+    let disposed = false;
+    const attachToEditor = () => {
+      if (disposed) return;
+      inputElement = editorRef.current?.element ?? null;
+      if (!inputElement) {
+        attachFrame = requestAnimationFrame(attachToEditor);
+        return;
+      }
       inputElement.addEventListener('imagePaste', handleImagePaste);
-    }
+    };
+    attachToEditor();
 
     return () => {
+      disposed = true;
+      if (attachFrame != null) cancelAnimationFrame(attachFrame);
       if (inputElement) {
         inputElement.removeEventListener('imagePaste', handleImagePaste);
       }
     };
   }, [
     activateInput,
-    addContext,
+    resolveAttachmentReference,
     allowContextInput,
-    currentImageCount,
     editorRef,
     enabled,
     isActive,

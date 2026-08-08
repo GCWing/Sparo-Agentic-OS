@@ -18,6 +18,7 @@ import { Button, IconButton } from '@/design-system';
 import { Check, Copy } from 'lucide-react';
 import { MermaidBlock } from './MermaidBlock';
 import { ReproductionStepsBlock } from './ReproductionStepsBlock';
+import type { ReproductionCompletion } from './ReproductionStepsBlock';
 import { ResizableMarkdownTable, type MarkdownLayoutMutationDetail } from './ResizableMarkdownTable';
 import { globalAPI, systemAPI, workspaceAPI } from '@/infrastructure/api';
 import { getPrismLanguageFromAlias } from '@/infrastructure/language-detection';
@@ -586,7 +587,7 @@ export interface MarkdownProps {
   onOpenVisualization?: (visualization: any) => void;
   onFileViewRequest?: (filePath: string, fileName: string, lineRange?: LineRange) => void;
   onTabOpen?: (tabInfo: any) => void;
-  onReproductionProceed?: () => void;
+  onReproductionProceed?: (completion: ReproductionCompletion) => Promise<void> | void;
 }
 
 export const Markdown = React.memo<MarkdownProps>(({ 
@@ -1057,7 +1058,7 @@ export const Markdown = React.memo<MarkdownProps>(({
         </ReactMarkdown>
       </MarkdownErrorBoundary>
       
-      {reproductionSteps && !isStreaming && !isStaticExport && (
+      {reproductionSteps && onReproductionProceed && !isStreaming && !isStaticExport && (
         <ReproductionStepsBlock 
           steps={reproductionSteps}
           onProceed={onReproductionProceed}

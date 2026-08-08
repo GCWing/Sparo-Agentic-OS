@@ -7,7 +7,6 @@ import { commandExecutor } from '../commands/CommandExecutor';
 import { globalEventBus } from '@/infrastructure/event-bus';
 import { i18nService } from '@/infrastructure/i18n';
 import type { CodeSnippetContext } from '@/shared/types/context';
-import { useContextStore } from '@/shared/stores/contextStore';
 
 function fileNameFromPath(filePath: string): string {
   const normalized = filePath.replace(/\\/g, '/');
@@ -177,7 +176,6 @@ export class EditorMenuProvider implements IMenuProvider {
             selectedText: editorContext.selectedText!,
             language: languageHintFromPath(filePath),
           };
-          useContextStore.getState().addContext(context);
           window.dispatchEvent(
             new CustomEvent('insert-context-tag', { detail: { context } })
           );

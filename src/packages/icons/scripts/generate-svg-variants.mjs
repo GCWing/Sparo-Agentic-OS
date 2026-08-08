@@ -14,6 +14,8 @@ const strokeWidth = 2;
 const emphasisScale = 0.78;
 const emphasisTranslate = 5.28;
 const emphasisStrokeWidth = Number((strokeWidth / emphasisScale).toFixed(4));
+const detailStrokeWidth = 1.4;
+const emphasisDetailStrokeWidth = Number((detailStrokeWidth / emphasisScale).toFixed(4));
 
 function normalize(value) {
   return value.replace(/\r\n/g, '\n').trimEnd() + '\n';
@@ -49,8 +51,14 @@ function extractGlyph(source, id) {
   if (/#[0-9a-f]{3,8}\b/i.test(body)) {
     throw new Error(`${id}: glyph geometry must not contain hardcoded colors`);
   }
-  if (/\s(?:stroke|stroke-width|stroke-linecap|stroke-linejoin)="/.test(body)) {
+  if (/\s(?:stroke|stroke-linecap|stroke-linejoin)="/.test(body)) {
     throw new Error(`${id}: stroke styling belongs on the SVG root`);
+  }
+  const childStrokeWidths = [...body.matchAll(/\sstroke-width="([^"]+)"/g)];
+  for (const match of childStrokeWidths) {
+    if (match[1] !== 'var(--sparo-icon-detail-stroke-width, 1.4)') {
+      throw new Error(`${id}: unsupported child stroke-width ${match[1]}`);
+    }
   }
 
   return body;
@@ -62,9 +70,12 @@ function indent(value, spaces) {
 }
 
 function emphasisSvg(id, body) {
+  const detailStrokeStyle = body.includes('--sparo-icon-detail-stroke-width')
+    ? ` style="--sparo-icon-detail-stroke-width: var(--sparo-icon-detail-stroke-width-override, ${emphasisDetailStrokeWidth})"`
+    : '';
   return normalize(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" fill="none" data-sparo-icon="${id}" data-sparo-variant="emphasis">
   <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
-  <g transform="translate(${emphasisTranslate} ${emphasisTranslate}) scale(${emphasisScale})" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, ${emphasisStrokeWidth})" stroke-linecap="round" stroke-linejoin="round">
+  <g transform="translate(${emphasisTranslate} ${emphasisTranslate}) scale(${emphasisScale})" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, ${emphasisStrokeWidth})" stroke-linecap="round" stroke-linejoin="round"${detailStrokeStyle}>
 ${indent(body, 4)}
   </g>
 </svg>`);
@@ -79,9 +90,12 @@ ${indent(body, 6)}
 }
 
 function emphasisSymbol(id, body) {
+  const detailStrokeStyle = body.includes('--sparo-icon-detail-stroke-width')
+    ? ` style="--sparo-icon-detail-stroke-width: var(--sparo-icon-detail-stroke-width-override, ${emphasisDetailStrokeWidth})"`
+    : '';
   return `  <symbol id="${id}-emphasis" viewBox="0 0 ${viewBoxSize} ${viewBoxSize}">
     <circle cx="24" cy="24" r="22" fill="var(--sparo-icon-background, #d9231b)" />
-    <g transform="translate(${emphasisTranslate} ${emphasisTranslate}) scale(${emphasisScale})" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, ${emphasisStrokeWidth})" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(${emphasisTranslate} ${emphasisTranslate}) scale(${emphasisScale})" fill="none" stroke="var(--sparo-icon-foreground, #fff)" stroke-width="var(--sparo-icon-stroke-width, ${emphasisStrokeWidth})" stroke-linecap="round" stroke-linejoin="round"${detailStrokeStyle}>
 ${indent(body, 6)}
     </g>
   </symbol>`;

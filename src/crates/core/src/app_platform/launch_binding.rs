@@ -195,6 +195,7 @@ mod tests {
                 id: "task".to_string(),
                 label: "Task".to_string(),
                 scope: WorkObjectScope::Workspace,
+                reusable_across_works: false,
                 identity_schema: serde_json::json!({}),
                 context_schema: serde_json::json!({}),
             }],

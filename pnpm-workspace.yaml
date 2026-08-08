@@ -4,7 +4,6 @@ packages:
   - "src/packages/*"
   - "installer"
   - "tests/e2e"
-  - "videos/*"
 allowBuilds:
   '@parcel/watcher': true
   edgedriver: true

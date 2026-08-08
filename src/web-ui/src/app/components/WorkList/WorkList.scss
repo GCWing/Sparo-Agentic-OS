@@ -225,35 +225,20 @@
     }
   }
 
-  &__item--failed &__item-icon {
-    color: var(--work-list-tone-local);
+  &__item--failed.has-state-instrument &__item-icon {
+    color: var(--ds-color-text-secondary);
+    background: transparent;
   }
 
   &__item--failed &__item-state-mark {
-    width: 8px;
-    height: 8px;
-    right: -2px;
-    top: -2px;
-
-    &::before,
-    &::after {
-      content: '';
-      position: absolute;
-      left: 3px;
-      top: 0;
-      width: 2px;
-      height: 8px;
-      border-radius: var(--ds-radius-full);
-      background: var(--work-list-tone-local);
-    }
-
-    &::before {
-      transform: rotate(45deg);
-    }
-
-    &::after {
-      transform: rotate(-45deg);
-    }
+    width: 6px;
+    height: 6px;
+    right: 1px;
+    bottom: 1px;
+    z-index: var(--ds-z-raised);
+    border-radius: var(--ds-radius-full);
+    background: var(--work-list-tone-local);
+    box-shadow: 0 0 0 1px var(--work-dock-menu-bg, var(--ds-color-bg-elevated));
   }
 
   &__item--paused &__item-icon {

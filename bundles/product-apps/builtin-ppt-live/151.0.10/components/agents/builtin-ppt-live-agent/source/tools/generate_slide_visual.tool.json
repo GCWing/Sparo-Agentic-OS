@@ -6,7 +6,7 @@
     "additionalProperties": false,
     "required": ["expectedDeckRevision", "expectedSlideRevision", "expectedSystemRevision", "expectedManuscriptRevision", "expectedDesignCaseRevision", "slide", "intent"],
     "properties": {
-      "expectedDeckRevision": { "type": "integer", "minimum": 0 },
+      "expectedDeckRevision": { "type": "integer", "minimum": 0, "description": "Deck baseline from inspection. Independent page calls may share it; Runtime rebases it after earlier page commits while exact slide and source revisions still guard conflicts." },
       "expectedSlideRevision": { "type": "integer", "minimum": 0 },
       "expectedSystemRevision": { "type": "integer", "minimum": 0 },
       "expectedManuscriptRevision": { "type": "integer", "minimum": 1 },
@@ -17,6 +17,7 @@
     "$defs": {
       "slide": {
         "type": "object",
+        "additionalProperties": false,
         "required": ["id", "title", "claim", "pageRole", "recipeId", "layoutMode", "visualMode", "visualPlan", "evidenceObject", "exportStrategy", "composition"],
         "properties": {
           "id": { "type": "string", "pattern": "^p[0-9]{2,3}$" },
@@ -31,7 +32,79 @@
           "exportStrategy": { "type": "string", "enum": ["native", "native-shapes", "native-chart", "svg", "image"] },
           "sourceNote": { "type": "string", "maxLength": 500 },
           "notes": { "type": "string", "maxLength": 8000 },
-          "composition": { "type": "object", "required": ["slots"], "properties": { "slots": { "type": "array", "minItems": 1, "maxItems": 40, "items": { "type": "object" } } } }
+          "composition": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["slots"],
+            "properties": {
+              "slots": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 40,
+                "items": { "$ref": "#/$defs/slotElement" }
+              }
+            }
+          }
+        }
+      },
+      "slotElement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "slotId", "type"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$", "description": "Stable lowercase element id, unique within the slide." },
+          "slotId": { "type": "string", "minLength": 1, "maxLength": 80, "description": "A concrete slot id from the selected recipe, never a recipe descriptor such as kinds or required." },
+          "type": { "type": "string", "enum": ["text", "shape", "line", "image", "svg", "chart", "table"] },
+          "text": { "type": "string", "minLength": 1, "maxLength": 4000, "description": "Required for text and chart elements; optional for shape elements." },
+          "shape": { "type": "string", "enum": ["rect", "roundRect", "ellipse"], "description": "Optional for shape elements." },
+          "assetId": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Required for image and svg elements; must reference a prepared asset." },
+          "alt": { "type": "string", "minLength": 1, "maxLength": 500, "description": "Required for image and svg elements." },
+          "data": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 24,
+            "description": "Required for chart elements.",
+            "items": { "$ref": "#/$defs/chartPoint" }
+          },
+          "rows": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "description": "Required for table elements; every row must have the same number of cells.",
+            "items": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 12,
+              "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+            }
+          },
+          "style": { "$ref": "#/$defs/slotStyle" }
+        }
+      },
+      "chartPoint": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "value"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "value": { "type": "number", "minimum": -1000000000000, "maximum": 1000000000000 }
+        }
+      },
+      "slotStyle": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "textRole": { "type": "string", "enum": ["cover", "title", "section", "body", "label", "metric", "caption", "source", "code"] },
+          "colorToken": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "fillToken": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "strokeToken": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "radiusRole": { "type": "string", "enum": ["none", "small", "medium"] },
+          "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+          "align": { "type": "string", "enum": ["left", "center", "right"] },
+          "valign": { "type": "string", "enum": ["top", "middle", "bottom"] },
+          "strokeWidth": { "type": "number", "minimum": 0, "maximum": 24 },
+          "dash": { "type": "string", "enum": ["solid", "dash", "dot"] },
+          "padding": { "type": "number", "minimum": 0, "maximum": 100 }
         }
       }
     }

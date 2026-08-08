@@ -29,7 +29,7 @@ use serde::Deserialize;
 use sparo_core::infrastructure::constants::{
     APP_PRODUCT_NAME, EVENT_SYSTEM_NOTIFICATION, WINDOW_MAIN,
 };
-use sparo_transport::TauriTransportAdapter;
+use sparo_transport::{TauriTransportAdapter, TransportEmitter};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -297,9 +297,12 @@ pub fn run() {
             api::agentic_api::list_agents,
             api::agentic_os_api::agentic_os_list_works,
             api::agentic_os_api::agentic_os_get_work,
+            api::agentic_os_api::agentic_os_list_work_objects,
+            api::agentic_os_api::agentic_os_get_work_object,
             api::agentic_os_api::agentic_os_delete_work,
             api::agentic_os_api::agentic_os_get_work_execution_graph,
             api::agentic_os_api::agentic_os_create_work,
+            api::agentic_os_api::agentic_os_create_work_for_object,
             api::agentic_os_api::agentic_os_resolve_app_work,
             api::agentic_os_api::agentic_os_resolve_component_work,
             api::agentic_os_api::agentic_os_start_work,
@@ -977,7 +980,7 @@ async fn wire_infrastructure_events(transport: Arc<TauriTransportAdapter>) {
     use sparo_core::{infrastructure, service};
 
     let emitter: Arc<dyn infrastructure::events::EventEmitter> =
-        Arc::new(infrastructure::events::TransportEmitter::new(transport));
+        Arc::new(TransportEmitter::new(transport));
 
     service::snapshot::initialize_snapshot_event_emitter(emitter.clone());
     service::initialize_file_watch_service(emitter.clone());

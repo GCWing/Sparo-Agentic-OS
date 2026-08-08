@@ -38,6 +38,7 @@
       "id": "deck",
       "label": "Deck",
       "scope": "asset",
+      "reusableAcrossWorks": true,
       "identitySchema": {
         "type": "object",
         "properties": {

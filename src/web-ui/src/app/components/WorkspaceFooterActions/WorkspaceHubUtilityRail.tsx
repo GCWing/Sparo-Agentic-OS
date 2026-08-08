@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, Info, Languages, Sun, SunMoon } from 'lucide-react';
-import { Button, SegmentedControl, Tooltip } from '@/design-system';
+import { ChevronLeft, Info, Languages, SunMoon } from 'lucide-react';
+import {
+  Button,
+  SegmentedControl,
+  SettingsIcon,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
+  Tooltip,
+} from '@/design-system';
 import { useLanguageSelector } from '@/infrastructure/i18n';
 import type { LocaleId, LocaleMetadata } from '@/infrastructure/i18n/types';
 import { useI18n } from '@/infrastructure/i18n/hooks/useI18n';
@@ -13,6 +19,7 @@ const COLLAPSE_AFTER_SELECTION_MS = 280;
 
 interface WorkspaceHubUtilityRailProps {
   onOpenAbout: () => void;
+  onOpenSettings: () => void;
 }
 
 type ExpandedControl = 'theme' | 'language' | null;
@@ -86,16 +93,13 @@ function CurrentThemePreview({
   };
 
   return (
-    <span className="sparo-workspace-hub__current-theme-preview" style={style} aria-hidden="true">
-      <span className="sparo-workspace-hub__current-theme-swatch is-primary" />
-      <span className="sparo-workspace-hub__current-theme-swatch is-secondary" />
-      <span className="sparo-workspace-hub__current-theme-swatch is-accent" />
-    </span>
+    <span className="sparo-workspace-hub__current-theme-preview" style={style} aria-hidden="true" />
   );
 }
 
 export const WorkspaceHubUtilityRail: React.FC<WorkspaceHubUtilityRailProps> = ({
   onOpenAbout,
+  onOpenSettings,
 }) => {
   const { t } = useI18n('common');
   const { currentLanguage, supportedLocales, selectLanguage, isChanging } = useLanguageSelector();
@@ -226,6 +230,22 @@ export const WorkspaceHubUtilityRail: React.FC<WorkspaceHubUtilityRailProps> = (
       {expandedControl === null ? (
         <div className="sparo-workspace-hub__utility-home">
           <Button
+            variant="ghost"
+            size="small"
+            iconOnly
+            className="sparo-workspace-hub__utility-status"
+            aria-label={t('tabs.settings')}
+            title={t('tabs.settings')}
+            onClick={onOpenSettings}
+          >
+            <SettingsIcon
+              size={14}
+              strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+              absoluteStrokeWidth
+              aria-hidden="true"
+            />
+          </Button>
+          <Button
             ref={themeTriggerRef}
             variant="ghost"
             size="small"
@@ -236,9 +256,6 @@ export const WorkspaceHubUtilityRail: React.FC<WorkspaceHubUtilityRailProps> = (
             title={t('nav.menuPanel.hub.controls.currentTheme', { value: currentThemeLabel })}
             onClick={(event) => openEditor('theme', event.detail === 0)}
           >
-            <span className="sparo-workspace-hub__quick-theme-icon" aria-hidden="true">
-              <Sun size={16} strokeWidth={2} />
-            </span>
             <CurrentThemePreview
               accent={theme?.colors.accent[500]}
               foreground={theme?.colors.text.muted}

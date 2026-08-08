@@ -5,7 +5,7 @@
  * Register profiles in SessionProfileRegistry; consume via useSessionProfile().
  */
 
-import type { PanelContentType } from '../components/panels/base/types';
+import type { AuxiliaryItemDescriptor } from '@/app/auxiliary-surface/types';
 import type { SessionProfileId } from '@/flow_chat/domain/sessionDescriptor';
 import type { Session } from '@/flow_chat/types/flow-chat';
 import type { AgentSessionBindingMetadata } from '@/shared/types/session-history';
@@ -14,17 +14,7 @@ import type { AgentSessionBindingMetadata } from '@/shared/types/session-history
  * Descriptor for a tab that a Profile wants to auto-open
  * when the matching session becomes active.
  */
-export interface TabAutoOpenDescriptor {
-  type: PanelContentType;
-  title: string;
-  data?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-  /** Prevent duplicate tabs of the same key. */
-  duplicateCheckKey?: string;
-  replaceExisting?: boolean;
-  targetGroup?: 'primary' | 'secondary';
-  enableSplitView?: boolean;
-}
+export type TabAutoOpenDescriptor = AuxiliaryItemDescriptor;
 
 export type TabAutoOpenResult =
   | TabAutoOpenDescriptor
@@ -148,26 +138,18 @@ export interface SessionProfile {
   /** Unique stable identifier for this profile. */
   readonly id: SessionProfileId;
 
-  readonly layout: {
-    /** Whether the ChatPane (conversation area) is shown. */
-    showChat: boolean;
-    /** Initial AuxPane visibility when a session of this type becomes active. */
-    defaultAuxPane: 'collapsed' | 'visible';
-    /** Whether the user may collapse/expand the chat pane. */
-    chatCollapsible: boolean;
-  };
-
-  readonly auxTabs: {
+  readonly auxiliarySurface: {
+    /** Initial visibility when this profile first contributes content to a host. */
+    defaultVisibility: 'collapsed' | 'visible';
     /**
-     * Called when a session of this profile becomes active.
-     * Return a TabAutoOpenDescriptor to auto-open a tab, or null to skip.
+     * Called once when a ready session first initializes its auxiliary host.
      */
-    autoOpen?: (sessionId: string, extra?: Record<string, unknown>) => TabAutoOpenResult;
+    initialize?: (sessionId: string, extra?: Record<string, unknown>) => TabAutoOpenResult;
     /**
-     * Tab types that belong exclusively to this profile.
-     * When switching away from this profile these tab types are closed.
+     * Rebuild the profile-owned default items after the user closed every tab.
+     * Unlike initialize, this may be called more than once for the same host.
      */
-    exclusiveTabTypes?: readonly PanelContentType[];
+    restore?: (sessionId: string, extra?: Record<string, unknown>) => TabAutoOpenResult;
   };
 
   /**

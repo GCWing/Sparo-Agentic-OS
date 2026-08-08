@@ -1,5 +1,9 @@
 import type { PreviewCategory } from '@/design-system/types';
+import type { FlowToolItem, ToolCardConfig } from '@/flow_chat/types/flow-chat';
+import { ReadFileDisplay } from '@/flow_chat/tool-cards/ReadFileDisplay';
+import { DefaultToolCardTemplate } from '@/flow_chat/tool-cards/templates/DefaultToolCardTemplate';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActionListRow,
   Alert,
@@ -43,12 +47,76 @@ import {
   StatusPill,
   Switch,
   TextField,
-  ToolCard,
-  ToolCardBody,
-  ToolCardFooter,
-  ToolCardHeader,
 } from '@/design-system';
 import { ArrowRight, Bot, Clock, FileCode2, FolderOpen, GitBranch, MoreHorizontal, Search, Square, Terminal } from 'lucide-react';
+
+const readPreviewConfig: ToolCardConfig = {
+  toolName: 'Read',
+  displayName: 'Read file',
+  icon: '',
+  requiresConfirmation: false,
+  resultDisplayType: 'summary',
+  displayMode: 'compact',
+};
+
+const readPreviewItem: FlowToolItem = {
+  id: 'preview-read-file',
+  type: 'tool',
+  toolName: 'Read',
+  timestamp: 1,
+  status: 'completed',
+  toolCall: {
+    id: 'preview-read-file',
+    input: {
+      file_path: 'src/web-ui/src/design-system/patterns/ToolCard/ToolCard.tsx',
+      start_line: 1,
+      limit: 84,
+    },
+  },
+  toolResult: {
+    success: true,
+    result: {
+      content: 'export const ToolCard = forwardRef<HTMLDivElement, ToolCardProps>(...)',
+    },
+  },
+};
+
+function ProductionToolCardsPreview() {
+  const { t } = useTranslation('flow-chat');
+  const [terminalExpanded, setTerminalExpanded] = useState(false);
+
+  return (
+    <div className="production-tool-card-preview">
+      <ReadFileDisplay
+        config={readPreviewConfig}
+        toolItem={readPreviewItem}
+      />
+      <DefaultToolCardTemplate
+        toolId="preview-terminal-command"
+        toolName="Bash"
+        status="completed"
+        isExpanded={terminalExpanded}
+        expandable
+        onToggle={setTerminalExpanded}
+        summary={(
+          <>
+            {t('toolCards.terminal.executeCommand')}{' '}
+            <code className="production-tool-card-preview__command">
+              pnpm run check:design-system
+            </code>
+          </>
+        )}
+        extra={<span className="production-tool-card-preview__duration">1.28s</span>}
+        expandedContent={(
+          <div className="production-tool-card-preview__output">
+            <code>Design system check: 0 blocking, 0 advisory.</code>
+            <span>Sparo-Agentic-OS · exit 0</span>
+          </div>
+        )}
+      />
+    </div>
+  );
+}
 
 function AppWindowPreview() {
   const [open, setOpen] = useState(false);
@@ -389,35 +457,15 @@ export const patternPreviewCategories: PreviewCategory[] = [
       },
       {
         id: 'ds-tool-card',
-        name: 'Tool card shell',
-        description: 'Execution card structure for AI and tool events.',
+        name: 'Production tool cards',
+        description: 'Actual compact and expandable flow-chat cards used by registered Read and Bash tools.',
         category: 'ds-patterns',
-        render: () => (
-          <div className="recipe-preview-stack">
-            <ToolCard status="running" tone="info">
-              <ToolCardHeader
-                icon={<Terminal size={16} />}
-                title="Search workspace"
-                meta="Running"
-                actions={<Button size="small" variant="ghost">Cancel</Button>}
-              />
-              <ToolCardBody>Searching for matching design-system imports across the Web UI.</ToolCardBody>
-              <ToolCardFooter>
-                <Button size="small" variant="secondary">Open results</Button>
-              </ToolCardFooter>
-            </ToolCard>
-            <ToolCard status="completed" tone="success">
-              <ToolCardHeader icon={<Bot size={16} />} title="Plan updated" meta="Completed" />
-              <ToolCardBody>Completed status uses text, structure, and iconography together.</ToolCardBody>
-            </ToolCard>
-          </div>
-        ),
+        render: ProductionToolCardsPreview,
         ai: {
-          recipe: 'recipes/tool-card.recipe.md',
-          useWhen: ['Rendering tool execution, streamed output, or recoverable failure states'],
-          composeWith: ['ToolCardHeader', 'ToolCardBody', 'ToolCardFooter', 'Button', 'IconButton'],
-          avoid: ['Status color without text', 'Changing action layout while a tool streams'],
-          states: ['pending', 'running', 'completed', 'error', 'long text', 'theme', 'i18n'],
+          useWhen: ['Reviewing or extending the flow-chat cards used by registered product tools'],
+          composeWith: ['DefaultToolCardTemplate', 'CompactToolCard', 'BaseToolCard'],
+          avoid: ['Preview-only stand-ins', 'A second generic card shell', 'Status represented by color alone'],
+          states: ['compact', 'expanded', 'completed', 'error', 'long text', 'theme', 'i18n'],
         },
       },
       {

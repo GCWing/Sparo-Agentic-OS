@@ -7,7 +7,7 @@ import type {
   MarkdownDocumentProfile,
   MarkdownScope,
   MarkdownTarget,
-} from '@/tools/markdown/coauthor/protocol';
+} from '@/shared/types/markdown-ai';
 
 export interface MarkdownAiResponse {
   ok: boolean;

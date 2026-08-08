@@ -138,7 +138,7 @@ interface CanvasStoreActions {
   getAllTabs: () => CanvasTab[];
 }
 
-type CanvasStore = CanvasStoreState & CanvasStoreActions;
+export type CanvasStore = CanvasStoreState & CanvasStoreActions;
 
 // ==================== Initial State ====================
 
@@ -1049,19 +1049,14 @@ export const useAgentCanvasStore = createCanvasStoreHook();
 export const useProjectCanvasStore = createCanvasStoreHook();
 export const usePanelViewCanvasStore = createCanvasStoreHook();
 
-// ==================== Agent canvas: per-workspace snapshots (AuxPane / Session scene) ====================
-// Switching active workspace saves the current agent canvas under the previous workspace id and restores
-// the snapshot for the next id, so remote/local tabs coexist across workspace switches.
+// ==================== Agent canvas: host-scoped snapshots ====================
+// The right-side canvas belongs to a concrete UI host (home/session), not to a
+// workspace. Navigation activates exactly one host and scenes activate none.
 
-const AGENT_CANVAS_SNAPSHOT_MAX = 12;
-const agentWorkspaceSnapshots = new Map<string, CanvasStoreState>();
-const agentSnapshotLruOrder: string[] = [];
-/** Dedupes React Strict Mode double-invoke when `prev` is null (ref reset on remount). */
-let lastAgentCanvasSwitchTargetKey: string | null = null;
-
-function normalizeAgentWorkspaceKey(id: string | null | undefined): string {
-  return id ?? '__none__';
-}
+const AGENT_CANVAS_HOST_LIMIT = 24;
+const agentHostSnapshots = new Map<string, CanvasStoreState>();
+const agentHostLruOrder: string[] = [];
+let activeAgentCanvasHostKey: string | null = null;
 
 function extractAgentPersistableState(state: CanvasStore): CanvasStoreState {
   return {
@@ -1077,23 +1072,18 @@ function extractAgentPersistableState(state: CanvasStore): CanvasStoreState {
   };
 }
 
-function hasVisibleAgentTabs(snapshot: CanvasStoreState): boolean {
-  return [snapshot.primaryGroup, snapshot.secondaryGroup, snapshot.tertiaryGroup]
-    .some(group => group.tabs.some(tab => tab.isHidden !== true));
-}
-
-function rememberAgentSnapshot(key: string, snapshot: CanvasStoreState): void {
+function rememberAgentHost(key: string, snapshot: CanvasStoreState): void {
   const clone = structuredClone(snapshot);
   clone.draggingTabId = null;
   clone.draggingFromGroupId = null;
-  agentWorkspaceSnapshots.set(key, clone);
-  const idx = agentSnapshotLruOrder.indexOf(key);
-  if (idx >= 0) agentSnapshotLruOrder.splice(idx, 1);
-  agentSnapshotLruOrder.push(key);
-  while (agentWorkspaceSnapshots.size > AGENT_CANVAS_SNAPSHOT_MAX) {
-    const evict = agentSnapshotLruOrder.shift();
+  agentHostSnapshots.set(key, clone);
+  const idx = agentHostLruOrder.indexOf(key);
+  if (idx >= 0) agentHostLruOrder.splice(idx, 1);
+  agentHostLruOrder.push(key);
+  while (agentHostSnapshots.size > AGENT_CANVAS_HOST_LIMIT) {
+    const evict = agentHostLruOrder.shift();
     if (!evict) break;
-    agentWorkspaceSnapshots.delete(evict);
+    agentHostSnapshots.delete(evict);
   }
 }
 
@@ -1111,36 +1101,15 @@ function applyEmptyAgentCanvas(): void {
   });
 }
 
-/**
- * Save the current agent canvas under `prevWorkspaceId` (unless first mount) and restore the snapshot
- * for `nextWorkspaceId` (or empty canvas if none). Capture target snapshot before LRU eviction.
- */
-export function switchAgentCanvasWorkspace(
-  prevWorkspaceId: string | null | undefined,
-  nextWorkspaceId: string | null | undefined
-): void {
-  const from =
-    prevWorkspaceId === null || prevWorkspaceId === undefined
-      ? null
-      : normalizeAgentWorkspaceKey(prevWorkspaceId);
-  const to = normalizeAgentWorkspaceKey(nextWorkspaceId);
+/** Atomically save the current host and restore the next host. */
+export function activateAgentCanvasHost(nextHostKey: string | null): void {
+  if (activeAgentCanvasHostKey === nextHostKey) return;
 
-  if (from === null && lastAgentCanvasSwitchTargetKey === to) {
-    return;
-  }
-
-  const rawNext = agentWorkspaceSnapshots.get(to);
-  const nextSnapshotClone = rawNext ? structuredClone(rawNext) : null;
+  const nextSnapshot = nextHostKey ? agentHostSnapshots.get(nextHostKey) : null;
+  const nextSnapshotClone = nextSnapshot ? structuredClone(nextSnapshot) : null;
   const current = extractAgentPersistableState(useAgentCanvasStore.getState() as CanvasStore);
-
-  if (from === null && hasVisibleAgentTabs(current)) {
-    rememberAgentSnapshot(to, current);
-    lastAgentCanvasSwitchTargetKey = to;
-    return;
-  }
-
-  if (from !== null) {
-    rememberAgentSnapshot(from, current);
+  if (activeAgentCanvasHostKey) {
+    rememberAgentHost(activeAgentCanvasHostKey, current);
   }
 
   if (nextSnapshotClone) {
@@ -1159,15 +1128,22 @@ export function switchAgentCanvasWorkspace(
     applyEmptyAgentCanvas();
   }
 
-  lastAgentCanvasSwitchTargetKey = to;
+  activeAgentCanvasHostKey = nextHostKey;
 }
 
-/** Drop cached canvas for a closed workspace (does not touch the live canvas unless user switches back). */
-export function removeAgentCanvasSnapshot(workspaceId: string): void {
-  const key = normalizeAgentWorkspaceKey(workspaceId);
-  agentWorkspaceSnapshots.delete(key);
-  const idx = agentSnapshotLruOrder.indexOf(key);
-  if (idx >= 0) agentSnapshotLruOrder.splice(idx, 1);
+export function getActiveAgentCanvasHostKey(): string | null {
+  return activeAgentCanvasHostKey;
+}
+
+/** Drop a host and clear the live canvas if that host is currently active. */
+export function removeAgentCanvasHost(hostKey: string): void {
+  agentHostSnapshots.delete(hostKey);
+  const idx = agentHostLruOrder.indexOf(hostKey);
+  if (idx >= 0) agentHostLruOrder.splice(idx, 1);
+  if (activeAgentCanvasHostKey === hostKey) {
+    activeAgentCanvasHostKey = null;
+    applyEmptyAgentCanvas();
+  }
 }
 
 

@@ -34,9 +34,10 @@ import {
   describeUserMessageEditImpact,
   editAndRerunUserMessage,
 } from '../../services/UserMessageEditService';
+import { notifyReproductionCompleted } from '../../services/ReproductionFlowService';
 import { UserMessageEditComposer } from './UserMessageEditComposer';
 import type { ComposerContextSnapshot } from '@/shared/types/composer';
-import { isComposerContextSnapshot } from '@/shared/types/composer';
+import { parseComposerContextSnapshot } from '@/shared/types/composer';
 import {
   getContextPresentation,
   openComposerContext,
@@ -46,6 +47,7 @@ import { incrementFlowChatCounter } from '../../performance/flowChatPerf';
 import { invalidateFlowLayout } from '../../scroll/FlowLayoutMutationEvents';
 import { useSessionProfile } from '@/app/session-profiles';
 import './UserMessageItem.scss';
+import { ComposerAttachmentIdentity } from '../composer/ComposerAttachmentIdentity';
 
 const log = createLogger('UserMessageItem');
 
@@ -72,7 +74,7 @@ function triggerSourceModifier(triggerSource: TriggerSource | undefined, workMes
 /** Maps a TriggerSource to a tooltip label for system-triggered messages. */
 function triggerSourceLabel(triggerSource: TriggerSource | undefined, workMessageRole?: string): string {
   switch (triggerSource) {
-    case 'agent_session': return 'Agentic OS';
+    case 'agent_session': return 'Sparo OS';
     case 'goal': return 'Goal';
     case 'work_message': return workMessageRole === 'outcome_review' ? 'Review' : 'Work';
     case 'scheduled_job': return 'Scheduled';
@@ -139,22 +141,26 @@ function ComposerSnapshotContent({
   query: string;
   t: TFunction<'flow-chat'>;
 }) {
-  const byId = new Map(snapshot.contexts.map(context => [context.id, context]));
+  const assetById = new Map(snapshot.assets.map(context => [context.id, context]));
+  const attachmentNumberById = new Map(
+    snapshot.assets.map((context, index) => [context.id, index + 1]),
+  );
+  const referenceById = new Map(snapshot.references.map(reference => [reference.id, reference]));
   return (
     <span className="user-message-item__composer-document">
       {snapshot.document.nodes.map((node, index) => {
         if (node.type === 'text') {
           return <React.Fragment key={`text-${index}`}>{highlightText(node.text, query)}</React.Fragment>;
         }
-        const context = byId.get(node.contextId);
+        const reference = referenceById.get(node.referenceId);
+        const context = reference ? assetById.get(reference.assetId) : undefined;
         if (!context) return null;
         const presentation = getContextPresentation(context, t);
-        const ContextIcon = presentation.icon;
         return (
           <button
-            key={`${node.contextId}-${index}`}
+            key={`${node.referenceId}-${index}`}
             type="button"
-            className={`user-message-item__context-tag user-message-item__context-tag--${presentation.color}`}
+            className="user-message-item__context-tag"
             disabled={!presentation.canOpen}
             title={presentation.detail}
             onClick={event => {
@@ -162,11 +168,42 @@ function ComposerSnapshotContent({
               if (presentation.canOpen) openComposerContext(context, { readOnly: true });
             }}
           >
-            <ContextIcon size={12} aria-hidden="true" />
-            <span>{presentation.label}</span>
+            <ComposerAttachmentIdentity
+              asset={context}
+              attachmentNumber={attachmentNumberById.get(context.id) || 0}
+              variant="capsule"
+              t={t}
+            />
           </button>
         );
       })}
+      {snapshot.assets.length > 0 ? (
+        <span className="user-message-item__composer-attachments">
+          {snapshot.assets.map((context, index) => {
+          const presentation = getContextPresentation(context, t);
+          return (
+            <button
+              key={context.id}
+              type="button"
+              className="user-message-item__context-tag"
+              disabled={!presentation.canOpen}
+              title={presentation.detail}
+              onClick={event => {
+                event.stopPropagation();
+                if (presentation.canOpen) openComposerContext(context, { readOnly: true });
+              }}
+            >
+              <ComposerAttachmentIdentity
+                asset={context}
+                attachmentNumber={index + 1}
+                variant="capsule"
+                t={t}
+              />
+            </button>
+          );
+          })}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -192,7 +229,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
     const messageContent = typeof message?.content === 'string' ? message.content : String(message?.content || '');
     const composerSnapshot = useMemo(() => {
       const value = message?.metadata?.composerContext;
-      return isComposerContextSnapshot(value) ? value : null;
+       return parseComposerContextSnapshot(value);
     }, [message?.metadata?.composerContext]);
     const messageImages = useMemo(() => message?.images ?? [], [message?.images]);
     const isFollowUp = variant === 'follow-up';
@@ -259,14 +296,22 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
 
     const editInitialContent = useMemo(
       () => composerSnapshot
-        ? serializeComposerDocumentForModel(composerSnapshot.document, composerSnapshot.contexts)
+        ? serializeComposerDocumentForModel(
+            composerSnapshot.document,
+            composerSnapshot.references,
+            composerSnapshot.assets,
+          )
         : displayText || messageContent,
       [composerSnapshot, displayText, messageContent],
     );
     const isEditDirty = editDraft !== editInitialContent;
     const isTruncated = displayText.length > 120;
     const copyContent = useMemo(() => composerSnapshot
-      ? serializeComposerDocumentForModel(composerSnapshot.document, composerSnapshot.contexts)
+      ? serializeComposerDocumentForModel(
+          composerSnapshot.document,
+          composerSnapshot.references,
+          composerSnapshot.assets,
+        )
       : messageContent,
     [composerSnapshot, messageContent]);
 
@@ -587,6 +632,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
                 className="user-message-item__expanded-markdown"
                 enableTableColumnResize
                 onLayoutMutation={handleMarkdownLayoutMutation}
+                onReproductionProceed={notifyReproductionCompleted}
               />
             </div>
           )}
@@ -713,6 +759,7 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
               className="user-message-item__expanded-markdown"
               enableTableColumnResize
               onLayoutMutation={handleMarkdownLayoutMutation}
+              onReproductionProceed={notifyReproductionCompleted}
             />
           </div>
         )}
@@ -732,7 +779,12 @@ export const UserMessageItem = React.memo<UserMessageItemProps>(
 
         {reproductionSteps && (
           <div className="user-message-item__blocks">
-            {reproductionSteps && <ReproductionStepsBlock steps={reproductionSteps} />}
+            {reproductionSteps && (
+              <ReproductionStepsBlock
+                steps={reproductionSteps}
+                onProceed={notifyReproductionCompleted}
+              />
+            )}
           </div>
         )}
 

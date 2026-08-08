@@ -14,6 +14,7 @@ use crate::infrastructure::try_get_path_manager_arc;
 use super::record::WorkRecord;
 use super::run_store::FileRunStore;
 use super::types::{WorkLocator, WorkScope};
+use super::work_object::{WorkObjectLocator, WorkObjectRecord};
 
 const INDEX_FILE: &str = "index.json";
 const INVALID_RECORD_DIR: &str = "_invalid";
@@ -115,7 +116,18 @@ async fn replace_file(source: &Path, destination: &Path) -> CoreResult<()> {
 }
 
 #[async_trait]
-pub trait WorkStore: Send + Sync {
+pub trait WorkObjectStore: Send + Sync {
+    async fn list_work_objects(&self) -> CoreResult<Vec<WorkObjectRecord>>;
+    async fn get_work_object(
+        &self,
+        locator: &WorkObjectLocator,
+    ) -> CoreResult<Option<WorkObjectRecord>>;
+    async fn put_work_object(&self, record: &WorkObjectRecord) -> CoreResult<()>;
+    async fn delete_work_object(&self, locator: &WorkObjectLocator) -> CoreResult<bool>;
+}
+
+#[async_trait]
+pub trait WorkStore: WorkObjectStore + Send + Sync {
     async fn list(&self) -> CoreResult<Vec<WorkRecord>>;
     async fn get(&self, locator: &WorkLocator) -> CoreResult<Option<WorkRecord>>;
     async fn put(&self, record: &WorkRecord) -> CoreResult<()>;
@@ -173,9 +185,28 @@ impl FileWorkStore {
             .join(format!("{}.json", locator.work_id.as_str())))
     }
 
+    fn object_scope_dir(&self, scope: &WorkScope) -> CoreResult<PathBuf> {
+        let root = self.root.join("objects");
+        match scope {
+            WorkScope::Global => Ok(root.join("global")),
+            WorkScope::Workspace { workspace_id } => {
+                Self::validate_workspace_id(workspace_id)?;
+                Ok(root.join("workspaces").join(workspace_id))
+            }
+        }
+    }
+
+    fn object_record_path(&self, locator: &WorkObjectLocator) -> CoreResult<PathBuf> {
+        Ok(self
+            .object_scope_dir(&locator.scope)?
+            .join(format!("{}.json", locator.object_id.as_str())))
+    }
+
     async fn ensure_roots(&self) -> CoreResult<()> {
         tokio::fs::create_dir_all(self.root.join("global")).await?;
         tokio::fs::create_dir_all(self.root.join("workspaces")).await?;
+        tokio::fs::create_dir_all(self.root.join("objects").join("global")).await?;
+        tokio::fs::create_dir_all(self.root.join("objects").join("workspaces")).await?;
         Ok(())
     }
 
@@ -289,6 +320,59 @@ impl FileWorkStore {
         Ok(records)
     }
 
+    async fn load_work_object(
+        &self,
+        path: &Path,
+        expected_scope: &WorkScope,
+    ) -> CoreResult<Option<WorkObjectRecord>> {
+        let lock = work_file_lock(path).await;
+        let _guard = lock.lock().await;
+        let content = match tokio::fs::read_to_string(path).await {
+            Ok(content) => content,
+            Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error.into()),
+        };
+        drop(_guard);
+
+        let record = match serde_json::from_str::<WorkObjectRecord>(&content) {
+            Ok(record) => record,
+            Err(error) => {
+                self.quarantine_invalid_record(path, &error.to_string())
+                    .await;
+                return Ok(None);
+            }
+        };
+        if &record.scope != expected_scope {
+            self.quarantine_invalid_record(path, "WorkObject scope does not match its directory")
+                .await;
+            return Ok(None);
+        }
+        Ok(Some(record))
+    }
+
+    async fn load_work_object_scope_records(
+        &self,
+        scope: &WorkScope,
+        directory: &Path,
+    ) -> CoreResult<Vec<WorkObjectRecord>> {
+        let mut records = Vec::new();
+        let mut entries = match tokio::fs::read_dir(directory).await {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == ErrorKind::NotFound => return Ok(records),
+            Err(error) => return Err(error.into()),
+        };
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                continue;
+            }
+            if let Some(record) = self.load_work_object(&path, scope).await? {
+                records.push(record);
+            }
+        }
+        Ok(records)
+    }
+
     async fn update_index(&self, scope: &WorkScope) -> CoreResult<()> {
         let directory = self.scope_dir(scope)?;
         tokio::fs::create_dir_all(&directory).await?;
@@ -307,6 +391,64 @@ impl FileWorkStore {
         let lock = work_file_lock(&path).await;
         let _guard = lock.lock().await;
         write_atomic(&path, &serde_json::to_vec_pretty(&index)?).await
+    }
+}
+
+#[async_trait]
+impl WorkObjectStore for FileWorkStore {
+    async fn list_work_objects(&self) -> CoreResult<Vec<WorkObjectRecord>> {
+        self.ensure_roots().await?;
+        let object_root = self.root.join("objects");
+        let mut records = self
+            .load_work_object_scope_records(&WorkScope::Global, &object_root.join("global"))
+            .await?;
+
+        let workspace_root = object_root.join("workspaces");
+        let mut workspace_entries = tokio::fs::read_dir(&workspace_root).await?;
+        while let Some(entry) = workspace_entries.next_entry().await? {
+            if !entry.file_type().await?.is_dir() {
+                continue;
+            }
+            let workspace_id = entry.file_name().to_string_lossy().into_owned();
+            Self::validate_workspace_id(&workspace_id)?;
+            let scope = WorkScope::Workspace { workspace_id };
+            records.extend(
+                self.load_work_object_scope_records(&scope, &entry.path())
+                    .await?,
+            );
+        }
+        records.sort_by(|left, right| {
+            right
+                .updated_at
+                .cmp(&left.updated_at)
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        Ok(records)
+    }
+
+    async fn get_work_object(
+        &self,
+        locator: &WorkObjectLocator,
+    ) -> CoreResult<Option<WorkObjectRecord>> {
+        self.ensure_roots().await?;
+        self.load_work_object(&self.object_record_path(locator)?, &locator.scope)
+            .await
+    }
+
+    async fn put_work_object(&self, record: &WorkObjectRecord) -> CoreResult<()> {
+        self.ensure_roots().await?;
+        let path = self.object_record_path(&record.locator())?;
+        if let Some(parent) = path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        let lock = work_file_lock(&path).await;
+        let _guard = lock.lock().await;
+        write_atomic(&path, &serde_json::to_vec_pretty(record)?).await
+    }
+
+    async fn delete_work_object(&self, locator: &WorkObjectLocator) -> CoreResult<bool> {
+        self.ensure_roots().await?;
+        Self::remove_record(&self.object_record_path(locator)?).await
     }
 }
 
@@ -366,11 +508,46 @@ impl WorkStore for FileWorkStore {
 #[derive(Debug, Default)]
 pub struct MemoryWorkStore {
     records: RwLock<BTreeMap<WorkLocator, WorkRecord>>,
+    object_records: RwLock<BTreeMap<WorkObjectLocator, WorkObjectRecord>>,
 }
 
 impl MemoryWorkStore {
     pub fn new() -> Self {
         Self::default()
+    }
+}
+
+#[async_trait]
+impl WorkObjectStore for MemoryWorkStore {
+    async fn list_work_objects(&self) -> CoreResult<Vec<WorkObjectRecord>> {
+        let records = self.object_records.read().await;
+        let mut values = records.values().cloned().collect::<Vec<_>>();
+        values.sort_by(|left, right| {
+            right
+                .updated_at
+                .cmp(&left.updated_at)
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        Ok(values)
+    }
+
+    async fn get_work_object(
+        &self,
+        locator: &WorkObjectLocator,
+    ) -> CoreResult<Option<WorkObjectRecord>> {
+        Ok(self.object_records.read().await.get(locator).cloned())
+    }
+
+    async fn put_work_object(&self, record: &WorkObjectRecord) -> CoreResult<()> {
+        self.object_records
+            .write()
+            .await
+            .insert(record.locator(), record.clone());
+        Ok(())
+    }
+
+    async fn delete_work_object(&self, locator: &WorkObjectLocator) -> CoreResult<bool> {
+        Ok(self.object_records.write().await.remove(locator).is_some())
     }
 }
 
@@ -408,7 +585,9 @@ impl WorkStore for MemoryWorkStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic_os::work::{WorkId, WorkKind, WorkSubject, WorkSurfaceRef, WorkVisibility};
+    use crate::agentic_os::work::{
+        WorkAppRef, WorkId, WorkKind, WorkObjectRecord, WorkSubject, WorkSurfaceRef, WorkVisibility,
+    };
 
     fn temp_work_store_root(test_name: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
@@ -480,6 +659,38 @@ mod tests {
         };
         assert!(store.get(&wrong).await.unwrap().is_none());
         assert!(store.get(&record.locator()).await.unwrap().is_some());
+
+        let _ = tokio::fs::remove_dir_all(root).await;
+    }
+
+    #[tokio::test]
+    async fn persists_work_objects_outside_work_record_files() {
+        let root = temp_work_store_root("work-objects");
+        let store = FileWorkStore::new(root.clone(), root.join("_runs"));
+        let object = WorkObjectRecord::new(
+            "deck".to_string(),
+            "Design review".to_string(),
+            WorkScope::Workspace {
+                workspace_id: "ws_test".to_string(),
+            },
+            Some("D:/workspace/test".to_string()),
+            WorkAppRef::product_app("ppt-live", "ppt-live", "release-1", "config-1", "1"),
+            10,
+        );
+
+        store.put_work_object(&object).await.unwrap();
+
+        assert!(root
+            .join("objects")
+            .join("workspaces")
+            .join("ws_test")
+            .join(format!("{}.json", object.id.as_str()))
+            .exists());
+        assert_eq!(
+            store.get_work_object(&object.locator()).await.unwrap(),
+            Some(object.clone())
+        );
+        assert_eq!(store.list_work_objects().await.unwrap(), vec![object]);
 
         let _ = tokio::fs::remove_dir_all(root).await;
     }

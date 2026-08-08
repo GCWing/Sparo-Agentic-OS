@@ -17,6 +17,7 @@ dist-ssr
 *.local
 **/dist
 **/dist-ssr
+**/dist-preview/
 
 # Build outputs - Rust/Tauri
 target/

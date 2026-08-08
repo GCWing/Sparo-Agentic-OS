@@ -525,6 +525,8 @@
     "devWingExpand": "展开开发工具"
   },
   "canvas": {
+    "collapsePanel": "收起右侧面板",
+    "focusInScene": "在场景中专注查看",
     "noContentOpen": "暂未打开任何内容",
     "filesCount": "{{count}} 个文件",
     "searchPlaceholder": "搜索文件名或路径...",

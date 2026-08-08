@@ -1,5 +1,5 @@
 import { compositionDuration, currentComposition } from './model.js';
-import { notifyPlayerFrameLoaded, playerFrameNode, requestPlayerHandshake } from './player-dom.js';
+import { notifyPlayerFrameLoaded, playerFrameNode, requestPlayerHandshake, resetPlayerChannelConnection } from './player-dom.js';
 import { playerStageKey } from './preview-controller.js';
 import { selectionSummary, shouldDeferRenderForSelection } from './selection-geom.js';
 import { state } from './state.js';
@@ -47,7 +47,7 @@ function setError(error) {
 
 function renderStatusStrip() {
   const phase = previewPhase();
-  const busy = ['detecting', 'bundling', 'connecting', 'loading'].includes(phase);
+  const busy = ['detecting', 'snapshot', 'bundling', 'connecting', 'loading'].includes(phase);
   return `<div class="rl-status-strip${busy ? ' is-busy' : ''}" aria-hidden="true"><span></span></div>`;
 }
 
@@ -135,7 +135,7 @@ function patchStablePlayerRender(root) {
   const composition = currentComposition();
   if (composition) {
     replaceElementHtml('.rl-transport', renderPlaybackTransport(composition, compositionDuration(composition), Number(composition.fps || 30)));
-    replaceElementHtml('.rl-review', renderTimelineInline(composition, compositionDuration(composition), Number(composition.fps || 30)));
+    replaceElementHtml('.rl-review', renderTimelineInline(composition, compositionDuration(composition)));
   }
   patchPlayerOverlayDom(stage);
   patchInspectDom(stage);
@@ -166,7 +166,7 @@ function updateTimelineDom() {
   const duration = compositionDuration(composition);
   const fps = Number(composition.fps || 30);
   replaceElementHtml('.rl-transport', renderPlaybackTransport(composition, duration, fps));
-  replaceElementHtml('.rl-review', renderTimelineInline(composition, duration, fps));
+  replaceElementHtml('.rl-review', renderTimelineInline(composition, duration));
   syncFrameDom();
   syncPlayingDom();
 }
@@ -197,6 +197,8 @@ function renderPreview() {
       data-seeking="${state.playerSeeking ? 'true' : 'false'}"
       data-player-host-ready="${state.playerHost?.ready ? 'true' : 'false'}"
       data-player-connection-state="${escapeHtml(state.playerConnectionState || 'disconnected')}"
+      data-player-connection-transport="${escapeHtml(state.playerConnectionTransport || '')}"
+      data-player-connection-error="${escapeHtml(state.playerConnectionErrorCode || '')}"
       data-player-channel-connected="${state.playerChannelConnected ? 'true' : 'false'}">
       <div class="rl-stage-area">
         <div class="rl-stage${state.interactionMode === 'inspect' ? ' is-inspecting' : ''}" style="aspect-ratio:${aspectRatio}">
@@ -205,15 +207,11 @@ function renderPreview() {
           ${renderSelectCaptureLayer()}
           ${renderSelectionOverlay()}
           ${renderSelectionMarker()}
-          <div class="rl-stage-meta" aria-hidden="true">
-            <span>${escapeHtml(t('resolution', composition))}</span>
-            <span>F <span class="rl-frame-actual">${actualFrame()}</span></span>
-          </div>
         </div>
       </div>
       ${renderContextTray()}
       ${renderPlaybackTransport(composition, duration, fps)}
-      ${renderTimelineInline(composition, duration, fps)}
+      ${renderTimelineInline(composition, duration)}
     </section>
   `;
 }
@@ -247,6 +245,8 @@ function render() {
   root.dataset.seeking = state.playerSeeking ? 'true' : 'false';
   root.dataset.playerHostReady = state.playerHost?.ready ? 'true' : 'false';
   root.dataset.playerConnectionState = state.playerConnectionState || 'disconnected';
+  root.dataset.playerConnectionTransport = state.playerConnectionTransport || '';
+  root.dataset.playerConnectionError = state.playerConnectionErrorCode || '';
   root.dataset.playerChannelConnected = state.playerChannelConnected ? 'true' : 'false';
   document.documentElement.dataset.route = state.route;
 
@@ -263,6 +263,7 @@ function render() {
     state.playerRenderedStageKey = stageKey;
   }
   if (nextFrame && nextFrame !== previousFrame) {
+    resetPlayerChannelConnection();
     state.playerRuntimeReady = false;
     state.playerRuntimePlaying = false;
     nextFrame.addEventListener('load', () => notifyPlayerFrameLoaded(nextFrame), { once: true });

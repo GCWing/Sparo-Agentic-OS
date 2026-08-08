@@ -791,6 +791,7 @@ async fn capability_preview_checks(
                     session_id: context.session_id.clone(),
                     turn_id: context.dialog_turn_id.clone(),
                     work_id: None,
+                    work_object_id: None,
                     work_title: None,
                     runtime_instance_id: None,
                 };

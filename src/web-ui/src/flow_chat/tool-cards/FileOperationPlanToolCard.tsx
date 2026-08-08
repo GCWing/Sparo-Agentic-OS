@@ -3,6 +3,7 @@ import { ExternalLink, FolderCog } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { openWorkspaceScene } from '@/app/navigation/workspaceNavigation';
 import type { FileOperationPlan } from '@/infrastructure/api';
+import { basenamePath } from '@/shared/utils/pathUtils';
 import {
   dispatchFileWorkbenchPlanReview,
 } from '@/tools/file-workbench';
@@ -36,11 +37,6 @@ function extractPlan(result: unknown): FileOperationPlan | null {
   }
 
   return null;
-}
-
-function basename(path: string | undefined): string {
-  if (!path) return '';
-  return path.split(/[/\\]/).filter(Boolean).pop() || path;
 }
 
 export const FileOperationPlanToolCard: React.FC<ToolCardProps> = ({
@@ -101,7 +97,7 @@ export const FileOperationPlanToolCard: React.FC<ToolCardProps> = ({
         {plan.items.slice(0, 4).map((item) => (
           <li key={item.id}>
             <span>{item.operationType}</span>
-            <strong>{basename(item.sourcePath ?? item.targetPath)}</strong>
+            <strong>{basenamePath(item.sourcePath ?? item.targetPath ?? '')}</strong>
           </li>
         ))}
       </ol>

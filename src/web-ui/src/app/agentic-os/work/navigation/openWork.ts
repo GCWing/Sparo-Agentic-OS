@@ -25,6 +25,7 @@ import { useThemeStore } from '@/infrastructure/theme';
 import { productAppRuntimeAPI, type ProductAppWorkCompatibility } from '@/infrastructure/api/service-api/ProductAppRuntimeAPI';
 import { i18nService } from '@/infrastructure/i18n';
 import { notificationService } from '@/shared/notification-system';
+import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
 
 interface PendingWorkOpen {
   intent: number;
@@ -183,15 +184,21 @@ async function performOpenWork(
 }
 
 export async function openWork(work: WorkRecord): Promise<void> {
-  const intent = ++workOpenIntent;
   const existing = pendingWorkOpens.get(work.id);
   if (existing && existing.navigationEpoch === getNavigationEpoch()) {
     // Re-selecting the same in-flight Work joins its preparation instead of
     // starting another catalog/runtime resolution chain.
+    const intent = ++workOpenIntent;
     existing.intent = intent;
     return existing.promise;
   }
 
+  const activeContext = useWorkspaceSurfaceStore.getState().surfaceContext;
+  if (activeContext?.kind === 'work' && activeContext.workId === work.id) {
+    return;
+  }
+
+  const intent = ++workOpenIntent;
   const navigationEpoch = beginNavigationIntent();
   const pending: PendingWorkOpen = {
     intent,

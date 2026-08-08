@@ -91,6 +91,8 @@ pub struct BridgeComponentConsumer {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub work_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub work_object_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub work_title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_instance_id: Option<String>,

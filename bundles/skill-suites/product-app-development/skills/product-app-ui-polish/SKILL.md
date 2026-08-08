@@ -72,7 +72,6 @@ Recommended app aliases at the top of `style.css`:
 
 ## Reference Choices
 
-- Tool-like, state-dense, frequently operated apps: prefer `builtin-spark-board`. It uses a compact topbar, clear tool buttons, restrained theme aliases, and a fixed full-screen canvas.
 - Complex production tools or multi-panel flows: prefer `builtin-ppt-live`. It defines local tokens for spacing, typography, z-index, motion, and panel widths, and handles light/dark overrides explicitly.
 - Workspace/devtool apps: refer to `builtin-harmony-dev` and `builtin-remotion-live`. They split actions, state, and views into modules, and organize UI around fact refresh, preview, selection, and sending context.
 - Placeholder or minimal package surfaces can use `builtin-deep-research` as a basic reference, but do not treat its `--ds-*` usage as the default theme strategy for new Product Apps.

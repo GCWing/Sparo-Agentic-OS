@@ -237,6 +237,7 @@ export async function sendMessage(
   options?: {
     imageContexts?: ImageInputContextData[];
     imageDisplayData?: Array<{ id: string; name: string; dataUrl?: string; imagePath?: string; mimeType?: string }>;
+    composerSubmission?: import('@/shared/types/composer').ComposerSubmissionEnvelope;
     persistAgentType?: boolean;
     systemReminderOverride?: string;
     metadata?: Record<string, any>;
@@ -282,10 +283,6 @@ export async function sendMessage(
     }
 
     if (isTransientBtwSession(refreshedSession)) {
-      if ((options?.imageContexts?.length ?? 0) > 0) {
-        throw new Error('Transient /btw sessions do not support image attachments yet');
-      }
-
       const parentSessionId = refreshedSession.parentSessionId?.trim();
       if (!parentSessionId) {
         throw new Error(`Transient /btw session is missing parentSessionId: ${sessionId}`);
@@ -297,6 +294,8 @@ export async function sendMessage(
         question: message,
         childSessionName: refreshedSession.title,
         modelId: desiredModelId,
+        composerSubmission: options?.composerSubmission,
+        imageContexts: options?.imageContexts,
       });
       return;
     }
@@ -381,6 +380,7 @@ export async function sendMessage(
         triggerSource: options?.triggerSource,
         userMessageMetadata: options?.metadata,
         imageContexts: options?.imageContexts,
+        composerSubmission: options?.composerSubmission,
       });
     } catch (error: any) {
       if (isMissingBackendSessionError(error)) {
@@ -403,6 +403,7 @@ export async function sendMessage(
           triggerSource: options?.triggerSource,
           userMessageMetadata: options?.metadata,
           imageContexts: options?.imageContexts,
+          composerSubmission: options?.composerSubmission,
         });
       } else {
         throw error;
@@ -430,7 +431,7 @@ export async function sendMessage(
       }
 
       if (isFirstMessage) {
-        handleTitleGeneration(context, sessionId, message);
+        handleTitleGeneration(context, sessionId, displayMessage || message);
       }
 
       context.processingManager.registerStatus({

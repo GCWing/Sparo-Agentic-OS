@@ -20,14 +20,26 @@ import {
   type ComposerTargetIntent,
 } from '../model/composerIntentState';
 import { createLogger } from '@/shared/utils/logger';
-import type { ComposerDocument } from '@/shared/types/composer';
-import type { ContextItem } from '@/shared/types/context';
 import {
+  estimateComposerSubmissionCharacters,
+  getComposerText,
+  hasSendableComposerSubmission,
+  type ComposerDocument,
+  type ComposerSubmissionEnvelope,
+  type ContextReference,
+} from '@/shared/types/composer';
+import type { ContextItem, ImageContext } from '@/shared/types/context';
+import type { ImageContextData } from '@/infrastructure/api/service-api/ImageContextTypes';
+import {
+  imageAssetFilePath,
+  resolveImageAssetDataUrl,
+} from '@/shared/media/imageAssetStore';
+import {
+  createComposerSubmissionEnvelope,
   createComposerContextSnapshot,
   freezeComposerDraftContextEditors,
   restoreComposerDraftContextEditors,
   serializeComposerDocumentForDisplay,
-  serializeComposerDocumentForModel,
 } from '../../../domain/composerContextRegistry';
 
 const log = createLogger('ComposerSubmission');
@@ -38,6 +50,7 @@ type ComposerSendMessageOptions = {
   triggerSource?: import('@/shared/types/session-history').TriggerSource;
   systemReminderOverride?: string;
   localDialogTurnId?: string;
+  composerSubmission?: ComposerSubmissionEnvelope;
 };
 
 interface UseComposerSubmissionParams {
@@ -66,9 +79,18 @@ interface UseComposerSubmissionParams {
   resetHistoryDraft: () => void;
   onSendMessage?: (message: string) => void;
   document: ComposerDocument;
-  contexts: ContextItem[];
-  restoreDraft: (document: ComposerDocument, contexts: ContextItem[]) => void;
-  restoreDraftIfEmpty: (document: ComposerDocument, contexts: ContextItem[]) => boolean;
+  assets: ContextItem[];
+  references: ContextReference[];
+  restoreDraft: (
+    document: ComposerDocument,
+    assets: ContextItem[],
+    references: ContextReference[],
+  ) => void;
+  restoreDraftIfEmpty: (
+    document: ComposerDocument,
+    assets: ContextItem[],
+    references: ContextReference[],
+  ) => boolean;
   updateDraftContext: (contextId: string, updates: Partial<ContextItem>) => void;
   draftKey: string;
   activeGoalId?: string | null;
@@ -89,6 +111,31 @@ function goalInitialSystemReminder(): string {
     'Execute the user request in this current session.',
     'The Goal lifecycle is tracked by the system; do not claim the goal is complete in a final answer unless you have submitted completion evidence through the Goal tool.',
   ].join('\n');
+}
+
+async function imageContextsForSubmission(
+  assets: ContextItem[],
+  submission: ComposerSubmissionEnvelope,
+): Promise<ImageContextData[]> {
+  const ordinalById = new Map(
+    submission.attachments.map(attachment => [attachment.id, attachment.ordinal]),
+  );
+  return Promise.all(assets
+    .filter((asset): asset is ImageContext => asset.type === 'image')
+    .map(async asset => ({
+        id: asset.id,
+        image_path: imageAssetFilePath(asset),
+        data_url: await resolveImageAssetDataUrl(asset),
+        mime_type: asset.mimeType,
+        metadata: {
+          name: asset.imageName,
+          width: asset.width,
+          height: asset.height,
+          file_size: asset.fileSize,
+          source: asset.source,
+          attachment_number: ordinalById.get(asset.id),
+        },
+      })));
 }
 
 export function useComposerSubmission({
@@ -113,7 +160,8 @@ export function useComposerSubmission({
   resetHistoryDraft,
   onSendMessage,
   document,
-  contexts,
+  assets,
+  references,
   restoreDraft,
   restoreDraftIfEmpty,
   updateDraftContext,
@@ -121,8 +169,8 @@ export function useComposerSubmission({
   activeGoalId,
   onBtwStarted,
 }: UseComposerSubmissionParams) {
-  const validateMessageSize = useCallback((message: string): boolean => {
-    const messageCharCount = Array.from(message).length;
+  const validateSubmissionSize = useCallback((submission: ComposerSubmissionEnvelope): boolean => {
+    const messageCharCount = estimateComposerSubmissionCharacters(submission);
     if (messageCharCount <= CHAT_INPUT_CONFIG.largePaste.maxMessageChars) {
       return true;
     }
@@ -135,9 +183,20 @@ export function useComposerSubmission({
     return false;
   }, [t]);
 
-  const modelMessage = serializeComposerDocumentForModel(document, contexts);
-  const displayMessage = serializeComposerDocumentForDisplay(document, contexts, t);
-  const composerContextSnapshot = createComposerContextSnapshot(document, contexts);
+  const displayMessage = serializeComposerDocumentForDisplay(document, references, assets, t);
+  const composerContextSnapshot = createComposerContextSnapshot(document, references, assets);
+  const normalSubmission = createComposerSubmissionEnvelope(
+    document,
+    references,
+    assets,
+    'normal',
+    t,
+  );
+  const hasSendablePayload = hasSendableComposerSubmission(normalSubmission);
+  const fallbackDisplayMessage = displayMessage.trim()
+    || normalSubmission.attachments
+      .map(attachment => `[Attachment ${attachment.ordinal}: ${attachment.title}]`)
+      .join(' ');
 
   const clearDraftForSubmit = useCallback(() => {
     freezeComposerDraftContextEditors(composerContextSnapshot, draftKey);
@@ -148,24 +207,29 @@ export function useComposerSubmission({
 
   const restoreDraftAfterFailure = useCallback((
     originalDocument: ComposerDocument,
-    originalContexts: ContextItem[],
+    originalAssets: ContextItem[],
+    originalReferences: ContextReference[],
   ) => {
-    if (!restoreDraftIfEmpty(originalDocument, originalContexts)) return;
-    const originalSnapshot = createComposerContextSnapshot(originalDocument, originalContexts);
+    if (!restoreDraftIfEmpty(originalDocument, originalAssets, originalReferences)) return;
+    const originalSnapshot = createComposerContextSnapshot(
+      originalDocument,
+      originalReferences,
+      originalAssets,
+    );
     restoreComposerDraftContextEditors(originalSnapshot, draftKey, updateDraftContext);
     activateInput();
     setInputValue(originalDocument.nodes
       .filter(node => node.type === 'text')
       .map(node => node.text)
       .join(''));
-    restoreDraft(originalDocument, originalContexts);
+    restoreDraft(originalDocument, originalAssets, originalReferences);
     if (derivedState?.isProcessing) {
-      setQueuedInput(modelMessage);
+      setQueuedInput(fallbackDisplayMessage);
     }
   }, [
     activateInput,
     derivedState?.isProcessing,
-    modelMessage,
+    fallbackDisplayMessage,
     restoreDraft,
     restoreDraftIfEmpty,
     draftKey,
@@ -185,14 +249,19 @@ export function useComposerSubmission({
     }
 
     const originalDocument = structuredClone(document);
-    const originalContexts = structuredClone(contexts);
-    const question = modelMessage.trim();
+    const originalAssets = structuredClone(assets);
+    const originalReferences = structuredClone(references);
+    const submission: ComposerSubmissionEnvelope = {
+      ...normalSubmission,
+      intent: 'btw',
+    };
+    const question = fallbackDisplayMessage;
 
-    if (!question) {
+    if (!hasSendableComposerSubmission(submission)) {
       notificationService.warning(t('btw.empty', { defaultValue: 'Please provide a side question.' }));
       return;
     }
-    if (!validateMessageSize(question)) {
+    if (!validateSubmissionSize(submission)) {
       return;
     }
 
@@ -204,6 +273,8 @@ export function useComposerSubmission({
         workspacePath: workspacePath || '',
         question,
         modelId: currentSessionModelId,
+        composerSubmission: submission,
+        imageContexts: await imageContextsForSubmission(assets, submission),
       });
       openBtwSessionInAuxPane({
         childSessionId,
@@ -215,7 +286,7 @@ export function useComposerSubmission({
       onBtwStarted?.();
     } catch (error) {
       log.error('Failed to start side question thread', { error });
-      restoreDraftAfterFailure(originalDocument, originalContexts);
+      restoreDraftAfterFailure(originalDocument, originalAssets, originalReferences);
       notificationService.error(error instanceof Error ? error.message : t('error.unknown'), {
         title: t('btw.startFailed', { defaultValue: 'Side question failed' }),
         duration: 5000,
@@ -225,15 +296,17 @@ export function useComposerSubmission({
     clearDraftForSubmit,
     currentSessionId,
     currentSessionModelId,
-    contexts,
+    assets,
+    references,
     document,
     isBtwSession,
     onBtwStarted,
     resetIntentAfterSubmit,
     restoreDraftAfterFailure,
-    modelMessage,
+    fallbackDisplayMessage,
+    normalSubmission,
     t,
-    validateMessageSize,
+    validateSubmissionSize,
     workspacePath,
   ]);
 
@@ -248,6 +321,13 @@ export function useComposerSubmission({
     }
     if (inputValue.trim()) {
       notificationService.warning(t('chatInput.compactUsage', { defaultValue: 'Use /compact without extra arguments.' }));
+      return;
+    }
+    if (assets.length > 0) {
+      notificationService.warning(t('input.context.unsupportedForOperation', {
+        operation: '/compact',
+        defaultValue: 'Attachments are not used by {{operation}}. Remove them before continuing.',
+      }));
       return;
     }
 
@@ -272,6 +352,7 @@ export function useComposerSubmission({
     }
   }, [
     activateInput,
+    assets.length,
     clearDraftForSubmit,
     derivedState?.isProcessing,
     effectiveTargetSession,
@@ -292,6 +373,13 @@ export function useComposerSubmission({
     }
     if (inputValue.trim()) {
       notificationService.warning(t('chatInput.initUsage', { defaultValue: 'Use /init without extra arguments.' }));
+      return;
+    }
+    if (assets.length > 0) {
+      notificationService.warning(t('input.context.unsupportedForOperation', {
+        operation: '/init',
+        defaultValue: 'Attachments are not used by {{operation}}. Remove them before continuing.',
+      }));
       return;
     }
 
@@ -320,6 +408,7 @@ export function useComposerSubmission({
     }
   }, [
     activateInput,
+    assets.length,
     clearDraftForSubmit,
     derivedState?.isProcessing,
     effectiveTargetSession,
@@ -348,30 +437,36 @@ export function useComposerSubmission({
     }
 
     const originalDocument = structuredClone(document);
-    const originalContexts = structuredClone(contexts);
-    const goalBody = modelMessage.trim();
-    if (!goalBody) {
+    const originalAssets = structuredClone(assets);
+    const originalReferences = structuredClone(references);
+    const submission: ComposerSubmissionEnvelope = {
+      ...normalSubmission,
+      intent: 'goal',
+    };
+    const goalBody = getComposerText(document).trim();
+    if (!hasSendableComposerSubmission(submission)) {
       notificationService.warning(t('chatInput.goalEmpty', { defaultValue: 'Describe the goal before sending.' }));
       return;
     }
-    if (!validateMessageSize(goalBody)) {
+    if (!validateSubmissionSize(submission)) {
       return;
     }
 
-    const rawInput = `/goal ${goalBody}`;
+    const rawInput = `/goal ${fallbackDisplayMessage}`;
     const goalTurnId = createGoalTurnId();
 
-    addToHistory(effectiveTargetSessionId, displayMessage.trim(), composerContextSnapshot);
+    addToHistory(effectiveTargetSessionId, fallbackDisplayMessage, composerContextSnapshot);
     clearDraftForSubmit();
 
     let goalTurnSubmitted = false;
     try {
       const { goalAPI } = await import('@/infrastructure/api');
       await sendMessage(goalBody, {
-        displayMessage: displayMessage.trim(),
+        displayMessage: fallbackDisplayMessage,
         triggerSource: 'goal',
         systemReminderOverride: goalInitialSystemReminder(),
         localDialogTurnId: goalTurnId,
+        composerSubmission: submission,
         metadata: {
           composerContext: composerContextSnapshot,
           goal: {
@@ -399,7 +494,7 @@ export function useComposerSubmission({
     } catch (error) {
       log.error('Failed to submit goal', { error, sessionId: effectiveTargetSessionId });
       if (!goalTurnSubmitted) {
-        restoreDraftAfterFailure(originalDocument, originalContexts);
+        restoreDraftAfterFailure(originalDocument, originalAssets, originalReferences);
       }
       notificationService.error(error instanceof Error ? error.message : t('error.unknown'), {
         title: t('chatInput.goalFailed', { defaultValue: 'Goal command failed' }),
@@ -412,15 +507,16 @@ export function useComposerSubmission({
     effectiveTargetSession,
     effectiveTargetSessionId,
     composerContextSnapshot,
-    contexts,
-    displayMessage,
+    assets,
+    references,
     document,
     resetIntentAfterSubmit,
     restoreDraftAfterFailure,
     sendMessage,
-    modelMessage,
+    fallbackDisplayMessage,
+    normalSubmission,
     t,
-    validateMessageSize,
+    validateSubmissionSize,
     workspacePath,
   ]);
 
@@ -429,9 +525,10 @@ export function useComposerSubmission({
     if (!command) return;
 
     const originalDocument = structuredClone(document);
-    const originalContexts = structuredClone(contexts);
+    const originalAssets = structuredClone(assets);
+    const originalReferences = structuredClone(references);
     const originalMessage = displayMessage.trim();
-    const expandedArguments = modelMessage.trim();
+    const expandedArguments = inputValue.trim();
     const argValues = parseSlashArguments(expandedArguments);
     const requiredArgs = command.arguments.filter(argument => argument.required);
     if (argValues.length < requiredArgs.length) {
@@ -444,12 +541,12 @@ export function useComposerSubmission({
 
     const commandDisplayMessage = `${command.command}${originalMessage ? ` ${originalMessage}` : ''}`;
     const commandComposerContext = createComposerContextSnapshot({
-      version: 1,
+      version: 2,
       nodes: [
         { type: 'text', text: `${command.command}${document.nodes.length > 0 ? ' ' : ''}` },
         ...document.nodes,
       ],
-    }, contexts);
+    }, references, assets);
     if (effectiveTargetSessionId) {
       addToHistory(effectiveTargetSessionId, commandDisplayMessage, commandComposerContext);
     }
@@ -475,14 +572,26 @@ export function useComposerSubmission({
         throw new Error('MCP prompt returned no displayable content');
       }
 
+      const promptSubmission = createComposerSubmissionEnvelope(
+        { version: 2, nodes: [{ type: 'text', text: renderedPrompt }] },
+        references,
+        assets,
+        'mcp_prompt',
+        t,
+      );
+      if (!validateSubmissionSize(promptSubmission)) {
+        throw new Error('MCP prompt and attachments exceed the Composer submission limit');
+      }
+
       await sendMessage(renderedPrompt, {
         displayMessage: commandDisplayMessage,
         metadata: { composerContext: commandComposerContext },
+        composerSubmission: promptSubmission,
       });
       resetIntentAfterSubmit();
     } catch (error) {
       log.error('Failed to run MCP prompt command', { command: command.command, error });
-      restoreDraftAfterFailure(originalDocument, originalContexts);
+      restoreDraftAfterFailure(originalDocument, originalAssets, originalReferences);
       notificationService.error(error instanceof Error ? error.message : t('error.unknown'), {
         title: t('chatInput.mcpPromptFailed', { defaultValue: 'MCP prompt failed' }),
         duration: 5000,
@@ -492,15 +601,17 @@ export function useComposerSubmission({
     addToHistory,
     clearDraftForSubmit,
     effectiveTargetSessionId,
-    contexts,
+    assets,
+    references,
     displayMessage,
     document,
     intent.promptTemplate,
+    inputValue,
     resetIntentAfterSubmit,
     restoreDraftAfterFailure,
     sendMessage,
-    modelMessage,
     t,
+    validateSubmissionSize,
   ]);
 
   const handleCancelGeneration = useCallback(async () => {
@@ -510,22 +621,24 @@ export function useComposerSubmission({
 
   const submitNormalMessage = useCallback(async () => {
     const originalDocument = structuredClone(document);
-    const originalContexts = structuredClone(contexts);
-    const message = modelMessage.trim();
-    if (!message) return;
-    if (!validateMessageSize(message)) {
+    const originalAssets = structuredClone(assets);
+    const originalReferences = structuredClone(references);
+    const message = getComposerText(document).trim();
+    if (!hasSendablePayload) return;
+    if (!validateSubmissionSize(normalSubmission)) {
       return;
     }
 
     if (effectiveTargetSessionId) {
-      addToHistory(effectiveTargetSessionId, displayMessage.trim(), composerContextSnapshot);
+      addToHistory(effectiveTargetSessionId, fallbackDisplayMessage, composerContextSnapshot);
     }
     clearDraftForSubmit();
     resetIntentAfterSubmit(intent.target === 'btw-thread' ? 'btw-thread' : undefined);
 
     try {
       await sendMessage(message, {
-        displayMessage: displayMessage.trim(),
+        displayMessage: fallbackDisplayMessage,
+        composerSubmission: normalSubmission,
         metadata: {
           composerContext: composerContextSnapshot,
           ...(activeGoalId ? { goal: {
@@ -537,7 +650,7 @@ export function useComposerSubmission({
       clearInput();
     } catch (error) {
       log.error('Failed to send message', { error });
-      restoreDraftAfterFailure(originalDocument, originalContexts);
+      restoreDraftAfterFailure(originalDocument, originalAssets, originalReferences);
     }
   }, [
     activeGoalId,
@@ -545,23 +658,24 @@ export function useComposerSubmission({
     clearDraftForSubmit,
     clearInput,
     composerContextSnapshot,
-    contexts,
-    displayMessage,
+    assets,
+    references,
     document,
     effectiveTargetSessionId,
     intent.target,
     resetIntentAfterSubmit,
     restoreDraftAfterFailure,
     sendMessage,
-    modelMessage,
-    validateMessageSize,
+    fallbackDisplayMessage,
+    hasSendablePayload,
+    normalSubmission,
+    validateSubmissionSize,
   ]);
 
   const handleSendOrCancel = useCallback(async () => {
     if (!derivedState) return;
 
-    const draftTrimmed = modelMessage.trim();
-    if (derivedState.sendButtonMode === 'cancel' && !draftTrimmed && !intent.operation) {
+    if (derivedState.sendButtonMode === 'cancel' && !hasSendablePayload && !intent.operation) {
       await handleCancelGeneration();
       return;
     }
@@ -595,7 +709,7 @@ export function useComposerSubmission({
     derivedState,
     handleCancelGeneration,
     intent,
-    modelMessage,
+    hasSendablePayload,
     submitBtwDraft,
     submitCompact,
     submitGoalDraft,
@@ -608,5 +722,6 @@ export function useComposerSubmission({
   return {
     handleCancelGeneration,
     handleSendOrCancel,
+    hasSendablePayload,
   };
 }

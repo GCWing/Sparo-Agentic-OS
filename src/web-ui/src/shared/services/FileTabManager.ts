@@ -6,8 +6,9 @@
 import { normalizePath } from '@/shared/utils/pathUtils';
 import { getEditorType } from '@/infrastructure/language-detection';
 import type { LineRange } from '@/shared/markdown';
-import { enqueuePendingTab } from './pendingTabQueue';
-import type { PendingTabDetail } from './pendingTabQueue';
+import { openProjectCanvasItem } from '@/app/components/panels/content-canvas/openCanvasItem';
+import type { CanvasItemDescriptor } from '@/app/components/panels/content-canvas/types';
+import { openActiveAuxiliaryItem } from '@/app/auxiliary-surface';
 export interface FileTabOptions {
    
   filePath: string;
@@ -31,13 +32,6 @@ export interface FileTabOptions {
   splitView?: boolean;
    
   targetGroup?: 'primary' | 'secondary';
-  /**
-   * Pass `true` when the target scene was just added to openTabs (i.e. it was
-   * not previously mounted).  The tab event will be enqueued instead of
-   * dispatched directly, so it is processed once the scene's ContentCanvas
-   * mounts and registers its event listener.
-   */
-  sceneJustOpened?: boolean;
 }
 
  
@@ -67,7 +61,6 @@ class FileTabManager {
       forceNew = false,
       splitView = false,
       targetGroup = 'secondary',
-      sceneJustOpened = false,
     } = options;
 
     
@@ -96,57 +89,25 @@ class FileTabManager {
     };
     
     
-    const eventDetail: PendingTabDetail = {
+    const item: CanvasItemDescriptor = {
       type: editorType,
       title: fileName,
       data: tabData,
-      metadata: {
-        duplicateCheckKey: normalizedPath
-      },
-      checkDuplicate: !forceNew,
-      duplicateCheckKey: normalizedPath
+      metadata: forceNew ? {} : { duplicateCheckKey: normalizedPath },
+      duplicateCheckKey: forceNew ? undefined : normalizedPath,
+      replaceExisting: Boolean(finalJumpToRange || jumpToLine || jumpToColumn),
     };
 
     
     if (splitView) {
-      eventDetail.targetGroup = targetGroup;
-      eventDetail.enableSplitView = true;
+      item.targetGroup = targetGroup;
+      item.enableSplitView = true;
     }
-    
-    
-    const eventName = mode === 'project' ? 'project-create-tab' : 'agent-create-tab';
-    
-    
-    window.dispatchEvent(new CustomEvent('expand-right-panel'));
 
-    // When the target scene was just added to openTabs it hasn't mounted yet,
-    // so the ContentCanvas event listener doesn't exist.  Enqueue the event;
-    // useTabLifecycle will drain and process it once it registers its listener.
-    if (sceneJustOpened) {
-      enqueuePendingTab(mode === 'project' ? 'project' : 'agent', eventDetail);
-      return;
-    }
-    
-    
-    const isRightPanelCollapsed = this.isRightPanelCollapsed();
-    
-    if (isRightPanelCollapsed) {
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent(eventName, { detail: eventDetail }));
-      }, 300);
+    if (mode === 'project') {
+      openProjectCanvasItem(item);
     } else {
-      window.dispatchEvent(new CustomEvent(eventName, { detail: eventDetail }));
-    }
-  }
-
-   
-  private isRightPanelCollapsed(): boolean {
-    
-    try {
-      const layoutState = (window as any).__SPARO_LAYOUT_STATE__;
-      return layoutState?.rightPanelCollapsed ?? false;
-    } catch {
-      return false;
+      openActiveAuxiliaryItem(item);
     }
   }
 

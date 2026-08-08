@@ -1,5 +1,7 @@
 import { api } from './ApiClient';
 import { createTauriCommandError } from '../errors/TauriCommandError';
+import type { ComposerSubmissionEnvelope } from '@/shared/types/composer';
+import type { ImageContextData } from './ImageContextTypes';
 
 export interface BtwAskStreamRequest {
   requestId: string;
@@ -8,6 +10,8 @@ export interface BtwAskStreamRequest {
   modelId?: string;
   childSessionId: string;
   childSessionName?: string;
+  composerSubmission?: ComposerSubmissionEnvelope;
+  imageContexts?: ImageContextData[];
 }
 
 export interface BtwAskStreamResponse {

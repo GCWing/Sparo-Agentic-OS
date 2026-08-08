@@ -3,7 +3,12 @@ import { appManager } from '@/app/services/AppManager';
 import { openSession } from '@/app/navigation/navigationController';
 import type { OpenWorkspaceSessionResult } from '@/app/navigation/navigationController';
 import type { WorkspaceSurfaceContext } from '@/app/navigation/workspaceSurfaceTypes';
-import { createTab } from '@/shared/utils/tabUtils';
+import {
+  homeAuxiliaryHostKey,
+  openAuxiliaryItem,
+  sessionAuxiliaryHostKey,
+  useAuxiliarySurfaceStore,
+} from '@/app/auxiliary-surface';
 import type { PanelContent } from '@/app/components/panels/base/types';
 import { useAgentCanvasStore } from '@/app/components/panels/content-canvas/stores';
 import type { CanvasTab } from '@/app/components/panels/content-canvas/types';
@@ -169,19 +174,23 @@ export function openChildSessionInAuxPane(params: {
     variant
   );
 
-  if (params.expand !== false) {
-    window.dispatchEvent(new CustomEvent('expand-right-panel'));
-  }
-
-  createTab({
-    type: content.type,
-    title: content.title,
-    data: content.data,
-    metadata: content.metadata,
-    checkDuplicate: true,
-    duplicateCheckKey: content.metadata?.duplicateCheckKey,
-    replaceExisting: false,
-    mode: 'agent',
+  const homeHost = homeAuxiliaryHostKey(params.parentSessionId);
+  const sessionHost = sessionAuxiliaryHostKey(params.parentSessionId);
+  const activeHost = useAuxiliarySurfaceStore.getState().activeHostKey;
+  const hostKey = activeHost === homeHost || activeHost === sessionHost
+    ? activeHost
+    : sessionHost;
+  openAuxiliaryItem({
+    hostKey,
+    item: {
+      type: content.type,
+      title: content.title,
+      data: content.data,
+      metadata: content.metadata,
+      duplicateCheckKey: content.metadata?.duplicateCheckKey,
+      replaceExisting: false,
+    },
+    reveal: params.expand === false ? 'preserve' : 'explicit',
   });
 }
 

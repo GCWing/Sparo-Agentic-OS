@@ -247,6 +247,8 @@ export interface WorkCardBackProps {
   onBack: () => void;
   onSelect: (work: WorkRecord) => void;
   onCreateNew: () => void;
+  onCreateForObject?: (work: WorkRecord) => void;
+  creatingForObject?: boolean;
   t: Translate;
 }
 
@@ -257,6 +259,8 @@ export const WorkCardBack: React.FC<WorkCardBackProps> = ({
   onBack,
   onSelect,
   onCreateNew,
+  onCreateForObject,
+  creatingForObject = false,
   t,
 }) => (
   <div
@@ -288,20 +292,39 @@ export const WorkCardBack: React.FC<WorkCardBackProps> = ({
     </div>
     <div className="work-card-back__list">
       {relatedWorks.map((work, index) => (
-        <button
+        <div
           key={work.id}
-          type="button"
           className="work-card-back__row"
           style={{ '--wcb-index': index } as React.CSSProperties}
-          onClick={(event) => { event.stopPropagation(); onSelect(work); }}
         >
-          <StatusDot tone={statusTone(work.status)} size="small" pulse={work.status === 'running'} />
-          <span className="work-card-back__row-body">
-            <strong>{work.title}</strong>
-            <small>{work.objective}</small>
-          </span>
-          <span className="work-card-back__row-time">{relativeTimeLabel(work.updatedAt)}</span>
-        </button>
+          <button
+            type="button"
+            className="work-card-back__row-main"
+            onClick={(event) => { event.stopPropagation(); onSelect(work); }}
+          >
+            <StatusDot tone={statusTone(work.status)} size="small" pulse={work.status === 'running'} />
+            <span className="work-card-back__row-body">
+              <strong>{work.title}</strong>
+              <small>{work.objective}</small>
+            </span>
+            <span className="work-card-back__row-time">{relativeTimeLabel(work.updatedAt)}</span>
+          </button>
+          {onCreateForObject ? (
+            <IconButton
+              variant="ghost"
+              size="small"
+              shape="circle"
+              className="work-card-back__reuse"
+              aria-label={t('productSystem.workStack.createForObjectLabel', { title: work.title })}
+              tooltip={t('productSystem.workStack.createForObjectLabel', { title: work.title })}
+              disabled={creatingForObject}
+              aria-busy={creatingForObject || undefined}
+              onClick={(event) => { event.stopPropagation(); onCreateForObject(work); }}
+            >
+              <Plus size={13} aria-hidden />
+            </IconButton>
+          ) : null}
+        </div>
       ))}
     </div>
   </div>

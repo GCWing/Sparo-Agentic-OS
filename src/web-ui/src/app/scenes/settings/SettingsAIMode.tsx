@@ -64,7 +64,7 @@ export function SettingsAIMode({ active = true, disabled = false }: SettingsAIMo
   const [resetErrorKey, setResetErrorKey] = useState<'resetError' | 'resetAttachError' | null>(null);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const derivedState = useSessionDerivedState(sessionId, '');
+  const derivedState = useSessionDerivedState(sessionId, false);
   const isProcessing = Boolean(derivedState?.isProcessing);
   const turnCount = useFlowChatStoreSelector((state) => (
     sessionId ? state.sessions.get(sessionId)?.dialogTurns.length ?? 0 : 0

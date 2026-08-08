@@ -5,6 +5,7 @@ import { openProductAppRuntime } from './productAppRuntimeService';
 
 const mocks = vi.hoisted(() => ({
   createWork: vi.fn(),
+  createWorkForObject: vi.fn(),
   resolveAppWork: vi.fn(),
   deleteWork: vi.fn(),
   requestWorkRefresh: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock('@/app/agentic-os/work/data/workStore', () => ({
   useWorkStore: {
     getState: () => ({
       createWork: mocks.createWork,
+      createWorkForObject: mocks.createWorkForObject,
       resolveAppWork: mocks.resolveAppWork,
       deleteWork: mocks.deleteWork,
     }),
@@ -92,6 +94,7 @@ describe('openProductAppRuntime work multiplicity', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.createWork.mockResolvedValue(work('work-new'));
+    mocks.createWorkForObject.mockResolvedValue(work('work-shared-object'));
     mocks.resolveAppWork.mockResolvedValue({ work: work('work-existing'), created: false });
     mocks.deleteWork.mockResolvedValue({ deleted: true });
     mocks.resolveRuntime.mockImplementation(async ({ locator }) => ({
@@ -183,6 +186,86 @@ describe('openProductAppRuntime work multiplicity', () => {
       }),
     );
     expect(mocks.openRuntimeHost).toHaveBeenCalledAfter(mocks.backendCall);
+  });
+
+  it('attaches a new Work to the same existing WorkObject before opening it', async () => {
+    mocks.getHostSurface.mockResolvedValue({
+      id: 'runtime-host',
+      backends: [{
+        id: 'deck-engine',
+        role: 'deckEngine',
+        actions: [{ name: 'attachWorkObject' }],
+      }],
+    });
+    mocks.createWorkForObject.mockResolvedValueOnce(work(
+      'work-shared-object',
+      { kind: 'workspace', workspaceId: 'ws_project' },
+      'D:/workspace/project',
+    ));
+    const sourceWorkLocator = {
+      scope: { kind: 'workspace' as const, workspaceId: 'ws_project' },
+      workId: 'work-source',
+    };
+
+    await openProductAppRuntime(app('multiple'), {
+      workMode: 'existing_object',
+      sourceWorkLocator,
+      title: 'Activation Review',
+      scope: {
+        kind: 'workspace',
+        workspaceId: 'ws_project',
+        workspacePath: 'D:/workspace/project',
+      },
+    });
+
+    expect(mocks.createWorkForObject).toHaveBeenCalledWith(
+      sourceWorkLocator,
+      expect.objectContaining({
+        kind: 'app_workflow',
+        title: 'Activation Review',
+      }),
+    );
+    expect(mocks.createWork).not.toHaveBeenCalled();
+    expect(mocks.backendCall).toHaveBeenCalledWith(
+      'runtime-host',
+      'deckEngine.attachWorkObject',
+      { sourceWorkId: 'work-source' },
+      expect.objectContaining({
+        workspacePath: 'D:/workspace/project',
+        idempotencyKey: 'attach-work-object-work-source-work-shared-object-deck-engine',
+      }),
+    );
+    expect(mocks.openRuntimeHost).toHaveBeenCalledAfter(mocks.backendCall);
+  });
+
+  it('rolls back the new Work when the Product App cannot attach its existing WorkObject', async () => {
+    const createdWork = work(
+      'work-shared-incomplete',
+      { kind: 'workspace', workspaceId: 'ws_project' },
+      'D:/workspace/project',
+    );
+    mocks.createWorkForObject.mockResolvedValueOnce(createdWork);
+
+    await expect(openProductAppRuntime(app('multiple'), {
+      workMode: 'existing_object',
+      sourceWorkLocator: {
+        scope: { kind: 'workspace', workspaceId: 'ws_project' },
+        workId: 'work-source',
+      },
+      scope: {
+        kind: 'workspace',
+        workspaceId: 'ws_project',
+        workspacePath: 'D:/workspace/project',
+      },
+    })).rejects.toThrow('cannot attach another Work to an existing WorkObject');
+
+    expect(mocks.deleteWork).toHaveBeenCalledWith(
+      {
+        scope: { kind: 'workspace', workspaceId: 'ws_project' },
+        workId: 'work-shared-incomplete',
+      },
+      { deleteLinkedSessions: true },
+    );
   });
 
   it('resolves the existing Work for a singleton application surface', async () => {

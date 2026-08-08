@@ -4,14 +4,8 @@ import type { SessionProfile } from '../types';
 export const bitfunCoderProfile: SessionProfile = {
   id: 'bitfun-coder',
 
-  layout: {
-    showChat: true,
-    defaultAuxPane: 'collapsed',
-    chatCollapsible: true,
-  },
-
-  auxTabs: {
-    // No auto-opened tabs; user opens editor/diff tabs via tool calls.
+  auxiliarySurface: {
+    defaultVisibility: 'collapsed',
   },
 
   composer: {

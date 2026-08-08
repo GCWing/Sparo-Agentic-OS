@@ -8,6 +8,7 @@ export type { ContentCanvasProps } from './ContentCanvas';
 
 // Types
 export * from './types';
+export { openCanvasItemInStore, openProjectCanvasItem } from './openCanvasItem';
 
 // Store
 export { useCanvasStore, CanvasStoreModeContext } from './stores';

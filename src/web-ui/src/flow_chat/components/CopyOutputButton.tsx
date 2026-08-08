@@ -103,26 +103,22 @@ export const CopyOutputButton: React.FC<CopyOutputButtonProps> = ({
         return;
       }
 
-      window.dispatchEvent(new CustomEvent('expand-right-panel'));
+      const timestamp = i18nService.formatDate(new Date(), {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).replace(/\//g, '-');
 
-      setTimeout(() => {
-        const timestamp = i18nService.formatDate(new Date(), { 
-          month: '2-digit', 
-          day: '2-digit', 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        }).replace(/\//g, '-');
-        
-        createMarkdownEditorTab(
-          t('copyOutput.aiReply', { timestamp }),
-          content,
-          undefined, // No filePath: create a temporary editor.
-          undefined,
-          'agent'
-        );
-        
-        log.debug('AI reply opened in editor');
-      }, 250);
+      createMarkdownEditorTab(
+        t('copyOutput.aiReply', { timestamp }),
+        content,
+        undefined,
+        undefined,
+        'agent'
+      );
+
+      log.debug('AI reply opened in editor');
     } catch (error) {
       log.error('Failed to open editor', error);
     }

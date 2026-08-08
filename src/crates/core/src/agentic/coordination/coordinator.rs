@@ -3522,6 +3522,7 @@ impl ConversationCoordinator {
         child_session_name: Option<&str>,
         question: &str,
         model_id: Option<&str>,
+        image_contexts: Option<Vec<ImageContextData>>,
     ) -> CoreResult<String> {
         self.ensure_session_accepts_public_mutation(child_session_id)
             .await?;
@@ -3565,7 +3566,7 @@ impl ConversationCoordinator {
             child_session_id.to_string(),
             build_btw_user_input(question),
             Some(question.trim().to_string()),
-            None,
+            image_contexts,
             Some(turn_id.clone()),
             child_session.agent_type.clone(),
             None,

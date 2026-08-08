@@ -10,6 +10,7 @@ test("bridge declarations expose the structured manuscript action", () => {
   const component = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "component.json"), "utf8"));
   assert.ok(sourceManifest.capabilities[0].actions.includes("commitPresentationDocument"));
   assert.ok(sourceManifest.capabilities[0].actions.includes("initializeWork"));
+  assert.ok(sourceManifest.capabilities[0].actions.includes("attachWorkObject"));
   assert.ok(sourceManifest.actions.some((action) => action.name === "commitPresentationDocument"));
   assert.ok(sourceManifest.tools[0].actions.includes("commitPresentationDocument"));
   assert.ok(component.capabilities[0].actions.includes("commitPresentationDocument"));
@@ -26,6 +27,7 @@ test("worker emits the standard completed bridge envelope", () => {
     consumer: {
       kind: "agentComponent",
       workId: "work-1",
+      workObjectId: "object-deck-1",
       workTitle: "Worker protocol presentation",
       runtimeInstanceId: "runtime-1",
       sessionId: "session-1",
@@ -44,6 +46,13 @@ test("worker emits the standard completed bridge envelope", () => {
   assert.equal(events[2].event.type, "run.started");
   assert.equal(events[3].event.type, "run.completed");
   assert.equal(events[3].event.output.deck.revision, 0);
+  const control = JSON.parse(fs.readFileSync(path.join(
+    root,
+    "PPT",
+    "Worker protocol presentation",
+    ".ppt-live.json",
+  ), "utf8"));
+  assert.equal(control.workObjectId, "object-deck-1");
 });
 
 test("worker preserves aggregate manuscript contract diagnostics in the failed envelope", () => {

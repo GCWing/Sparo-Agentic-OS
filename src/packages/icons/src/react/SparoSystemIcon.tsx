@@ -1,9 +1,10 @@
-import { forwardRef, useId, type SVGProps } from 'react';
+import { forwardRef, useId, type CSSProperties, type SVGProps } from 'react';
 import { systemIconGlyphMarkup } from '../raw-icons';
 import type { SystemIconName, SystemIconVariant } from '../icon-manifest';
 import {
   SPARO_ICON_DEFAULT_SIZE,
   SPARO_ICON_DEFAULT_STROKE_WIDTH,
+  SPARO_ICON_DETAIL_STROKE_RATIO,
   SPARO_ICON_EMPHASIS_BACKGROUND_INSET,
   SPARO_ICON_EMPHASIS_DEFAULT_CORNER_RADIUS,
   SPARO_ICON_EMPHASIS_MAX_CORNER_RADIUS,
@@ -51,6 +52,9 @@ export const SparoSystemIcon = forwardRef<SVGSVGElement, SparoSystemIconProps>((
     ? strokeWidth * (SPARO_ICON_VIEWBOX_SIZE / numericSize)
     : strokeWidth;
   const emphasisStrokeWidth = resolvedStrokeWidth / SPARO_ICON_EMPHASIS_SCALE;
+  const detailStrokeWidth = (
+    variant === 'emphasis' ? emphasisStrokeWidth : resolvedStrokeWidth
+  ) * SPARO_ICON_DETAIL_STROKE_RATIO;
   const resolvedBackgroundRadius = Number.isFinite(backgroundRadius)
     ? Math.min(Math.max(backgroundRadius, 0), SPARO_ICON_EMPHASIS_MAX_CORNER_RADIUS)
     : SPARO_ICON_EMPHASIS_DEFAULT_CORNER_RADIUS;
@@ -72,7 +76,12 @@ export const SparoSystemIcon = forwardRef<SVGSVGElement, SparoSystemIconProps>((
       aria-labelledby={!ariaLabel && title ? titleId : undefined}
       data-sparo-icon={name}
       data-sparo-variant={variant}
-      style={{ display: 'block', flexShrink: 0, ...style }}
+      style={{
+        display: 'block',
+        flexShrink: 0,
+        '--sparo-icon-detail-stroke-width': detailStrokeWidth,
+        ...style,
+      } as CSSProperties}
     >
       {title ? <title id={titleId}>{title}</title> : null}
       {variant === 'emphasis' ? (

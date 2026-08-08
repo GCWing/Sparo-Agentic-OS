@@ -7,7 +7,11 @@ import React, { useRef, useCallback, useEffect, useLayoutEffect, useReducer, use
 import { flushSync } from 'react-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { useContextStore } from '../../shared/context-system';
-import type { MentionState, RichTextInputHandle } from './RichTextInput';
+import type {
+  ComposerIngressContext,
+  MentionState,
+  RichTextInputHandle,
+} from './RichTextInput';
 import { useShortcut } from '@/infrastructure/hooks/useShortcut';
 import { shortcutManager } from '@/infrastructure/services/ShortcutManager';
 import {
@@ -15,8 +19,16 @@ import {
   useSessionStateMachineActions,
 } from '../hooks/useSessionStateMachine';
 import { ModelSelector } from './ModelSelector';
-import type { ImageContext, SkillSelectionContext, TextFragmentContext } from '../../shared/types/context';
-import { getComposerText, hasComposerContent } from '../../shared/types/composer';
+import type {
+  SkillSelectionContext,
+  TextFragmentContext,
+  URLContext,
+} from '../../shared/types/context';
+import {
+  getComposerText,
+  hasComposerContent,
+  hasSendableComposerDraft,
+} from '../../shared/types/composer';
 import {
   createComposerContextSnapshot,
 } from '../domain/composerContextRegistry';
@@ -182,10 +194,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     intentActions.setTarget(next === 'btw' ? 'btw-thread' : 'main');
   }, [composerIntent.target, intentActions]);
 
-  const contexts = useContextStore(state => state.contexts);
+  const assets = useContextStore(state => state.assets);
+  const references = useContextStore(state => state.references);
   const composerDocument = useContextStore(state => state.document);
-  const addContext = useContextStore(state => state.addContext);
-  const removeContext = useContextStore(state => state.removeContext);
+  const resolveAttachment = useContextStore(state => state.resolveAttachment);
+  const resolveAttachmentReference = useContextStore(state => state.resolveAttachmentReference);
+  const attachmentActivity = useContextStore(state => state.attachmentActivity);
+  const createAttachmentReference = useContextStore(state => state.createAttachmentReference);
+  const removeAttachment = useContextStore(state => state.removeAttachment);
+  const removeReference = useContextStore(state => state.removeReference);
   const clearDraft = useContextStore(state => state.clearDraft);
   const replaceDraftText = useContextStore(state => state.replaceDraftText);
   const restoreDraft = useContextStore(state => state.restoreDraft);
@@ -194,15 +211,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const setComposerDocument = useContextStore(state => state.setDocument);
   const updateContext = useContextStore(state => state.updateContext);
 
-  const imageContexts = useMemo(
-    () => contexts.filter((c): c is ImageContext => c.type === 'image'),
-    [contexts],
-  );
-  const currentImageCount = imageContexts.length;
   const { isInputMultiline } = useComposerLayout({
     editorRef: richTextInputRef,
     value: inputState.value,
-    imageCount: currentImageCount,
+    attachmentCount: assets.length,
   });
 
   const { profile: surfaceProfile } = useSessionProfile();
@@ -258,9 +270,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     () => (effectiveTargetSessionId ? getSessionHistory(effectiveTargetSessionId) : []),
     [effectiveTargetSessionId, getSessionHistory],
   );
+  const composerHasSendablePayload = hasSendableComposerDraft(composerDocument, assets);
   const derivedState = useSessionDerivedState(
     effectiveTargetSessionId,
-    inputState.value.trim()
+    composerHasSendablePayload,
   );
   const { transition, setQueuedInput } = useSessionStateMachineActions(effectiveTargetSessionId);
 
@@ -353,10 +366,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     agentId: currentAgent,
   });
   const selectedSkillCommands = useMemo(
-    () => new Set(contexts
+    () => new Set(assets
       .filter((context): context is SkillSelectionContext => context.type === 'skill-selection')
       .map(context => context.command)),
-    [contexts],
+    [assets],
   );
 
   useComposerHeightObserver(containerRef);
@@ -369,7 +382,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const { sendMessage } = useMessageSender({
     currentSessionId: effectiveTargetSessionId || undefined,
-    contexts,
+    contexts: assets,
     onSuccess: onSendMessage,
     // Composer agent is authoritative, synced from the session descriptor.
     currentAgentType: modeState.current,
@@ -454,11 +467,31 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     loadMcpPromptCommands,
   });
 
-  const createTextFragment = useCallback((text: string): TextFragmentContext | null => {
+  const createTextFragment = useCallback((text: string): ComposerIngressContext | null => {
     if (profile.composer?.allowContextInput === false) return null;
+    const trimmed = text.trim();
+    try {
+      const parsed = new URL(trimmed);
+      if (trimmed === parsed.href || trimmed === parsed.href.replace(/\/$/, '')) {
+        const asset: URLContext = {
+          id: typeof globalThis.crypto?.randomUUID === 'function'
+            ? `url-${globalThis.crypto.randomUUID()}`
+            : `url-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+          type: 'url',
+          timestamp: Date.now(),
+          url: parsed.href,
+          title: parsed.hostname,
+        };
+        const resolution = resolveAttachmentReference(asset);
+        if (resolution.kind === 'rejected') return null;
+        return { asset: resolution.asset, reference: resolution.reference };
+      }
+    } catch {
+      // Plain text continues through the normal paste path.
+    }
     const charCount = Array.from(text).length;
     if (charCount <= CHAT_INPUT_CONFIG.largePaste.thresholdChars) return null;
-    const context: TextFragmentContext = {
+    const asset: TextFragmentContext = {
       id: typeof globalThis.crypto?.randomUUID === 'function'
         ? `text-fragment-${globalThis.crypto.randomUUID()}`
         : `text-fragment-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -469,12 +502,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       source: 'clipboard',
       format: 'markdown',
     };
-    addContext(context);
-    return context;
-  }, [addContext, profile.composer?.allowContextInput]);
+    const resolution = resolveAttachmentReference(asset);
+    if (resolution.kind === 'rejected') return null;
+    return { asset: resolution.asset, reference: resolution.reference };
+  }, [profile.composer?.allowContextInput, resolveAttachmentReference]);
   const currentComposerSnapshot = useMemo(
-    () => createComposerContextSnapshot(composerDocument, contexts),
-    [composerDocument, contexts],
+    () => createComposerContextSnapshot(composerDocument, references, assets),
+    [assets, composerDocument, references],
   );
   const updateDraftContext = useCallback((
     id: string,
@@ -493,7 +527,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     resetHistoryDraft,
     setComposerInputValue,
   } = useComposerInputActions({
-    currentImageCount,
     currentSessionId,
     dispatchInput,
     inputIsActive: inputState.isActive,
@@ -502,13 +535,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     richTextInputRef,
     replaceDraftText,
     clearDraft,
-    addContext,
+    resolveAttachmentReference,
     setHistoryIndex,
     setSavedDraft,
     t,
   });
   const restoreComposerSnapshot = useCallback((snapshot: typeof currentComposerSnapshot) => {
-    restoreDraft(snapshot.document, snapshot.contexts);
+    restoreDraft(snapshot.document, snapshot.assets, snapshot.references);
     const text = getComposerText(snapshot.document);
     dispatchInput({ type: 'SET_VALUE', payload: text });
     inputValueRef.current = text;
@@ -559,14 +592,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, [composerIntent.modifiers, composerIntent.operation, composerIntent.target, derivedState?.isProcessing]);
 
   const handleInputChange = useComposerInputDetection({
-    contexts,
+    references,
     derivedState: derivedState ?? null,
     dispatchInput,
     inputIsActive: inputState.isActive,
     inputValueRef,
     isImeComposingRef,
     setDocument: setComposerDocument,
-    removeContext,
+    removeReference,
     setInputDetection,
     setQueuedInput,
     shouldQueueDraft,
@@ -613,8 +646,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, []);
 
   const handleImageInput = useComposerMediaInput({
-    addContext,
-    currentImageCount,
+    resolveAttachment,
+    activateInput: activateComposerInput,
     t,
   });
 
@@ -627,11 +660,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     inputValue: inputState.value,
     inputValueRef,
     isActive: inputState.isActive,
-    currentImageCount,
     activateInput: activateComposerInput,
     setInputValue: setComposerInputValue,
     setInputTarget: setComposerTarget,
-    addContext,
+    resolveAttachment,
+    resolveAttachmentReference,
     restoreComposerSnapshot,
     enabled: active,
     allowContextInput: profile.composer?.allowContextInput !== false,
@@ -710,7 +743,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     resetHistoryDraft,
     onSendMessage,
     document: composerDocument,
-    contexts,
+    assets,
+    references,
     restoreDraft,
     restoreDraftIfEmpty,
     updateDraftContext,
@@ -744,7 +778,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setSavedDraft,
     currentDraft: currentComposerSnapshot,
     restoreDraft: restoreComposerSnapshot,
-    hasContent: hasComposerContent(composerDocument) || currentImageCount > 0,
+    hasContent: hasComposerContent(composerDocument) || assets.length > 0,
     setInputValue: setComposerInputValue,
     activateInput: activateComposerInput,
     focusInputSoon: focusRichTextInputSoon,
@@ -774,9 +808,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     dismissSkillsFlyout,
     dispatchInput,
     dispatchMode,
-    contexts,
-    addContext,
-    removeContext,
+    contexts: assets,
+    resolveAttachmentReference,
+    removeAttachment,
     focusInputSoon: focusRichTextInputSoon,
     handleImageInput,
     isBtwSession,
@@ -932,8 +966,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         editorRef={richTextInputRef}
         document={composerDocument}
         draftKey={composerDraftKey}
-        contexts={contexts}
-        imageContexts={imageContexts}
+        assets={assets}
+        references={references}
+        attachmentActivity={attachmentActivity?.draftKey === composerDraftKey
+          ? attachmentActivity
+          : null}
         mentionState={mentionState}
         workspacePath={effectiveWorkspacePath ?? undefined}
         commandState={commandState}
@@ -952,7 +989,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               }}
             />
           ),
-          removeImage: t('input.removeImage', { defaultValue: 'Remove image' }),
           commands: tChatInput('composerCommands.title', { defaultValue: 'Commands' }),
           selectHint: tChatInput('selectHint'),
           noMatchingCommand: tChatInput('noMatchingCommand', { defaultValue: 'No matching command' }),
@@ -964,10 +1000,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         onKeyDown={handleKeyDown}
         onCompositionStart={handleImeCompositionStart}
         onCompositionEnd={handleImeCompositionEnd}
-        onRemoveContext={removeContext}
+        onRemoveAttachment={removeAttachment}
+        onRemoveReference={removeReference}
+        onCreateReference={createAttachmentReference}
         onUpdateContext={updateDraftContext}
         onMentionStateChange={setMentionState}
-        onAddContext={addContext}
+        onResolveAttachmentReference={resolveAttachmentReference}
         onCloseMention={() => {
           richTextInputRef.current?.closeMention();
           setMentionState({ isActive: false, query: '', startOffset: 0 });
@@ -1046,7 +1084,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           {voiceInputController.phase === 'idle' ? (
             <ComposerSendAction
               derivedState={derivedState ?? null}
-              draftValue={inputState.value}
+              hasSendablePayload={composerHasSendablePayload}
               labels={{
                 sendShortcut: t('input.sendShortcut'),
                 queueShortcut: t('input.queueShortcut'),

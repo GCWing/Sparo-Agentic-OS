@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { AppIcon, type AppIconSource } from '@/app/components/AppIcon';
 import { NATIVE_SYSTEM_APP_CATALOG } from '@/app/scenes/apps/nativeSystemCatalog';
+import { SPARO_ICON_OPTICAL_STROKE_WIDTH } from '@/design-system';
 import {
   appCatalogAPI,
   subscribeAppCatalogChanges,
@@ -111,6 +112,8 @@ export function WorkIcon({
     <FallbackIcon
       size={size}
       color={color}
+      strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+      absoluteStrokeWidth
       className={className}
       aria-hidden={decorative || undefined}
       role={decorative ? undefined : 'img'}

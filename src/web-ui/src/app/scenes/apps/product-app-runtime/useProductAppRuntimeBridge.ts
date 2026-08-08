@@ -30,8 +30,8 @@ import {
   buildSpreadsheetFocusContext,
   useExcelLiveFocusStore,
 } from '@/app/agentic-os/excel-live/excelLiveFocusStore';
-import { useContextStore } from '@/shared/stores/contextStore';
 import type { ProductAppRuntimeHostedViewBridge } from './productAppRuntimeHostedViews';
+import { resizeActiveAuxiliarySurface } from '@/app/auxiliary-surface';
 
 interface JSONRPC {
   jsonrpc?: string;
@@ -547,7 +547,6 @@ export function useProductAppRuntimeBridge(
             sessionId: trustedSessionIdRef.current,
           } as any, 'pinned');
           if (context) {
-            useContextStore.getState().addContext(context);
             window.dispatchEvent(new CustomEvent('insert-context-tag', {
               detail: { context },
             }));
@@ -561,9 +560,7 @@ export function useProductAppRuntimeBridge(
           if (mode !== 'comfortable' && mode !== 'expanded') {
             throw new Error('host.setPanelMode requires comfortable or expanded');
           }
-          window.dispatchEvent(new CustomEvent('product-app-request-panel-mode', {
-            detail: { appId, mode },
-          }));
+          resizeActiveAuxiliarySurface(mode);
           reply(null);
           return;
         }

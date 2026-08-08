@@ -1,83 +1,104 @@
-/** About dialog — compact system identity card. */
+@use '../../../design-system/styles/tokens.scss' as tokens;
 
-.ds-dialog-overlay.sparo-about-dialog-overlay {
-  padding: var(--ds-space-6) var(--ds-space-8);
+/** About dialog content composed on the design-system FloatingCard surface. */
 
-  .ds-dialog {
-    border: 1px solid var(--ds-color-border-base);
-    border-radius: var(--ds-radius-xl);
-    overflow: hidden;
-    background: var(--ds-color-bg-elevated);
-    box-shadow: var(--ds-shadow-modal);
-    max-width: 480px;
-  }
+.sparo-about-dialog-overlay {
+  --about-space-1: var(--ds-space-1, #{tokens.$size-gap-1});
+  --about-space-2: var(--ds-space-2, #{tokens.$size-gap-2});
+  --about-space-3: var(--ds-space-3, #{tokens.$size-gap-3});
+  --about-space-4: var(--ds-space-4, #{tokens.$size-gap-4});
+  --about-space-5: var(--ds-space-5, #{tokens.$size-gap-5});
+  --about-space-6: var(--ds-space-6, #{tokens.$size-gap-6});
+  --about-space-8: var(--ds-space-8, #{tokens.$size-gap-8});
+  --about-space-10: var(--ds-space-10, #{tokens.$size-gap-10});
+  --about-space-12: var(--ds-space-12, #{tokens.$size-gap-12});
+  --about-space-16: var(--ds-space-16, #{tokens.$size-gap-16});
+  --about-text-primary: var(--ds-color-text-primary, var(--color-text-primary, #{tokens.$color-text-primary}));
+  --about-text-secondary: var(--ds-color-text-secondary, var(--color-text-secondary, #{tokens.$color-text-secondary}));
+  --about-text-muted: var(--ds-color-text-muted, var(--color-text-muted, #{tokens.$color-text-muted}));
+  --about-border-base: var(--ds-color-border-base, var(--border-base, #{tokens.$border-base}));
+  --about-border-subtle: var(--ds-color-border-subtle, var(--border-subtle, #{tokens.$border-subtle}));
+  --about-accent: var(--ds-color-accent-500, var(--color-accent-500, #{tokens.$color-accent-500}));
+  --about-font-sans: var(--ds-font-family-sans, var(--font-family-sans, #{tokens.$font-family-sans}));
+  --about-font-mono: var(--ds-font-family-mono, var(--font-family-mono, #{tokens.$font-family-mono}));
+  --about-font-size-xs: var(--ds-font-size-xs, #{tokens.$font-size-xs});
+  --about-font-size-sm: var(--ds-font-size-sm, #{tokens.$font-size-sm});
+  --about-font-size-base: var(--ds-font-size-base, #{tokens.$font-size-base});
+  --about-font-size-lg: var(--ds-font-size-lg, #{tokens.$font-size-lg});
+  --about-font-size-xl: var(--ds-font-size-xl, #{tokens.$font-size-xl});
+  --about-font-size-3xl: var(--ds-font-size-3xl, #{tokens.$font-size-3xl});
+  --about-font-size-4xl: var(--ds-font-size-4xl, #{tokens.$font-size-4xl});
+  --about-font-size-5xl: var(--ds-font-size-5xl, #{tokens.$font-size-5xl});
+  --about-font-weight-medium: var(--ds-font-weight-medium, #{tokens.$font-weight-medium});
+  --about-font-weight-semibold: var(--ds-font-weight-semibold, #{tokens.$font-weight-semibold});
+  --about-line-height-tight: var(--ds-line-height-tight, #{tokens.$line-height-tight});
+  --about-line-height-base: var(--ds-line-height-base, #{tokens.$line-height-base});
+  --about-line-height-relaxed: var(--ds-line-height-relaxed, #{tokens.$line-height-relaxed});
+  --about-motion-fast: var(--ds-motion-fast, #{tokens.$motion-fast});
+  --about-easing-standard: var(--ds-easing-standard, #{tokens.$easing-standard});
+  --about-button-height-sm: var(--button-height-sm, #{tokens.$button-height-sm});
+  --about-button-height-base: var(--button-height-base, #{tokens.$button-height-base});
 
-  .ds-dialog__header {
-    border-bottom: none;
-  }
-
-  .ds-dialog__header-shell--close-only {
-    position: absolute;
-    inset-block-start: 0;
-    inset-inline-end: 0;
-    z-index: var(--ds-z-local);
-    min-height: 0;
-    width: auto;
-    pointer-events: none;
-
-    .ds-dialog__close {
-      pointer-events: auto;
-    }
-  }
-
-  .sparo-about-dialog__dialog-body {
-    padding: 0;
-  }
-}
-
-@media (max-width: 480px) {
-  .ds-dialog-overlay.sparo-about-dialog-overlay {
-    padding: var(--ds-space-4) var(--ds-space-5);
-
-    .ds-dialog {
-      max-width: none;
-    }
-  }
-}
-
-.sparo-about-dialog {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 30px;
-}
-
-.sparo-about-dialog__identity {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding-inline-end: 28px;
-}
-
-.sparo-about-dialog__mark {
+  position: fixed;
+  inset: 0;
+  z-index: tokens.$ds-z-dialog;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
-  width: 58px;
-  height: 58px;
+  padding: var(--about-space-6);
+  background: tokens.$ds-overlay-scrim;
+}
+
+.ds-floating-card.sparo-about-dialog {
+  width: min(800px, 100%);
+  max-height: calc(100dvh - var(--about-space-12));
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: var(--about-space-6) var(--about-space-8) var(--about-space-4);
+  color: var(--about-text-secondary);
+}
+
+.sparo-about-dialog > .ds-floating-card__dismiss.icon-btn {
+  inset-block-start: var(--about-space-3);
+  inset-inline-end: var(--about-space-3);
+  width: var(--about-button-height-sm);
+  height: var(--about-button-height-sm);
+}
+
+.sparo-about-dialog__main {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.84fr) minmax(320px, 1.16fr);
+  gap: var(--about-space-8);
+  min-width: 0;
+}
+
+.sparo-about-dialog__brand-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 304px;
 }
 
 .sparo-about-dialog__logo {
-  width: 42px;
-  height: 42px;
+  display: block;
+  width: clamp(120px, 52%, 160px);
+  height: auto;
   object-fit: contain;
+  filter: drop-shadow(
+    0 var(--about-space-4) var(--about-space-5)
+      color-mix(in srgb, var(--ds-shadow-color-card, transparent) 56%, transparent)
+  );
   user-select: none;
   -webkit-user-drag: none;
 }
 
-.sparo-about-dialog__identity-copy {
+.sparo-about-dialog__details {
+  min-width: 0;
+  padding: var(--about-space-5) var(--about-space-2) var(--about-space-4) 0;
+}
+
+.sparo-about-dialog__identity {
   min-width: 0;
 }
 
@@ -85,67 +106,70 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--about-space-3);
+  min-width: 0;
 }
 
 .sparo-about-dialog__title {
   margin: 0;
-  font-family: var(--ds-font-family-sans);
-  font-size: 22px;
-  font-weight: 650;
-  letter-spacing: -0.025em;
-  line-height: 1.2;
-  color: var(--ds-color-text-primary);
+  color: var(--about-text-primary);
+  font-family: var(--about-font-sans);
+  font-size: var(--about-font-size-5xl);
+  font-weight: var(--about-font-weight-semibold);
+  letter-spacing: -0.03em;
+  line-height: var(--about-line-height-tight);
+}
+
+.sparo-about-dialog__version {
+  padding-inline-start: var(--about-space-3);
+  border-inline-start: 1px solid var(--about-border-base);
+  color: var(--about-accent);
+  font-family: var(--about-font-mono);
+  font-size: var(--about-font-size-sm);
+  font-weight: var(--about-font-weight-medium);
+  line-height: var(--about-line-height-tight);
+  white-space: nowrap;
 }
 
 .sparo-about-dialog__tagline {
-  margin: 5px 0 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--ds-color-text-secondary);
-}
-
-.sparo-about-dialog__version-badge {
-  font-family: var(--ds-font-family-mono);
-  font-size: 10px;
-  letter-spacing: 0.02em;
+  margin: var(--about-space-4) 0 0;
+  color: var(--about-text-secondary);
+  font-size: var(--about-font-size-base);
+  line-height: var(--about-line-height-relaxed);
 }
 
 .sparo-about-dialog__build {
-  margin-top: 26px;
-  padding: 16px 0;
-  border-block: 1px solid var(--ds-color-border-subtle);
+  margin-top: var(--about-space-5);
 }
 
 .sparo-about-dialog__build-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--about-space-2);
+  min-height: var(--about-button-height-sm);
 }
 
 .sparo-about-dialog__build-title {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  color: var(--about-text-muted);
+  font-size: var(--about-font-size-xs);
+  font-weight: var(--about-font-weight-semibold);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ds-color-text-muted);
 }
 
-.sparo-about-dialog__build-copy {
-  color: var(--ds-color-text-muted);
-}
-
-.sparo-about-dialog__build-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+.sparo-about-dialog__build-list {
   margin: 0;
 }
 
 .sparo-about-dialog__build-item {
+  display: grid;
+  grid-template-columns: var(--about-space-8) minmax(0, 1fr);
+  gap: var(--about-space-3);
+  align-items: center;
   min-width: 0;
+  padding-block: var(--about-space-3);
+  border-bottom: 1px solid var(--about-border-subtle);
 
   dt,
   dd {
@@ -153,158 +177,247 @@
   }
 
   dt {
-    margin-bottom: 5px;
-    font-size: 10px;
-    font-weight: 500;
-    color: var(--ds-color-text-muted);
+    color: var(--about-text-muted);
+    font-size: var(--about-font-size-xs);
+    font-weight: var(--about-font-weight-medium);
+    line-height: var(--about-line-height-base);
   }
 
   dd {
-    font-family: var(--ds-font-family-mono);
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    color: var(--ds-color-text-primary);
+    margin-top: var(--about-space-1);
     overflow: hidden;
+    color: var(--about-text-primary);
+    font-size: var(--about-font-size-base);
+    font-weight: var(--about-font-weight-semibold);
+    line-height: var(--about-line-height-base);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 }
 
+.sparo-about-dialog__build-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--about-space-8);
+  height: var(--about-space-8);
+  color: var(--about-text-secondary);
+
+  svg {
+    width: var(--about-space-5);
+    height: var(--about-space-5);
+  }
+}
+
+.sparo-about-dialog__build-copy {
+  min-width: 0;
+}
+
+.sparo-about-dialog__build-value--mono {
+  font-family: var(--about-font-mono);
+  letter-spacing: 0.01em;
+}
+
 .sparo-about-dialog__links {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: stretch;
-  margin-top: 18px;
-  padding-block: 4px;
-  border-block: 1px solid var(--ds-color-border-subtle);
+  margin-top: var(--about-space-4);
+  padding-block: var(--about-space-1);
+  border-block: 1px solid var(--about-border-subtle);
 }
 
 .sparo-about-dialog__link-cell {
   display: flex;
   min-width: 0;
+  padding-inline: var(--about-space-1);
 
   & + & {
-    border-inline-start: 1px solid var(--ds-color-border-subtle);
+    border-inline-start: 1px solid var(--about-border-subtle);
   }
 }
 
 .sparo-about-dialog__link {
   width: 100%;
   min-width: 0;
-  min-height: 44px;
+  min-height: var(--about-button-height-base);
   justify-content: flex-start;
-  gap: 8px;
-  padding-inline: 10px;
-  color: var(--ds-color-text-secondary);
+  gap: var(--about-space-2);
+  padding-inline: var(--about-space-3);
+  color: var(--about-text-secondary);
 
-  &:hover .sparo-about-dialog__link-icon {
-    color: var(--ds-color-accent-500);
+  > svg:first-child {
+    flex: 0 0 auto;
+    width: var(--about-space-4);
+    height: var(--about-space-4);
   }
 
-  &:hover .sparo-about-dialog__link-arrow {
-    color: var(--ds-color-text-secondary);
-    transform: translate(1px, -1px);
+  &:hover .sparo-about-dialog__link-arrow,
+  &:focus-visible .sparo-about-dialog__link-arrow {
+    color: var(--about-text-primary);
+    transform: translate(var(--about-space-1), calc(var(--about-space-1) * -1));
   }
-}
-
-.sparo-about-dialog__link-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--ds-radius-md);
-  background: var(--ds-color-bg-hover);
-  color: var(--ds-color-text-muted);
-  transition: color var(--ds-motion-fast) var(--ds-easing-standard);
 }
 
 .sparo-about-dialog__link-label {
   min-width: 0;
   overflow: hidden;
+  font-size: var(--about-font-size-sm);
+  font-weight: var(--about-font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
-  font-weight: 500;
 }
 
 .sparo-about-dialog__link-arrow {
   flex: 0 0 auto;
   margin-inline-start: auto;
-  color: var(--ds-color-text-muted);
+  color: var(--about-text-muted);
   transition:
-    color var(--ds-motion-fast) var(--ds-easing-standard),
-    transform var(--ds-motion-fast) var(--ds-easing-standard);
+    color var(--about-motion-fast) var(--about-easing-standard),
+    transform var(--about-motion-fast) var(--about-easing-standard);
 }
 
 .sparo-about-dialog__footer {
-  margin-top: 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--about-space-3);
+  margin-top: var(--about-space-3);
 }
 
 .sparo-about-dialog__license {
   flex: 0 0 auto;
-  min-height: 0;
-  padding: 0;
-  font-size: 10px;
-  color: var(--ds-color-text-muted);
+  color: var(--about-text-secondary);
 }
 
 .sparo-about-dialog__copyright {
   margin: 0;
-  font-size: 10px;
-  line-height: 1.4;
-  text-align: right;
-  color: var(--ds-color-text-muted);
+  color: var(--about-text-muted);
+  font-size: var(--about-font-size-xs);
+  line-height: var(--about-line-height-base);
+  text-align: end;
 }
 
-@media (max-width: 480px) {
-  .sparo-about-dialog {
-    padding: 24px;
+@media (max-width: 720px) {
+  .sparo-about-dialog-overlay {
+    padding: var(--about-space-4);
   }
 
-  .sparo-about-dialog__identity {
-    align-items: flex-start;
-    gap: 14px;
-    padding-inline-end: 24px;
+  .ds-floating-card.sparo-about-dialog {
+    max-height: calc(100dvh - var(--about-space-8));
+    padding: var(--about-space-5);
   }
 
-  .sparo-about-dialog__mark {
-    width: 52px;
-    height: 52px;
+  .sparo-about-dialog__main {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .sparo-about-dialog__brand-panel {
+    min-height: 120px;
+    border-bottom: 1px solid var(--about-border-subtle);
   }
 
   .sparo-about-dialog__logo {
-    width: 38px;
-    height: 38px;
+    width: min(24%, 72px);
   }
 
-  .sparo-about-dialog__build-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
+  .sparo-about-dialog__details {
+    padding: var(--about-space-5) 0 var(--about-space-1);
+  }
+
+  .sparo-about-dialog__build {
+    margin-top: var(--about-space-4);
+  }
+}
+
+@media (max-width: 520px) {
+  .ds-floating-card.sparo-about-dialog {
+    padding: var(--about-space-4);
+  }
+
+  .sparo-about-dialog > .ds-floating-card__dismiss.icon-btn {
+    inset-block-start: var(--about-space-2);
+    inset-inline-end: var(--about-space-2);
+  }
+
+  .sparo-about-dialog__brand-panel {
+    min-height: 104px;
+  }
+
+  .sparo-about-dialog__logo {
+    width: min(22%, 64px);
+  }
+
+  .sparo-about-dialog__details {
+    padding-top: var(--about-space-4);
+  }
+
+  .sparo-about-dialog__title-line {
+    padding-inline-end: var(--about-space-8);
+    gap: var(--about-space-2);
+  }
+
+  .sparo-about-dialog__title {
+    font-size: var(--about-font-size-3xl);
+  }
+
+  .sparo-about-dialog__version {
+    padding-inline-start: var(--about-space-2);
+    font-size: var(--about-font-size-xs);
+  }
+
+  .sparo-about-dialog__tagline {
+    margin-top: var(--about-space-3);
+    font-size: var(--about-font-size-sm);
+  }
+
+  .sparo-about-dialog__build-item dd {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .sparo-about-dialog__links {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sparo-about-dialog__link-cell + .sparo-about-dialog__link-cell {
-    border-block-start: 1px solid var(--ds-color-border-subtle);
+    border-block-start: 1px solid var(--about-border-subtle);
     border-inline-start: none;
   }
 
   .sparo-about-dialog__footer {
     align-items: flex-start;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--about-space-1);
   }
 
   .sparo-about-dialog__copyright {
-    text-align: left;
+    text-align: start;
+  }
+}
+
+@media (max-height: 600px) and (min-width: 721px) {
+  .ds-floating-card.sparo-about-dialog {
+    padding-block: var(--about-space-4) var(--about-space-3);
+  }
+
+  .sparo-about-dialog__brand-panel {
+    min-height: 240px;
+  }
+
+  .sparo-about-dialog__details {
+    padding-block: var(--about-space-3) 0;
+  }
+
+  .sparo-about-dialog__build {
+    margin-top: var(--about-space-3);
+  }
+
+  .sparo-about-dialog__build-item {
+    padding-block: var(--about-space-2);
+  }
+
+  .sparo-about-dialog__links {
+    margin-top: var(--about-space-3);
   }
 }

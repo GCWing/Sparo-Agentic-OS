@@ -39,8 +39,8 @@ export const LEFT_PANEL_CONFIG = {
   TRANSITION_DURATION: 200,     // Mode transition duration (ms)
 } as const;
 
-// ==================== Right panel config ====================
-export const RIGHT_PANEL_CONFIG = {
+// ==================== Auxiliary surface dock config ====================
+export const AUXILIARY_SURFACE_CONFIG = {
   // Width thresholds (px)
   COLLAPSED_WIDTH: 0,           // Fully collapsed
   COMPACT_WIDTH: 300,           // Compact mode minimum width - also the minimum drag width
@@ -57,19 +57,6 @@ export const RIGHT_PANEL_CONFIG = {
   // Animation
   TRANSITION_DURATION: 200,     // Mode transition duration (ms)
 } as const;
-
-/** Canvas-first Product Apps need enough width for their primary workbench. */
-export const WIDE_WORKBENCH_RIGHT_PANEL_CONFIG = {
-  ...RIGHT_PANEL_CONFIG,
-  COMFORTABLE_DEFAULT: 720,
-  EXPANDED_THRESHOLD: 820,
-  SNAP_POINTS: [400, 540, 720, 900, 1100],
-} as const;
-
-export const WIDE_WORKBENCH_PRODUCT_APP_IDS = new Set([
-  'builtin-excel-live',
-  'builtin-remotion-live',
-]);
 
 // ==================== Common config ====================
 export const PANEL_COMMON_CONFIG = {
@@ -208,17 +195,16 @@ export function clampWidth(
 // ==================== Local storage keys ====================
 export const STORAGE_KEYS = {
   LEFT_PANEL_WIDTH: 'sparo:leftPanelWidth',
-  RIGHT_PANEL_WIDTH: 'sparo:rightPanelWidth',
   LEFT_PANEL_COLLAPSED: 'sparo:leftPanelCollapsed',
-  RIGHT_PANEL_COLLAPSED: 'sparo:rightPanelCollapsed',
   LEFT_PANEL_LAST_WIDTH: 'sparo:leftPanelLastWidth',   // Remembered width before collapse
-  RIGHT_PANEL_LAST_WIDTH: 'sparo:rightPanelLastWidth', // Remembered width before collapse
+  AUXILIARY_SURFACE_WIDTH: 'sparo:auxiliarySurfaceWidth',
 } as const;
 
 /**
  * Save panel width to local storage.
  */
 export function savePanelWidth(key: string, width: number): void {
+  if (typeof localStorage === 'undefined') return;
   try {
     localStorage.setItem(key, String(width));
   } catch (e) {
@@ -230,6 +216,7 @@ export function savePanelWidth(key: string, width: number): void {
  * Load panel width from local storage.
  */
 export function loadPanelWidth(key: string, defaultValue: number): number {
+  if (typeof localStorage === 'undefined') return defaultValue;
   try {
     const stored = localStorage.getItem(key);
     if (stored) {

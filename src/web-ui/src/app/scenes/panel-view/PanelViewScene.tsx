@@ -2,7 +2,7 @@
  * PanelViewScene �?a standalone scene that hosts a ContentCanvas
  * with its own independent store (panel-view mode).
  *
- * Tabs popped out from the agent scene's right panel are added here,
+ * Tabs popped out from the active auxiliary surface are added here,
  * allowing them all to be viewed and managed in one place.
  */
 

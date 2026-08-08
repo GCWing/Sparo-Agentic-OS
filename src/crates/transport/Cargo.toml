@@ -3,7 +3,7 @@ name = "sparo-transport"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "Sparo OS transport layer for Desktop and CLI hosts"
+description = "Sparo OS host transport adapters"
 
 [lib]
 name = "sparo_transport"
@@ -12,14 +12,10 @@ name = "sparo_transport"
 # Events layer
 sparo-events = { path = "../events" }
 
-# Inherited from workspace
-tokio = { workspace = true }
 async-trait = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
 log = { workspace = true }
-dashmap = { workspace = true }
 chrono = { workspace = true }
 
 # Tauri adapter dependency (optional, enable only when needed)
@@ -28,5 +24,4 @@ tauri = { workspace = true, optional = true }
 [features]
 default = []
 tauri-adapter = ["tauri"]
-cli-adapter = []
 

@@ -41,6 +41,7 @@ import {
 import { WorkIcon } from '@/app/agentic-os/work/presentation/WorkIcon';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
+import { basenamePath, dirnameAbsolutePath } from '@/shared/utils/pathUtils';
 import { appScopeFromWorkScope } from '@/shared/types/app-scope';
 import { externalRuntimeScope } from '@/shared/types/runtime-scope';
 import { workspaceAPI } from '@/infrastructure/api/service-api/WorkspaceAPI';
@@ -103,19 +104,6 @@ function formatTime(timestamp: number): string {
   } catch {
     return new Date(timestamp).toLocaleString();
   }
-}
-
-function basename(path: string): string {
-  return path.replace(/\\/g, '/').split('/').filter(Boolean).pop() || path;
-}
-
-function dirname(path: string): string {
-  const normalized = path.replace(/\\/g, '/');
-  const index = normalized.lastIndexOf('/');
-  if (index < 0) return normalized;
-  if (index === 0) return '/';
-  const parent = normalized.slice(0, index);
-  return /^[A-Za-z]:$/.test(parent) ? `${parent}/` : parent;
 }
 
 const GROUP_ORDER: Record<WorkCenterGrouping, string[]> = {
@@ -472,14 +460,14 @@ const WorkBoard: React.FC<WorkBoardProps> = ({
       }
 
       if (metadata.isFile) {
-        const parentPath = dirname(targetPath);
+        const parentPath = dirnameAbsolutePath(targetPath);
         const scope = externalRuntimeScope(parentPath);
         if (!scope) {
           throw new Error('Artifact file parent did not resolve to an external scope');
         }
         openFileInBestTarget({
           filePath: targetPath,
-          fileName: artifact.label?.trim() || basename(targetPath),
+          fileName: artifact.label?.trim() || basenamePath(targetPath),
           workspacePath: parentPath,
         }, {
           source: 'project-nav',

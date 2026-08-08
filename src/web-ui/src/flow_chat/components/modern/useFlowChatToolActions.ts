@@ -114,7 +114,7 @@ export function useFlowChatToolActions({
         const optimisticItem = resolveToolContext(toolId).toolItem;
 
         try {
-          const { agentService } = await import('../../../shared/services/agent-service');
+          const { agentService } = await import('../../services/agent-service');
           await agentService.confirmToolExecution(
             current.ownerSessionId,
             toolId,
@@ -171,7 +171,7 @@ export function useFlowChatToolActions({
         const optimisticItem = resolveToolContext(toolId).toolItem;
 
         try {
-          const { agentService } = await import('../../../shared/services/agent-service');
+          const { agentService } = await import('../../services/agent-service');
           await agentService.confirmToolExecution(
             current.ownerSessionId,
             toolId,

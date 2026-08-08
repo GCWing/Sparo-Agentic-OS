@@ -1,151 +1,63 @@
-/**
- * AuxPane �?AI Agent scene right pane.
- * Hosts ContentCanvas with tab management for editor views and visualizations.
- *
- * Renamed from panels/ContentPanel. All logic preserved.
- */
-
-import { forwardRef, useEffect, useLayoutEffect, useRef, useImperativeHandle, useCallback } from 'react';
-import { ContentCanvas, useCanvasStore } from '../../components/panels/content-canvas';
-import {
-  switchAgentCanvasWorkspace,
-  removeAgentCanvasSnapshot,
-} from '../../components/panels/content-canvas/stores';
-import { workspaceManager } from '@/infrastructure/services/business/workspaceManager';
-import { useWorkspaceContext } from '@/infrastructure/contexts/WorkspaceContext';
-import type { PanelContent as OldPanelContent } from '../../components/panels/base/types';
-import type { PanelContent } from '../../components/panels/content-canvas/types';
+import { useCallback } from 'react';
+import { ContentCanvas } from '../../components/panels/content-canvas';
+import { useAuxiliarySurfaceStore } from '@/app/auxiliary-surface';
 import { createLogger } from '@/shared/utils/logger';
-import { isSamePath } from '@/shared/utils/pathUtils';
-
 import './AuxPane.scss';
 
 const log = createLogger('AuxPane');
 
-export interface AuxPaneRef {
-  addTab: (content: OldPanelContent) => void;
-  switchToTab: (tabId: string) => void;
-  findTabByMetadata: (metadata: Record<string, any>) => { tabId: string } | null;
-  updateTabContent: (tabId: string, content: OldPanelContent) => void;
-  closeAllTabs: () => void;
-}
-
 interface AuxPaneProps {
   workspacePath?: string;
   isSceneActive?: boolean;
+  isSceneFocused?: boolean;
 }
 
-const AuxPane = forwardRef<AuxPaneRef, AuxPaneProps>(
-  ({ workspacePath, isSceneActive = true }, ref) => {
-    const { openedWorkspacesList } = useWorkspaceContext();
-    const workspaceId = workspacePath
-      ? openedWorkspacesList.find(workspace => isSamePath(workspace.rootPath, workspacePath))?.id
-      : undefined;
+/**
+ * Pure presentation adapter for the active auxiliary host.
+ * Host activation and tab ownership are handled by workspace navigation.
+ */
+export default function AuxPane({
+  workspacePath,
+  isSceneActive = true,
+  isSceneFocused = false,
+}: AuxPaneProps) {
+  const activeHostKey = useAuxiliarySurfaceStore(state => state.activeHostKey);
+  const collapse = useAuxiliarySurfaceStore(state => state.collapse);
 
-    const {
-      addTab,
-      switchToTab,
-      findTabByMetadata,
-      updateTabContent,
-      closeAllTabs,
-      primaryGroup,
-      secondaryGroup,
-    } = useCanvasStore();
+  const handleInteraction = useCallback(async (itemId: string, userInput: string) => {
+    log.debug('Panel interaction', { itemId, userInput });
+  }, []);
 
-    const convertContent = useCallback((oldContent: OldPanelContent): PanelContent => {
-      return {
-        type: oldContent.type,
-        title: oldContent.title,
-        data: oldContent.data,
-        metadata: oldContent.metadata,
-      };
-    }, []);
+  const restoreToggleFocus = useCallback(() => {
+    document.querySelector<HTMLElement>(
+      '[data-testid="flowchat-header-right-panel-toggle"]',
+    )?.focus();
+  }, []);
 
-    useImperativeHandle(ref, () => ({
-      addTab: (content: OldPanelContent) => {
-        addTab(convertContent(content), 'active');
-        window.dispatchEvent(new CustomEvent('expand-right-panel'));
-      },
-      switchToTab: (tabId: string) => {
-        if (primaryGroup.tabs.find(t => t.id === tabId)) {
-          switchToTab(tabId, 'primary');
-          window.dispatchEvent(new CustomEvent('expand-right-panel'));
-        } else if (secondaryGroup.tabs.find(t => t.id === tabId)) {
-          switchToTab(tabId, 'secondary');
-          window.dispatchEvent(new CustomEvent('expand-right-panel'));
-        }
-      },
-      findTabByMetadata: (metadata: Record<string, any>) => {
-        const result = findTabByMetadata(metadata);
-        return result ? { tabId: result.tab.id } : null;
-      },
-      updateTabContent: (tabId: string, content: OldPanelContent) => {
-        if (primaryGroup.tabs.find(t => t.id === tabId)) {
-          updateTabContent(tabId, 'primary', convertContent(content));
-        } else if (secondaryGroup.tabs.find(t => t.id === tabId)) {
-          updateTabContent(tabId, 'secondary', convertContent(content));
-        }
-      },
-      closeAllTabs: () => {
-        closeAllTabs();
-      },
-    }), [
-      addTab,
-      switchToTab,
-      findTabByMetadata,
-      updateTabContent,
-      closeAllTabs,
-      primaryGroup.tabs,
-      secondaryGroup.tabs,
-      convertContent,
-    ]);
+  const handleRequestClose = useCallback(() => {
+    if (!activeHostKey) return;
+    restoreToggleFocus();
+    collapse(activeHostKey, 'user');
+  }, [activeHostKey, collapse, restoreToggleFocus]);
 
-    const prevWorkspaceIdRef = useRef<string | undefined>(undefined);
+  const handleLastVisibleTabClosed = useCallback(() => {
+    if (!activeHostKey) return;
+    restoreToggleFocus();
+    collapse(activeHostKey, 'empty');
+  }, [activeHostKey, collapse, restoreToggleFocus]);
 
-    useLayoutEffect(() => {
-      const next = workspaceId;
-      const prev = prevWorkspaceIdRef.current;
-      if (prev === next) return;
-
-      log.debug('Active workspace changed, swapping agent canvas snapshot', {
-        from: prev ?? '(none)',
-        to: next ?? '(none)',
-      });
-      switchAgentCanvasWorkspace(prev ?? null, next ?? null);
-      prevWorkspaceIdRef.current = next;
-    }, [workspaceId]);
-
-    useEffect(() => {
-      const removeListener = workspaceManager.addEventListener((event) => {
-        if (event.type === 'workspace:closed') {
-          removeAgentCanvasSnapshot(event.workspaceId);
-        }
-      });
-      return () => removeListener();
-    }, []);
-
-    const handleInteraction = useCallback(async (itemId: string, userInput: string) => {
-      log.debug('Panel interaction', { itemId, userInput });
-    }, []);
-
-    const handleBeforeClose = useCallback(async (_content: any) => {
-      return true;
-    }, []);
-
-    return (
-      <div className="sparo-aux-pane">
-        <ContentCanvas
-          workspacePath={workspacePath}
-          mode="agent"
-          isSceneActive={isSceneActive}
-          onInteraction={handleInteraction}
-          onBeforeClose={handleBeforeClose}
-        />
-      </div>
-    );
-  }
-);
-
-AuxPane.displayName = 'AuxPane';
-
-export default AuxPane;
+  return (
+    <div className="sparo-aux-pane">
+      <ContentCanvas
+        workspacePath={workspacePath}
+        mode="agent"
+        isSceneActive={isSceneActive}
+        isSceneFocused={isSceneFocused}
+        onInteraction={handleInteraction}
+        disablePopOut={isSceneFocused}
+        onRequestClose={isSceneFocused ? undefined : handleRequestClose}
+        onLastVisibleTabClosed={handleLastVisibleTabClosed}
+      />
+    </div>
+  );
+}

@@ -45,6 +45,18 @@ export const systemIconNames = [
   'undo',
   'refresh',
   'retry',
+  'panel-right-closed',
+  'panel-right-open',
+  'panel-left-closed',
+  'panel-left-open',
+  'panel-bottom-closed',
+  'panel-bottom-open',
+  'panel-bottom-half',
+  'panel-bottom-maximized',
+  'panel-floating',
+  'panel-docked',
+  'panel-pinned',
+  'layout-reset',
 ] as const;
 
 export type SystemIconName = (typeof systemIconNames)[number];
@@ -55,7 +67,8 @@ export type SystemIconFamily =
   | 'navigation'
   | 'search-filter'
   | 'files-transfer'
-  | 'edit-manage';
+  | 'edit-manage'
+  | 'panels';
 
 export interface SystemIconMetadata {
   id: SystemIconName;

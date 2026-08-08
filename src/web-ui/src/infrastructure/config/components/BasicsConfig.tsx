@@ -9,8 +9,8 @@ import {
 } from '@/design-system';
 import { configAPI, workspaceAPI } from '@/infrastructure/api';
 import { systemAPI } from '@/infrastructure/api/service-api/SystemAPI';
-import { getTerminalService } from '@/tools/terminal';
-import type { ShellInfo } from '@/tools/terminal/types/session';
+import { terminalAPI } from '@/infrastructure/api/service-api/TerminalAPI';
+import type { ShellInfo } from '@/shared/types/terminal';
 import {
   ConfigPageContent,
   ConfigPageHeader,
@@ -282,7 +282,7 @@ function BasicsTerminalSection() {
 
       const [terminalConfig, shells, systemInfo] = await Promise.all([
         configManager.getSetting<TerminalSettings>('core.terminal'),
-        getTerminalService().getAvailableShells(),
+        terminalAPI.listAvailableShells(),
         systemAPI.getSystemInfo().catch(() => ({ platform: '' })),
       ]);
 

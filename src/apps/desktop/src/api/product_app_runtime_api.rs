@@ -33,7 +33,8 @@ use sparo_core::agentic::agents::{get_agent_registry, AgentCategory};
 use sparo_core::agentic::coordination::{ConversationCoordinator, DialogScheduler};
 use sparo_core::agentic_os::work::{
     default_work_store, RuntimeInstanceRef, WorkAppIntent, WorkAppRef, WorkId, WorkKind,
-    WorkLocator, WorkRecord, WorkScope, WorkStore, WorkSubject, WorkSurfaceRef, WorkVisibility,
+    WorkLocator, WorkObjectLocator, WorkRecord, WorkScope, WorkStore, WorkSubject, WorkSurfaceRef,
+    WorkVisibility,
 };
 use sparo_core::app_platform::{
     private_component_source_dir, register_private_product_app_runtime_components, AppComponentRef,
@@ -82,6 +83,8 @@ pub struct ProductAppRuntimeHost {
 #[serde(rename_all = "camelCase")]
 pub struct ProductAppRuntimeContext {
     pub work_locator: WorkLocator,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub work_object_locator: Option<WorkObjectLocator>,
     pub runtime_instance_id: String,
     pub slot_id: String,
     pub app_id: String,
@@ -673,6 +676,7 @@ pub(crate) async fn create_draft_runtime_preview(
             .map_err(|error| error.to_string())?;
         let runtime_context = ProductAppRuntimeContext {
             work_locator: work.locator(),
+            work_object_locator: None,
             runtime_instance_id: runtime_instance.id.clone(),
             slot_id: slot_id.to_string(),
             app_id: resolved_app.app.id.clone(),
@@ -1209,6 +1213,9 @@ pub async fn resolve_product_app_runtime_instance(
     .await?;
 
     let resolved_work_locator = work.locator();
+    let resolved_work_object_locator = work
+        .primary_object_ref()
+        .map(|object_ref| object_ref.locator.clone());
     let resolved_runtime_instance_id = runtime_instance.id;
     let resolved_slot_id = runtime_instance.slot_id;
     let resolved_app_id = runtime_instance.app_id;
@@ -1237,6 +1244,7 @@ pub async fn resolve_product_app_runtime_instance(
         },
         runtime_context: ProductAppRuntimeContext {
             work_locator: resolved_work_locator,
+            work_object_locator: resolved_work_object_locator,
             runtime_instance_id: resolved_runtime_instance_id,
             slot_id: resolved_slot_id,
             app_id: resolved_app_id,

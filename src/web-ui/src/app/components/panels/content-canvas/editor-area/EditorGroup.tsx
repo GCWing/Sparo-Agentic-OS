@@ -45,6 +45,8 @@ export interface EditorGroupProps {
   onCloseAllTabs?: () => Promise<void> | void;
   onInteraction?: (itemId: string, userInput: string) => Promise<void>;
   disablePopOut?: boolean;
+  onRequestClose?: () => void;
+  onRequestSceneFocus?: () => void;
 }
 
 export const EditorGroup: React.FC<EditorGroupProps> = ({
@@ -71,6 +73,8 @@ export const EditorGroup: React.FC<EditorGroupProps> = ({
   onCloseAllTabs,
   onInteraction,
   disablePopOut = false,
+  onRequestClose,
+  onRequestSceneFocus,
 }) => {
   const { t } = useTranslation('components');
   const visibleTabs = useMemo(() => group.tabs.filter(t => !t.isHidden), [group.tabs]);
@@ -154,6 +158,8 @@ export const EditorGroup: React.FC<EditorGroupProps> = ({
         onReorderTab={onReorderTab}
         onCloseAllTabs={onCloseAllTabs}
         onTabPopOut={disablePopOut ? undefined : handleTabPopOut}
+        onRequestClose={onRequestClose}
+        onRequestSceneFocus={onRequestSceneFocus}
       />
 
       <DropZone

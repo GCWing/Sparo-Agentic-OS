@@ -40,6 +40,7 @@ import { sessionBelongsToWorkspaceNavRow } from '../utils/sessionOrdering';
 import { sessionMatchesWorkspace } from '../utils/workspaceScope';
 import { incrementFlowChatCounter, measureFlowChat } from '../performance/flowChatPerf';
 import { getProjectionVersion as getProjectionSchedulerVersion } from '../projections/flowChatProjectionScheduler';
+import { snapshotAPI } from '@/infrastructure/api/service-api/SnapshotAPI';
 import {
   descriptorFromAgentType,
   getBackendAgentType,
@@ -2647,3 +2648,7 @@ export class FlowChatStore {
 }
 
 export const flowChatStore = FlowChatStore.getInstance();
+
+snapshotAPI.setSessionWorkspacePathResolver(
+  (sessionId) => flowChatStore.getState().sessions.get(sessionId)?.workspacePath,
+);

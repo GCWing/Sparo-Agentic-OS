@@ -199,13 +199,12 @@ class MonacoInitManager {
           } catch (error) {
             log.error('Failed to open file', { normalizedPath, targetLine, targetColumn, error });
             
-            // Fallback: use event dispatch
+            // Fallback: open through the active auxiliary host.
             const fileName = normalizedPath.split(/[/\\]/).pop() || 'untitled';
             const isMarkdownFile = fileName.toLowerCase().endsWith('.md');
             const editorType = isMarkdownFile ? 'markdown-editor' : 'code-editor';
-            
-            window.dispatchEvent(new CustomEvent('agent-create-tab', {
-              detail: {
+            const { openActiveAuxiliaryItem } = await import('@/app/auxiliary-surface');
+            openActiveAuxiliaryItem({
                 type: editorType,
                 title: fileName,
                 data: {
@@ -214,10 +213,8 @@ class MonacoInitManager {
                   jumpToLine: targetLine,
                   jumpToColumn: targetColumn,
                 },
-                checkDuplicate: true,
                 duplicateCheckKey: normalizedPath,
-              },
-            }));
+            });
           }
           
           return true;

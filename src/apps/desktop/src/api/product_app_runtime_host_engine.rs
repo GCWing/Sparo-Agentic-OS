@@ -375,6 +375,13 @@ impl ValidatedProductAppRuntimeContext {
         &self.context.runtime_instance_id
     }
 
+    fn work_object_id(&self) -> Option<&str> {
+        self.context
+            .work_object_locator
+            .as_ref()
+            .map(|locator| locator.object_id.as_str())
+    }
+
     fn app_data_locator(&self) -> &AppDataLocator {
         &self.app_data_locator
     }
@@ -464,6 +471,21 @@ async fn validate_product_app_runtime_context(
                 work.id, context.runtime_instance_id
             )
         })?;
+
+    if let Some(locator) = context.work_object_locator.as_ref() {
+        let primary = work.primary_object_ref().ok_or_else(|| {
+            format!(
+                "Work {} has no primary WorkObject for runtime context",
+                work.id
+            )
+        })?;
+        if &primary.locator != locator {
+            return Err(format!(
+                "Runtime context WorkObject does not match Work {} primary WorkObject",
+                work.id
+            ));
+        }
+    }
 
     if instance.slot_id != context.slot_id
         || instance.app_id != context.app_id
@@ -2092,6 +2114,7 @@ pub async fn product_app_runtime_host_backend_call(
             session_id: request.session_id.clone(),
             turn_id: Some(action_run_id.clone()),
             work_id: Some(runtime_owner.work_id().to_string()),
+            work_object_id: runtime_owner.work_object_id().map(str::to_string),
             work_title: Some(runtime_owner.work_title.clone()),
             runtime_instance_id: Some(runtime_owner.context.runtime_instance_id.clone()),
         };
@@ -2195,6 +2218,7 @@ pub async fn product_app_runtime_host_backend_call(
             session_id: request.session_id.clone(),
             turn_id: Some(action_run_id.clone()),
             work_id: Some(runtime_owner.work_id().to_string()),
+            work_object_id: runtime_owner.work_object_id().map(str::to_string),
             work_title: Some(runtime_owner.work_title.clone()),
             runtime_instance_id: Some(runtime_owner.context.runtime_instance_id.clone()),
         };

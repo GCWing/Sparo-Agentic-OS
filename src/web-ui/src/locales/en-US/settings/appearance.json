@@ -24,22 +24,6 @@
       "light": {
         "name": "Light",
         "description": "Light theme - calm surfaces, ink text, restrained accent"
-      },
-      "sparo-china-style": {
-        "name": "Ink Charm",
-        "description": "Chinese style theme - Rice paper and ink, blue and vermilion, warm and elegant"
-      },
-      "sparo-china-night": {
-        "name": "Ink Night",
-        "description": "Chinese dark theme - Starlit ink night, moonlight like water, serene and elegant"
-      },
-      "sparo-cyber": {
-        "name": "Cyber",
-        "description": "Tech-style theme - Deep black hole, neon future, ultimate tech aesthetics"
-      },
-      "slate": {
-        "name": "Slate",
-        "description": "Slate gray geometric theme - cool chrome with Sparo ink-red accent"
       }
     },
     "fontSize": {

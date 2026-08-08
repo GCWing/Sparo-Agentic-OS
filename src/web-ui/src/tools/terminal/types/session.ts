@@ -1,6 +1,7 @@
 /**
  * Terminal session types aligned with backend terminal_api.rs.
  */
+export type { ShellInfo } from '@/shared/types/terminal';
 
 export type SessionStatus = 'Running' | 'Stopped' | 'Exited' | 'Error';
 
@@ -36,14 +37,6 @@ export interface SessionResponse {
   rows: number;
   connectionId?: string;
   source: TerminalSessionSource;
-}
-
-export interface ShellInfo {
-  shellType: string;
-  name: string;
-  path: string;
-  version?: string;
-  available: boolean;
 }
 
 export interface WriteRequest {

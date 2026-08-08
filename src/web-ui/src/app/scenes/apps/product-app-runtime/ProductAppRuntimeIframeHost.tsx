@@ -399,7 +399,6 @@ const ProductAppRuntimeIframeHost: React.FC<ProductAppRuntimeIframeHostProps> = 
   const { theme } = useTheme();
   const { currentLanguage } = useI18n();
   const displayMeta = resolveProductAppHostSurfaceMeta(app, currentLanguage);
-  const locksViewportScroll = app.id === 'builtin-spark-board';
   const normalizedRoute = useMemo(() => route?.trim() || '/', [route]);
   const effectiveScope = useMemo(
     () => normalizeAppScope(
@@ -810,10 +809,7 @@ const ProductAppRuntimeIframeHost: React.FC<ProductAppRuntimeIframeHostProps> = 
         onLoad={handlePreviewLoad}
         sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads"
         allow={iframeFeaturePolicy(app)}
-        scrolling={locksViewportScroll ? 'no' : undefined}
         style={{
-          overflow: locksViewportScroll ? 'hidden' : undefined,
-          overscrollBehavior: locksViewportScroll ? 'none' : undefined,
           background: 'var(--ds-color-bg-app)',
         }}
         title={displayMeta.name}

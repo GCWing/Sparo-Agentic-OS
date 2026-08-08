@@ -1,9 +1,45 @@
 import type { SessionLocator } from '@/shared/types/session-history';
 import type { WorkLocator, WorkScope } from '@/shared/types/work-locator';
+import type { WorkObjectLocator } from '@/shared/types/work-object-locator';
 
 export type { WorkLocator, WorkScope } from '@/shared/types/work-locator';
+export type { WorkObjectLocator } from '@/shared/types/work-object-locator';
 
 export type WorkId = string;
+export type WorkObjectId = string;
+
+export type WorkObjectRole = 'primary' | 'input' | 'output' | 'reference';
+export type WorkObjectLifecycle = 'active' | 'archived' | 'trashed';
+export type WorkObjectOriginKind = 'blank' | 'template' | 'import' | 'fork';
+export type WorkObjectStorageOwner = 'runtime' | 'workspace' | 'external';
+
+export interface WorkObjectRef {
+  locator: WorkObjectLocator;
+  kindId: string;
+  role: WorkObjectRole;
+}
+
+export interface WorkObjectRecord {
+  id: WorkObjectId;
+  kindId: string;
+  title: string;
+  scope: WorkScope;
+  workspacePath?: string | null;
+  app: WorkAppRef;
+  storage: {
+    owner: WorkObjectStorageOwner;
+    uri?: string | null;
+  };
+  headRevision: number;
+  lifecycle: WorkObjectLifecycle;
+  origin: {
+    kind: WorkObjectOriginKind;
+    sourceObject?: WorkObjectLocator | null;
+    sourceRevision?: number | null;
+  };
+  createdAt: number;
+  updatedAt: number;
+}
 
 export type WorkKind =
   | 'one_shot'
@@ -424,6 +460,7 @@ export interface WorkRecord {
   executionBindings: WorkExecutionBinding[];
   runtimeInstances: RuntimeInstanceRef[];
   artifactRefs: ArtifactRef[];
+  objectRefs: WorkObjectRef[];
   memoryRefs: MemoryRef[];
   systemManaged: boolean;
   systemProcessKind?: string | null;

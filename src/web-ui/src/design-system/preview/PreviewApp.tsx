@@ -1,8 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { designSystemPreviewCategories } from '@/design-system/preview/registries';
 import type { PreviewCategory } from '../types';
-import { FullPageLayout, LargeCardLayout, GridLayout, DemoLayout, ColumnLayout } from './layouts';
-import { IconButton, Select, type SelectOption } from '@/design-system';
+import { FocusedPreview } from './FocusedPreview';
+import {
+  IconButton,
+  PanelLeftClosedIcon,
+  PanelLeftOpenIcon,
+  Search,
+  Select,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
+  SparoLogoMark,
+  type SelectOption,
+} from '@/design-system';
 import { builtinThemes } from '@/infrastructure/theme/presets';
 import {
   applyCssVars,
@@ -11,20 +21,74 @@ import {
   createThemeCssVarMap,
   type ThemeConfig,
 } from '@/design-system/foundation/tokens';
-import { PanelLeftClose } from 'lucide-react';
+import { builtinLocales } from '@/infrastructure/i18n';
+import {
+  Blocks,
+  BookOpen,
+  Box,
+  Languages,
+  SunMedium,
+} from 'lucide-react';
 import './preview.css';
 
+const PREVIEW_NAMESPACE = 'design-system/preview' as const;
+
+function TierIcon({ category }: { category: PreviewCategory }) {
+  if (category.tier === 'pattern') {
+    return <Blocks size={15} aria-hidden="true" />;
+  }
+  if (category.tier === 'recipe') {
+    return <BookOpen size={15} aria-hidden="true" />;
+  }
+  return <Box size={15} aria-hidden="true" />;
+}
+
 export const PreviewApp: React.FC = () => {
-  const previewRegistry = useMemo(() => designSystemPreviewCategories, []);
+  const sourceRegistry = useMemo(() => designSystemPreviewCategories, []);
   const themes = useMemo(() => builtinThemes, []);
-  const [themeId, setThemeId] = useState<string>('slate');
+  const { t, i18n } = useTranslation(PREVIEW_NAMESPACE);
+  const supportedLocales = useMemo(() => builtinLocales, []);
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const [themeId, setThemeId] = useState<string>('light');
   const [selectedCategory, setSelectedCategory] = useState<string>(
-    previewRegistry[0]?.id || ''
+    sourceRegistry[0]?.id || ''
+  );
+  const [selectedExampleId, setSelectedExampleId] = useState<string>(
+    sourceRegistry[0]?.examples[0]?.id || ''
   );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const previewRegistry = useMemo(
+    () =>
+      sourceRegistry.map((category) => ({
+        ...category,
+        name: t(`catalog.categories.${category.id}.name`, {
+          defaultValue: category.name,
+        }),
+        description: t(`catalog.categories.${category.id}.description`, {
+          defaultValue: category.description,
+        }),
+        examples: category.examples.map((example) => ({
+          ...example,
+          name: t(`catalog.examples.${example.id}.name`, {
+            defaultValue: example.name,
+          }),
+          description: t(`catalog.examples.${example.id}.description`, {
+            defaultValue: example.description,
+          }),
+        })),
+      })),
+    [sourceRegistry, t]
+  );
 
   const theme = themes.find((item) => item.id === themeId) ?? themes[0];
-  const themeType = theme?.type === 'light' ? 'light' : 'dark';
+
+  React.useEffect(() => {
+    document.title = t('documentTitle');
+    document.documentElement.setAttribute('lang', currentLanguage);
+    document.documentElement.setAttribute('dir', 'ltr');
+  }, [currentLanguage, t]);
 
   React.useEffect(() => {
     if (!theme || typeof document === 'undefined') {
@@ -37,161 +101,346 @@ export const PreviewApp: React.FC = () => {
     applyCssVars(root, createLegacyCssVarMap(config));
     applyCssVars(root, createComponentCssVarMap(config));
     root.dataset.theme = theme.id;
-    root.dataset.themeType = themeType;
-  }, [theme, themeType]);
+    root.dataset.themeType = theme.type;
+  }, [theme]);
 
-  const currentCategory = previewRegistry.find(
+  React.useEffect(() => {
+    const handleSearchShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTyping = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA';
+      const isShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
+      const isSlashShortcut = event.key === '/' && !isTyping;
+
+      if (!isShortcut && !isSlashShortcut) {
+        return;
+      }
+
+      event.preventDefault();
+      searchInputRef.current?.focus();
+    };
+
+    window.addEventListener('keydown', handleSearchShortcut);
+    return () => window.removeEventListener('keydown', handleSearchShortcut);
+  }, []);
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredRegistry = useMemo(() => {
+    if (!normalizedQuery) {
+      return previewRegistry;
+    }
+
+    return previewRegistry
+      .map((category) => {
+        const sourceCategory = sourceRegistry.find((item) => item.id === category.id);
+        const categoryMatches = [
+          category.name,
+          category.description,
+          category.tier,
+          sourceCategory?.name,
+          sourceCategory?.description,
+        ].some((value) => value?.toLowerCase().includes(normalizedQuery));
+        const examples = categoryMatches
+          ? category.examples
+          : category.examples.filter((example) => {
+              const sourceExample = sourceCategory?.examples.find(
+                (item) => item.id === example.id
+              );
+              return [
+                example.name,
+                example.description,
+                example.id,
+                sourceExample?.name,
+                sourceExample?.description,
+              ].some((value) => value?.toLowerCase().includes(normalizedQuery));
+            });
+
+        return { ...category, examples };
+      })
+      .filter((category) => category.examples.length > 0);
+  }, [normalizedQuery, previewRegistry, sourceRegistry]);
+
+  const currentCategory = filteredRegistry.find(
     (category) => category.id === selectedCategory
+  ) ?? filteredRegistry[0];
+  const currentExample = currentCategory?.examples.find(
+    (example) => example.id === selectedExampleId
+  ) ?? currentCategory?.examples[0];
+  const currentExampleIndex = currentCategory && currentExample
+    ? currentCategory.examples.findIndex((example) => example.id === currentExample.id)
+    : 0;
+  const previousExample = currentCategory && currentExample
+    ? currentCategory.examples[
+        (currentExampleIndex - 1 + currentCategory.examples.length) % currentCategory.examples.length
+      ]
+    : undefined;
+  const nextExample = currentCategory && currentExample
+    ? currentCategory.examples[
+        (currentExampleIndex + 1) % currentCategory.examples.length
+      ]
+    : undefined;
+  const totalExamples = previewRegistry.reduce(
+    (total, category) => total + category.examples.length,
+    0
   );
-  const themeTypeLabel = themeType === 'light' ? 'Light' : 'Dark';
+  const resultCount = filteredRegistry.reduce(
+    (total, category) => total + category.examples.length,
+    0
+  );
   const themeOptions = useMemo<SelectOption[]>(
     () =>
       themes.map((theme) => ({
-        label: theme.name,
+        label: t(`themes.${theme.id}.name`, { defaultValue: theme.name }),
         value: theme.id,
-        description: theme.type === 'light'
-          ? 'Light preview theme'
-          : 'Dark preview theme',
+        description: t(`themes.${theme.id}.description`, {
+          defaultValue: theme.type === 'light'
+            ? t('themes.lightDescription')
+            : t('themes.darkDescription'),
+        }),
       })),
-    [themes]
+    [t, themes]
+  );
+  const languageOptions = useMemo<SelectOption[]>(
+    () =>
+      supportedLocales.map((locale) => ({
+        label: locale.nativeName,
+        value: locale.id,
+        description: locale.englishName,
+      })),
+    [supportedLocales]
   );
 
-  const renderCurrentCategory = (category: PreviewCategory) => {
-    if (category.layoutType === 'full-page') {
-      return <FullPageLayout examples={category.examples} />;
-    }
-    if (category.layoutType === 'large-card') {
-      return <LargeCardLayout examples={category.examples} />;
-    }
-    if (category.layoutType === 'demo') {
-      return <DemoLayout examples={category.examples} />;
-    }
-    if (category.layoutType === 'column') {
-      return <ColumnLayout examples={category.examples} />;
-    }
-    if (category.layoutType === 'grid-2') {
-      return <GridLayout examples={category.examples} columns={2} />;
-    }
-    if (category.layoutType === 'grid-4') {
-      return <GridLayout examples={category.examples} columns={4} />;
+  React.useEffect(() => {
+    if (!currentCategory || !currentExample) {
+      return;
     }
 
-    return <GridLayout examples={category.examples} columns={3} />;
+    if (currentCategory.id !== selectedCategory) {
+      setSelectedCategory(currentCategory.id);
+    }
+    if (currentExample.id !== selectedExampleId) {
+      setSelectedExampleId(currentExample.id);
+    }
+  }, [currentCategory, currentExample, selectedCategory, selectedExampleId]);
+
+  const selectCategory = (category: PreviewCategory) => {
+    setSelectedCategory(category.id);
+    setSelectedExampleId(category.examples[0]?.id ?? '');
+  };
+
+  const selectExample = (categoryId: string, exampleId: string) => {
+    setSelectedCategory(categoryId);
+    setSelectedExampleId(exampleId);
+  };
+
+  const selectRelativeExample = (direction: 'previous' | 'next') => {
+    const target = direction === 'previous' ? previousExample : nextExample;
+    if (target) {
+      setSelectedExampleId(target.id);
+    }
   };
 
   return (
     <div className="preview-app">
       <header className="preview-header">
-        <div className="preview-logo">
-          <h1>Sparo Design System</h1>
-          <span className="preview-version">v0.1.0</span>
+        <div className="preview-brand">
+          <span className="preview-brand__mark">
+            <SparoLogoMark size={20} aria-hidden="true" />
+          </span>
+          <div className="preview-brand__copy">
+            <h1>Sparo</h1>
+            <span>{t('header.designSystem')}</span>
+          </div>
+          <span className="preview-version">v0.1</span>
         </div>
         <div className="preview-header-actions">
-          <label className="preview-theme-selector">
+          <div className="preview-theme-selector preview-language-selector">
             <span className="preview-theme-selector__label">
-              Theme
+              <Languages size={14} aria-hidden="true" />
+              {t('header.previewLanguage')}
             </span>
-            <div className="preview-theme-selector__control">
-              <Select
-                className="preview-theme-selector__select-control"
-                size="small"
-                value={themeId ?? ''}
-                options={themeOptions}
-                onChange={(value) => {
-                  if (Array.isArray(value)) {
-                    return;
-                  }
-                  setThemeId(String(value));
-                }}
-                disabled={themes.length === 0}
-                placement="bottom"
-              />
-              <span className={`preview-theme-selector__badge preview-theme-selector__badge--${themeType}`}>
-                {themeTypeLabel}
-              </span>
-            </div>
-          </label>
+            <Select
+              className="preview-theme-selector__select-control preview-language-selector__select-control"
+              size="small"
+              label={t('header.previewLanguage')}
+              value={currentLanguage}
+              options={languageOptions}
+              onChange={(value) => {
+                if (Array.isArray(value)) {
+                  return;
+                }
+                const locale = supportedLocales.find(
+                  (item) => item.id === String(value)
+                )?.id;
+                if (locale) {
+                  void i18n.changeLanguage(locale);
+                }
+              }}
+              placement="bottom"
+              dropdownAlign="end"
+            />
+          </div>
+          <div className="preview-theme-selector">
+            <span className="preview-theme-selector__label">
+              <SunMedium size={14} aria-hidden="true" />
+              {t('header.previewTheme')}
+            </span>
+            <Select
+              className="preview-theme-selector__select-control"
+              size="small"
+              label={t('header.previewTheme')}
+              value={themeId ?? ''}
+              options={themeOptions}
+              onChange={(value) => {
+                if (Array.isArray(value)) {
+                  return;
+                }
+                setThemeId(String(value));
+              }}
+              disabled={themes.length === 0}
+              placement="bottom"
+              dropdownAlign="end"
+            />
+          </div>
         </div>
       </header>
 
       <div className="preview-container">
         <aside className={`preview-sidebar ${isSidebarCollapsed ? 'preview-sidebar--collapsed' : ''}`}>
           <div className="preview-sidebar-header">
-            {!isSidebarCollapsed && (
-              <span className="preview-sidebar-title">
-                Library
-              </span>
-            )}
+            <div className="preview-sidebar-heading">
+              <span className="preview-sidebar-title">{t('sidebar.library')}</span>
+              <span className="preview-sidebar-total">{totalExamples}</span>
+            </div>
             <IconButton
               className="preview-sidebar-toggle"
               size="small"
               variant="ghost"
               onClick={() => setIsSidebarCollapsed((prev) => !prev)}
-              aria-label={isSidebarCollapsed ? 'Expand navigation' : 'Collapse navigation'}
-              tooltip={isSidebarCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+              aria-label={isSidebarCollapsed
+                ? t('sidebar.expandNavigation')
+                : t('sidebar.collapseNavigation')}
+              tooltip={isSidebarCollapsed
+                ? t('sidebar.expandNavigation')
+                : t('sidebar.collapseNavigation')}
             >
-              <span className={`preview-sidebar-toggle__icon ${isSidebarCollapsed ? 'is-collapsed' : ''}`}>
-                <PanelLeftClose size={14} aria-hidden="true" />
+              <span className="preview-sidebar-toggle__icon">
+                {isSidebarCollapsed ? (
+                  <PanelLeftClosedIcon
+                    size={14}
+                    strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                    absoluteStrokeWidth
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <PanelLeftOpenIcon
+                    size={14}
+                    strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                    absoluteStrokeWidth
+                    aria-hidden="true"
+                  />
+                )}
               </span>
             </IconButton>
           </div>
-          <nav className="preview-nav">
-            {previewRegistry.map((category: PreviewCategory) => (
-              <div key={category.id} className="category-section">
-                <button
-                  className={`category-button ${
-                    selectedCategory === category.id ? 'active' : ''
-                  }`}
-                  onClick={() => setSelectedCategory(category.id)}
-                  title={category.name}
-                >
-                  <span className="category-button__dot" />
-                  <span className="category-name">
-                    {isSidebarCollapsed ? category.name.slice(0, 2) : category.name}
-                  </span>
-                  {!isSidebarCollapsed && (
-                    <span className="example-count">
-                      {category.examples.length}
-                    </span>
-                  )}
-                </button>
-              </div>
-            ))}
-          </nav>
-        </aside>
 
-        <main className={`preview-main ${currentCategory?.layoutType === 'full-page' ? 'preview-main--full' : ''}`}>
-          {currentCategory ? (
-            <>
-              {currentCategory.layoutType !== 'full-page' && (
-                <div className="preview-surface-header">
-                  {currentCategory.tier && (
-                    <div className={`preview-surface-tier preview-surface-tier--${currentCategory.tier}`}>
-                      {currentCategory.tier}
+          <div className="preview-sidebar-search">
+            <Search
+              ref={searchInputRef}
+              size="small"
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder={t('sidebar.searchPlaceholder')}
+              inputAriaLabel={t('sidebar.searchAriaLabel')}
+              ariaControls="preview-library-navigation"
+              suffixContent={<kbd>⌘K</kbd>}
+            />
+          </div>
+
+          <nav
+            id="preview-library-navigation"
+            className="preview-nav"
+            aria-label={t('sidebar.navigationAriaLabel')}
+          >
+            {filteredRegistry.map((category: PreviewCategory) => {
+              const isOpen = currentCategory?.id === category.id || Boolean(normalizedQuery);
+
+              return (
+                <section
+                  key={category.id}
+                  className={`category-section ${isOpen ? 'category-section--open' : ''}`}
+                >
+                  <button
+                    className={`category-button ${
+                      currentCategory?.id === category.id ? 'active' : ''
+                    }`}
+                    onClick={() => selectCategory(category)}
+                    title={category.name}
+                    aria-label={category.name}
+                    aria-expanded={isOpen}
+                  >
+                    <span className="category-button__icon">
+                      <TierIcon category={category} />
+                    </span>
+                    <span className="category-name">{category.name}</span>
+                    <span className="example-count">{category.examples.length}</span>
+                  </button>
+                  {isOpen && (
+                    <div
+                      className="category-examples"
+                      aria-label={t('sidebar.categoryExamplesAriaLabel', {
+                        category: category.name,
+                      })}
+                    >
+                      {category.examples.map((example) => (
+                        <button
+                          key={example.id}
+                          className={`category-example-button ${
+                            currentExample?.id === example.id ? 'active' : ''
+                          }`}
+                          onClick={() => selectExample(category.id, example.id)}
+                          title={example.description}
+                        >
+                          <span>{example.name}</span>
+                        </button>
+                      ))}
                     </div>
                   )}
-                  <h2 className="preview-surface-title">{currentCategory.name}</h2>
-                  <p className="preview-surface-description">
-                    {currentCategory.description}
-                  </p>
-                  {currentCategory.aiRole && (
-                    <p className="preview-surface-ai-role">{currentCategory.aiRole}</p>
-                  )}
-                  {currentCategory.decisionRules && currentCategory.decisionRules.length > 0 && (
-                    <ul className="preview-surface-decision-rules">
-                      {currentCategory.decisionRules.map((rule) => (
-                        <li key={rule}>{rule}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
+                </section>
+              );
+            })}
+          </nav>
 
-              {renderCurrentCategory(currentCategory)}
-            </>
+          {normalizedQuery && resultCount === 0 && (
+            <div className="preview-sidebar-empty" role="status">
+              <strong>{t('empty.noMatches')}</strong>
+              <span>{t('empty.searchSuggestion')}</span>
+            </div>
+          )}
+
+          {!isSidebarCollapsed && (
+            <div className="preview-sidebar-footer">
+              <span>{t('sidebar.shown', { count: resultCount })}</span>
+              <span>{t('sidebar.searchShortcut')}</span>
+            </div>
+          )}
+        </aside>
+
+        <main className="preview-main">
+          {currentCategory && currentExample && previousExample && nextExample ? (
+            <FocusedPreview
+              category={currentCategory}
+              example={currentExample}
+              index={currentExampleIndex}
+              total={currentCategory.examples.length}
+              previousExample={previousExample}
+              nextExample={nextExample}
+              onPrevious={() => selectRelativeExample('previous')}
+              onNext={() => selectRelativeExample('next')}
+            />
           ) : (
             <div className="empty-state">
-              <p>No preview category selected.</p>
+              <strong>{t('empty.noPreview')}</strong>
+              <p>{t('empty.previewSuggestion')}</p>
             </div>
           )}
         </main>

@@ -4,9 +4,17 @@
  */
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { ChevronDown, ChevronUp, X, Terminal, Maximize2, Minimize2 } from 'lucide-react';
+import { X, Terminal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { IconButton, Tooltip } from '@/design-system';
+import {
+  IconButton,
+  PanelBottomClosedIcon,
+  PanelBottomHalfIcon,
+  PanelBottomMaximizedIcon,
+  PanelBottomOpenIcon,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
+  Tooltip,
+} from '@/design-system';
 import type { AnchorPosition } from '../types';
 import { LAYOUT_CONFIG, clampAnchorSize } from '../types';
 import './AnchorZone.scss';
@@ -131,7 +139,21 @@ export const AnchorZone: React.FC<AnchorZoneProps> = ({
             size="xs"
             variant="ghost"
           >
-            {isCollapsed ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {isCollapsed ? (
+              <PanelBottomClosedIcon
+                size={14}
+                strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                absoluteStrokeWidth
+                aria-hidden="true"
+              />
+            ) : (
+              <PanelBottomOpenIcon
+                size={14}
+                strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                absoluteStrokeWidth
+                aria-hidden="true"
+              />
+            )}
           </IconButton>
 
           {onToggleMaximize && (
@@ -142,7 +164,21 @@ export const AnchorZone: React.FC<AnchorZoneProps> = ({
               size="xs"
               variant="ghost"
             >
-              {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              {isMaximized ? (
+                <PanelBottomMaximizedIcon
+                  size={14}
+                  strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                  absoluteStrokeWidth
+                  aria-hidden="true"
+                />
+              ) : (
+                <PanelBottomHalfIcon
+                  size={14}
+                  strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                  absoluteStrokeWidth
+                  aria-hidden="true"
+                />
+              )}
             </IconButton>
           )}
 

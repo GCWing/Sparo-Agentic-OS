@@ -10,6 +10,7 @@ import {
   SESSION_DESCRIPTORS,
 } from '../../domain/sessionDescriptor';
 import { i18nService } from '@/infrastructure/i18n';
+import type { ComposerSubmissionEnvelope } from '@/shared/types/composer';
 
 const agentApiMock = vi.hoisted(() => ({
   startDialogTurn: vi.fn(),
@@ -30,6 +31,15 @@ vi.mock('@/infrastructure/config/services/ConfigManager', () => ({
   configManager: configManagerMock,
 }));
 
+vi.mock('@/app/session-profiles', () => ({
+  resolveProfile: vi.fn((profileId: string) => ({
+    capabilities: {
+      autoTitle: profileId === 'settings' ? false : undefined,
+      modelSelection: profileId === 'settings' ? 'runtime-owned' : undefined,
+    },
+  })),
+}));
+
 vi.mock('../../../shared/notification-system', () => ({
   notificationService: notificationServiceMock,
 }));
@@ -42,14 +52,10 @@ vi.mock('./PersistenceModule', async () => {
   };
 });
 
-vi.mock('./SessionModule', async () => {
-  const actual = await vi.importActual<typeof import('./SessionModule')>('./SessionModule');
-  return {
-    ...actual,
-    ensureBackendSession: vi.fn(async () => {}),
-    retryCreateBackendSession: vi.fn(async () => {}),
-  };
-});
+vi.mock('./SessionModule', () => ({
+  ensureBackendSession: vi.fn(async () => {}),
+  retryCreateBackendSession: vi.fn(async () => {}),
+}));
 
 vi.mock('../../store/sessionTurnQueueStore', () => ({
   useSessionTurnQueueStore: {
@@ -172,6 +178,59 @@ describe('sendMessage scheduler projection', () => {
     expect(snapshot?.currentState).toBe(SessionExecutionState.PROCESSING);
     expect(snapshot?.context.currentDialogTurnId).toBe(turnId);
     expect(context.processingManager.registerStatus).toHaveBeenCalledOnce();
+  });
+
+  it('forwards an attachment-only Composer submission without flattening it in the UI layer', async () => {
+    const store = FlowChatStore.getInstance();
+    const sessionId = `attachment-submit-${Date.now()}`;
+    sessionIds.push(sessionId);
+
+    createWorkspaceSession(store, sessionId);
+    agentApiMock.startDialogTurn.mockImplementation(async (request: any) => ({
+      success: true,
+      message: 'Dialog turn started',
+      status: 'started',
+      turnId: request.turnId,
+    }));
+
+    const composerSubmission: ComposerSubmissionEnvelope = {
+      schemaVersion: 1,
+      intent: 'normal',
+      document: {
+        nodes: [{ kind: 'attachment_ref', attachmentId: 'attachment-1' }],
+      },
+      attachments: [{
+        id: 'attachment-1',
+        ordinal: 1,
+        type: 'text-fragment',
+        title: 'Research notes',
+        modelContent: 'The canonical attachment body.',
+      }],
+      createdAt: 123,
+    };
+    const displayMessage = '[Attachment 1: Research notes]';
+    const context = createTestContext(store);
+
+    await sendMessage(
+      context,
+      '',
+      sessionId,
+      displayMessage,
+      undefined,
+      undefined,
+      { composerSubmission },
+    );
+
+    expect(agentApiMock.startDialogTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId,
+        userInput: '',
+        originalUserInput: displayMessage,
+        composerSubmission,
+      }),
+    );
+    expect(store.getState().sessions.get(sessionId)?.dialogTurns[0]?.userMessage.content)
+      .toBe(displayMessage);
   });
 
   it('keeps the session usable and prompts for model setup when no model is configured', async () => {

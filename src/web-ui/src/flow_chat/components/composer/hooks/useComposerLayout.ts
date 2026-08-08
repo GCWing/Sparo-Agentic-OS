@@ -4,7 +4,7 @@ import type { RichTextInputHandle } from '../../RichTextInput';
 interface UseComposerLayoutParams {
   editorRef: RefObject<RichTextInputHandle | null>;
   value: string;
-  imageCount: number;
+  attachmentCount: number;
 }
 
 function getSingleLineEditorWidth(editor: HTMLDivElement) {
@@ -102,18 +102,18 @@ function getRenderedEmptyLineCount(editor: HTMLDivElement) {
 export function useComposerLayout({
   editorRef,
   value,
-  imageCount,
+  attachmentCount,
 }: UseComposerLayoutParams) {
   const [isInputMultiline, setIsInputMultiline] = useState(false);
 
   const shouldUseMultilineInput = useCallback((currentMultiline: boolean) => {
+    if (attachmentCount > 0) {
+      return true;
+    }
+
     const editor = editorRef.current?.element;
     if (!editor) {
       return false;
-    }
-
-    if (imageCount > 0) {
-      return true;
     }
 
     const singleLineMeasureWidth = getSingleLineEditorWidth(editor);
@@ -139,36 +139,46 @@ export function useComposerLayout({
     return currentMultiline
       ? !isShortEnoughForSingleLine(valueMetrics.contentHeight, valueMetrics.lineHeight)
       : isTallEnoughForMultiline(valueMetrics.contentHeight, valueMetrics.lineHeight);
-  }, [editorRef, imageCount, value]);
+  }, [attachmentCount, editorRef, value]);
 
   useLayoutEffect(() => {
     const measureMultiline = () => {
       setIsInputMultiline(current => shouldUseMultilineInput(current));
     };
 
-    const editor = editorRef.current?.element;
     let frame = 0;
+    let attachFrame = 0;
+    let resizeObserver: ResizeObserver | null = null;
+    let mutationObserver: MutationObserver | null = null;
+    let disposed = false;
     const scheduleMeasure = () => {
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(measureMultiline);
     };
 
-    const resizeObserver = editor ? new ResizeObserver(scheduleMeasure) : null;
-    const mutationObserver = editor ? new MutationObserver(scheduleMeasure) : null;
-
-    scheduleMeasure();
-
-    if (editor && resizeObserver && mutationObserver) {
+    const attachObservers = () => {
+      if (disposed) return;
+      const editor = editorRef.current?.element;
+      if (!editor) {
+        attachFrame = window.requestAnimationFrame(attachObservers);
+        return;
+      }
+      resizeObserver = new ResizeObserver(scheduleMeasure);
+      mutationObserver = new MutationObserver(scheduleMeasure);
       resizeObserver.observe(editor);
       mutationObserver.observe(editor, {
         characterData: true,
         childList: true,
         subtree: true,
       });
-    }
+      scheduleMeasure();
+    };
+    attachObservers();
 
     return () => {
+      disposed = true;
       window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(attachFrame);
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
     };

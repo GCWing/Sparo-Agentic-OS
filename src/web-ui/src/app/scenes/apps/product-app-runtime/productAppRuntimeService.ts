@@ -2,6 +2,7 @@ import { requestWorkRefresh, useWorkStore } from '@/app/agentic-os/work/data/wor
 import { agenticOsWorkApi } from '@/app/agentic-os/work/data/workApi';
 import { productAppWorkRef } from '@/app/agentic-os/work/domain/productAppRefs';
 import type {
+  CreateWorkRequest,
   WorkAppRef,
   WorkLocator,
   WorkRecord,
@@ -134,6 +135,41 @@ async function initializeCreatedProductAppWork(
   }
 }
 
+async function attachCreatedProductAppWorkToExistingObject(
+  target: ProductAppRuntimeHostTarget,
+  work: WorkRecord,
+  sourceWorkLocator: WorkLocator,
+): Promise<void> {
+  const attachers = (target.hostSurface.backends ?? [])
+    .filter(backend => backend.actions.some(action => action.name === 'attachWorkObject'));
+  if (attachers.length === 0) {
+    throw new Error(
+      `Product App ${target.intelligentApp.appId} cannot attach another Work to an existing WorkObject`,
+    );
+  }
+  for (const backend of attachers) {
+    const backendAlias = backend.role?.trim() || backend.id;
+    const result = await productAppRuntimeHostAPI.backendCall(
+      target.hostSurface.id,
+      `${backendAlias}.attachWorkObject`,
+      {
+        sourceWorkId: sourceWorkLocator.workId,
+      },
+      {
+        runtimeContext: target.runtimeContext,
+        workspacePath: workspacePathFromAppScope(target.scope),
+        idempotencyKey: `attach-work-object-${sourceWorkLocator.workId}-${work.id}-${backend.id}`,
+      },
+    );
+    const bridgeResult = result.bridgeResult as { status?: string; stderr?: string } | undefined;
+    if (result.status === 'failed' || bridgeResult?.status === 'failed') {
+      throw new Error(
+        bridgeResult?.stderr || `Failed to attach Product App Work ${work.id} to its WorkObject`,
+      );
+    }
+  }
+}
+
 async function rollbackCreatedProductAppWork(
   work: WorkRecord,
   creationError: unknown,
@@ -214,21 +250,32 @@ export async function openProductAppRuntime(
   };
   const createExplicitMultipleWork = app.runtime.workMultiplicity === 'multiple'
     && options.workMode === 'create';
-  let created = createExplicitMultipleWork;
-  const work = createExplicitMultipleWork
-    ? await useWorkStore.getState().createWork({
-        kind: 'app_workflow',
-        title,
-        objective,
-        subject: { kind: 'app', app: appRef, intent: 'use' },
-        appRefs: [{ app: appRef, role: 'executor' }],
-        scope: request.scope,
-        workspacePath: request.workspacePath,
-        visibility: request.visibility,
-        primarySurfacePolicy: request.primarySurfacePolicy,
-        primarySurface: request.primarySurface,
-        assignment: request.assignment,
-      })
+  const existingObjectExplicitMultipleWork = app.runtime.workMultiplicity === 'multiple'
+    && options.workMode === 'existing_object';
+  if (options.workMode === 'existing_object' && !existingObjectExplicitMultipleWork) {
+    throw new Error(`App ${app.appId} does not support multiple Works for one WorkObject`);
+  }
+  if (existingObjectExplicitMultipleWork && !options.sourceWorkLocator) {
+    throw new Error(`A source Work is required to reuse an existing WorkObject for App ${app.appId}`);
+  }
+  const createRequest: CreateWorkRequest = {
+    kind: 'app_workflow',
+    title,
+    objective,
+    subject: { kind: 'app', app: appRef, intent: 'use' },
+    appRefs: [{ app: appRef, role: 'executor' }],
+    scope: request.scope,
+    workspacePath: request.workspacePath,
+    visibility: request.visibility,
+    primarySurfacePolicy: request.primarySurfacePolicy,
+    primarySurface: request.primarySurface,
+    assignment: request.assignment,
+  };
+  let created = createExplicitMultipleWork || existingObjectExplicitMultipleWork;
+  const work = existingObjectExplicitMultipleWork
+    ? await useWorkStore.getState().createWorkForObject(options.sourceWorkLocator!, createRequest)
+    : createExplicitMultipleWork
+      ? await useWorkStore.getState().createWork(createRequest)
     : await useWorkStore.getState().resolveAppWork(request).then((resolved) => {
         created = resolved.created;
         return resolved.work;
@@ -236,7 +283,11 @@ export async function openProductAppRuntime(
   try {
     const target = await resolveRuntimeTarget(work, appRef, scope, options);
     if (created) {
-      await initializeCreatedProductAppWork(target, work);
+      if (existingObjectExplicitMultipleWork) {
+        await attachCreatedProductAppWorkToExistingObject(target, work, options.sourceWorkLocator!);
+      } else {
+        await initializeCreatedProductAppWork(target, work);
+      }
     }
     const context: WorkspaceSurfaceContext = options.context ?? { kind: 'work', workId: work.id };
     await openProductAppRuntimeHost(target, {

@@ -25,6 +25,8 @@ pub struct ProcessedImage {
     pub mime_type: String,
     pub width: u32,
     pub height: u32,
+    pub attachment_id: Option<String>,
+    pub attachment_label: Option<String>,
 }
 
 pub fn resolve_vision_model_from_ai_config(
@@ -185,6 +187,8 @@ pub fn optimize_image_with_size_limit(
             mime_type,
             width: orig_width,
             height: orig_height,
+            attachment_id: None,
+            attachment_label: None,
         });
     }
 
@@ -238,6 +242,8 @@ pub fn optimize_image_with_size_limit(
         mime_type: encoded.1,
         width: working.width(),
         height: working.height(),
+        attachment_id: None,
+        attachment_label: None,
     })
 }
 
@@ -359,8 +365,26 @@ pub async fn process_image_contexts_for_provider(
             )));
         };
 
-        let processed =
+        let mut processed =
             optimize_image_for_provider(image_data, provider, fallback_mime.as_deref())?;
+        let attachment_number = ctx
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get("attachment_number"))
+            .and_then(serde_json::Value::as_u64);
+        let name = ctx
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get("name"))
+            .and_then(serde_json::Value::as_str)
+            .filter(|name| !name.trim().is_empty());
+        processed.attachment_id = Some(ctx.id.clone());
+        processed.attachment_label = Some(match (attachment_number, name) {
+            (Some(number), Some(name)) => format!("Attachment {}: {}", number, name),
+            (Some(number), None) => format!("Attachment {}", number),
+            (None, Some(name)) => name.to_string(),
+            (None, None) => ctx.id.clone(),
+        });
         results.push(processed);
     }
 
@@ -379,8 +403,16 @@ pub fn build_multimodal_message_with_images(
     let provider_lower = provider.to_lowercase();
 
     let content_json = if provider_lower.contains("anthropic") {
-        let mut blocks = Vec::with_capacity(images.len() + 1);
-        for img in images {
+        let mut blocks = Vec::with_capacity(images.len() * 2 + 1);
+        blocks.push(json!({
+            "type": "text",
+            "text": prompt
+        }));
+        for (index, img) in images.iter().enumerate() {
+            blocks.push(json!({
+                "type": "text",
+                "text": img.attachment_label.clone().unwrap_or_else(|| format!("Image {}", index + 1))
+            }));
             let base64_data = BASE64.encode(&img.data);
             blocks.push(json!({
                 "type": "image",
@@ -391,14 +423,14 @@ pub fn build_multimodal_message_with_images(
                 }
             }));
         }
-        blocks.push(json!({
-            "type": "text",
-            "text": prompt
-        }));
         json!(blocks)
     } else if provider_lower.contains("gemini") || provider_lower.contains("google") {
-        let mut parts = Vec::with_capacity(images.len() + 1);
-        for img in images {
+        let mut parts = Vec::with_capacity(images.len() * 2 + 1);
+        parts.push(json!({ "text": prompt }));
+        for (index, img) in images.iter().enumerate() {
+            parts.push(json!({
+                "text": img.attachment_label.clone().unwrap_or_else(|| format!("Image {}", index + 1))
+            }));
             let base64_data = BASE64.encode(&img.data);
             parts.push(json!({
                 "inline_data": {
@@ -407,11 +439,18 @@ pub fn build_multimodal_message_with_images(
                 }
             }));
         }
-        parts.push(json!({ "text": prompt }));
         json!(parts)
     } else {
-        let mut blocks = Vec::with_capacity(images.len() + 1);
-        for img in images {
+        let mut blocks = Vec::with_capacity(images.len() * 2 + 1);
+        blocks.push(json!({
+            "type": "text",
+            "text": prompt
+        }));
+        for (index, img) in images.iter().enumerate() {
+            blocks.push(json!({
+                "type": "text",
+                "text": img.attachment_label.clone().unwrap_or_else(|| format!("Image {}", index + 1))
+            }));
             let base64_data = BASE64.encode(&img.data);
             blocks.push(json!({
                 "type": "image_url",
@@ -420,10 +459,6 @@ pub fn build_multimodal_message_with_images(
                 }
             }));
         }
-        blocks.push(json!({
-            "type": "text",
-            "text": prompt
-        }));
         json!(blocks)
     };
 
@@ -448,6 +483,46 @@ fn image_format_to_mime(format: ImageFormat) -> Option<&'static str> {
         ImageFormat::WebP => Some("image/webp"),
         ImageFormat::Bmp => Some("image/bmp"),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn multimodal_blocks_keep_each_attachment_label_next_to_its_image() {
+        let images = vec![
+            ProcessedImage {
+                data: vec![1, 2, 3],
+                mime_type: "image/png".to_string(),
+                width: 10,
+                height: 10,
+                attachment_id: Some("image-a".to_string()),
+                attachment_label: Some("Attachment 2: Diagram".to_string()),
+            },
+            ProcessedImage {
+                data: vec![4, 5, 6],
+                mime_type: "image/jpeg".to_string(),
+                width: 10,
+                height: 10,
+                attachment_id: Some("image-b".to_string()),
+                attachment_label: Some("Attachment 4: Screenshot".to_string()),
+            },
+        ];
+
+        let messages =
+            build_multimodal_message_with_images("Compare them", &images, "openai").unwrap();
+        let content: serde_json::Value =
+            serde_json::from_str(messages[0].content.as_deref().expect("multimodal content"))
+                .unwrap();
+        let blocks = content.as_array().expect("content blocks");
+
+        assert_eq!(blocks[0]["text"], "Compare them");
+        assert_eq!(blocks[1]["text"], "Attachment 2: Diagram");
+        assert_eq!(blocks[2]["type"], "image_url");
+        assert_eq!(blocks[3]["text"], "Attachment 4: Screenshot");
+        assert_eq!(blocks[4]["type"], "image_url");
     }
 }
 

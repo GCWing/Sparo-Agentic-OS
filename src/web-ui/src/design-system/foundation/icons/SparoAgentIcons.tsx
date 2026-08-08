@@ -3,6 +3,7 @@ import { forwardRef, type SVGProps } from 'react';
 export interface SparoIconProps extends SVGProps<SVGSVGElement> {
   size?: number | string;
   strokeWidth?: number | string;
+  absoluteStrokeWidth?: boolean;
 }
 
 function resolveIconSize(size: number | string | undefined): number | string {
@@ -12,9 +13,15 @@ function resolveIconSize(size: number | string | undefined): number | string {
 export const SparoAgentIcon = forwardRef<SVGSVGElement, SparoIconProps>(({
   size,
   strokeWidth = 1.8,
+  absoluteStrokeWidth = false,
   ...props
 }, ref) => {
   const iconSize = resolveIconSize(size);
+  const resolvedStrokeWidth = absoluteStrokeWidth
+    && typeof iconSize === 'number'
+    && typeof strokeWidth === 'number'
+    ? strokeWidth * (24 / iconSize)
+    : strokeWidth;
 
   return (
     <svg
@@ -24,7 +31,7 @@ export const SparoAgentIcon = forwardRef<SVGSVGElement, SparoIconProps>(({
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={strokeWidth}
+      strokeWidth={resolvedStrokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
       xmlns="http://www.w3.org/2000/svg"
@@ -43,9 +50,15 @@ SparoAgentIcon.displayName = 'SparoAgentIcon';
 export const SparoSubagentIcon = forwardRef<SVGSVGElement, SparoIconProps>(({
   size,
   strokeWidth = 1.8,
+  absoluteStrokeWidth = false,
   ...props
 }, ref) => {
   const iconSize = resolveIconSize(size);
+  const resolvedStrokeWidth = absoluteStrokeWidth
+    && typeof iconSize === 'number'
+    && typeof strokeWidth === 'number'
+    ? strokeWidth * (24 / iconSize)
+    : strokeWidth;
 
   return (
     <svg
@@ -55,7 +68,7 @@ export const SparoSubagentIcon = forwardRef<SVGSVGElement, SparoIconProps>(({
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={strokeWidth}
+      strokeWidth={resolvedStrokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
       xmlns="http://www.w3.org/2000/svg"

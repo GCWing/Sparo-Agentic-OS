@@ -52,6 +52,11 @@ const FAMILY_COPY: Record<SystemIconFamily, { label: string; labelEn: string; de
     labelEn: 'Edit & Manage',
     description: '创建、修改、保存、恢复与重试等管理操作。',
   },
+  panels: {
+    label: '面板控制',
+    labelEn: 'Panels',
+    description: '左右与底部面板的开合、展开、停靠、固定和布局恢复语义。',
+  },
 };
 
 const INITIAL_ICON = systemIconManifest.find((icon) => icon.id === 'memory') ?? systemIconManifest[0];

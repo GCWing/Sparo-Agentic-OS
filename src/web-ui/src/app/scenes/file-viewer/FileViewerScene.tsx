@@ -22,13 +22,21 @@ import {
   List as ListIcon,
   MessageSquarePlus,
   Music,
-  PanelLeft,
   Pencil,
   Search,
   Star,
   Video,
 } from 'lucide-react';
-import { Button, EmptyState, IconButton, Input, SegmentedControl } from '@/design-system';
+import {
+  Button,
+  EmptyState,
+  IconButton,
+  Input,
+  PanelLeftClosedIcon,
+  PanelLeftOpenIcon,
+  SegmentedControl,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
+} from '@/design-system';
 import FilesPanel from '../../components/panels/FilesPanel';
 import { ContentCanvas } from '../../components/panels/content-canvas';
 import { CanvasStoreModeContext } from '../../components/panels/content-canvas/stores';
@@ -1883,24 +1891,21 @@ const FileViewerScene: React.FC<FileViewerSceneProps> = ({ workspacePath, scopeK
                 variant="ghost"
                 onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
               >
-                <PanelLeft
-                  size={15}
-                  className={[
-                    'sparo-files-scene__sidebar-state-icon',
-                    !sidebarCollapsed && 'is-expanded',
-                  ].filter(Boolean).join(' ')}
-                >
-                  <rect
-                    className="sparo-files-scene__sidebar-state-fill"
-                    x="4.5"
-                    y="4.5"
-                    width="3.5"
-                    height="15"
-                    rx="0.75"
-                    fill="currentColor"
-                    stroke="none"
+                {sidebarCollapsed ? (
+                  <PanelLeftClosedIcon
+                    size={15}
+                    strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                    absoluteStrokeWidth
+                    aria-hidden="true"
                   />
-                </PanelLeft>
+                ) : (
+                  <PanelLeftOpenIcon
+                    size={15}
+                    strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
+                    absoluteStrokeWidth
+                    aria-hidden="true"
+                  />
+                )}
               </IconButton>
             </span>
             <span className="sparo-files-scene__brand-text">{t('brand')}</span>

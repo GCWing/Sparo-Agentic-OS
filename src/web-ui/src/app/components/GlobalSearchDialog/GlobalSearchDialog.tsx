@@ -446,6 +446,7 @@ const GlobalSearchDialog: React.FC<GlobalSearchDialogProps> = ({ open, onClose }
           scope: systemAppScope(),
           title: item.appSlot.displayName,
           objective: variant?.app.description || item.appSlot.displayName,
+          intent: { kind: 'resume_last' },
         });
       } catch (error) {
         notificationService.error(error instanceof Error ? error.message : String(error));

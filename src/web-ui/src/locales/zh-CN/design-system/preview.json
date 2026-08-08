@@ -1,0 +1,188 @@
+{
+  "documentTitle": "Sparo OS 设计系统预览",
+  "header": {
+    "designSystem": "设计系统",
+    "previewTheme": "预览主题",
+    "previewLanguage": "界面语言"
+  },
+  "themes": {
+    "lightDescription": "浅色预览主题",
+    "darkDescription": "深色预览主题",
+    "light": {
+      "name": "浅色",
+      "description": "干净明亮的预览主题"
+    },
+    "slate": {
+      "name": "石板",
+      "description": "柔和克制的深色预览主题"
+    },
+    "dark": {
+      "name": "深色",
+      "description": "高对比度深色预览主题"
+    },
+    "sparo-china-style": {
+      "name": "墨韵",
+      "description": "取意中国水墨的浅色主题"
+    },
+    "sparo-china-night": {
+      "name": "墨夜",
+      "description": "取意中国水墨的深色主题"
+    },
+    "sparo-cyber": {
+      "name": "赛博",
+      "description": "高能量赛博深色预览主题"
+    }
+  },
+  "sidebar": {
+    "library": "组件库",
+    "expandNavigation": "展开导航",
+    "collapseNavigation": "收起导航",
+    "searchPlaceholder": "搜索组件",
+    "searchAriaLabel": "搜索设计系统组件",
+    "navigationAriaLabel": "设计系统组件库",
+    "categoryExamplesAriaLabel": "{{category}}组件",
+    "shown": "已显示 {{count}} 项",
+    "searchShortcut": "按 / 开始搜索"
+  },
+  "empty": {
+    "noMatches": "没有匹配结果",
+    "searchSuggestion": "请尝试输入组件名称或 ID。",
+    "noPreview": "未找到预览",
+    "previewSuggestion": "请尝试其他组件名称，或清空搜索条件。"
+  },
+  "focused": {
+    "tiers": {
+      "primitive": "原子层",
+      "pattern": "模式层",
+      "recipe": "配方层"
+    },
+    "examplesAriaLabel": "预览示例",
+    "previous": "上一个：{{name}}",
+    "next": "下一个：{{name}}",
+    "usage": "用法",
+    "usageGuidance": "使用指南",
+    "closeUsage": "关闭使用指南"
+  },
+  "guide": {
+    "recipe": "配方",
+    "useWhen": "适用场景",
+    "composeWith": "组合使用",
+    "avoid": "避免",
+    "states": "覆盖状态",
+    "notes": "{{count}} 条说明"
+  },
+  "catalog": {
+    "categories": {
+      "ds-primitives": {
+        "name": "基础组件",
+        "description": "稳定的底层控件，应在组合模式中使用，不应演变为功能内部的独立 UI 框架。"
+      },
+      "ds-patterns": {
+        "name": "组合模式",
+        "description": "页面与工作流的结构模板，AI 应优先选择组合模式，再使用底层组件。"
+      },
+      "ds-ai-entry": {
+        "name": "AI 构建规则",
+        "description": "使用设计系统组合产品界面前，应从这里开始。"
+      }
+    },
+    "examples": {
+      "ds-sparo-logo-mark": {
+        "name": "Sparo 标志",
+        "description": "支持尺寸、描边宽度和 currentColor 继承的矢量品牌标志。"
+      },
+      "ds-sparo-system-icons": {
+        "name": "Sparo 语义图标族",
+        "description": "覆盖系统、工作类型、导航、搜索筛选、文件传输及编辑管理的一方图标。"
+      },
+      "ds-button-semantics": {
+        "name": "按钮命令语义",
+        "description": "按钮类型、尺寸、加载、禁用与纯图标命令的使用规则。"
+      },
+      "ds-floating-card": {
+        "name": "浮动卡片",
+        "description": "具有大圆角、两级悬浮阴影和标准关闭命令的非模态界面。"
+      },
+      "ds-popup-menu": {
+        "name": "弹出菜单",
+        "description": "使用统一悬浮阴影与中等圆角的锚定菜单基线。"
+      },
+      "ds-form-controls": {
+        "name": "表单控件",
+        "description": "在真实设置文案中展示文本框、选择器、开关与复选框。"
+      },
+      "ds-feedback": {
+        "name": "反馈组件",
+        "description": "用于桌面工作流的状态徽标与空状态组件。"
+      },
+      "ds-search-and-filters": {
+        "name": "搜索与筛选",
+        "description": "适用于紧凑桌面界面的搜索图标与筛选命令。"
+      },
+      "ds-dialog-tabs-alerts": {
+        "name": "对话框、标签页与警告",
+        "description": "具有明确角色、标签和恢复状态的键盘友好组件。"
+      },
+      "ds-input-variants": {
+        "name": "输入框变体",
+        "description": "带标签与说明的文本域、搜索框和数字输入状态。"
+      },
+      "ds-segmented-pagination": {
+        "name": "分段控制与分页",
+        "description": "覆盖选中、禁用、聚焦、窄布局和长标签状态的导航控件。"
+      },
+      "ds-loading-status": {
+        "name": "加载与状态组件",
+        "description": "稳定的加载占位与带文字说明的状态指示。"
+      },
+      "ds-app-window": {
+        "name": "应用窗口",
+        "description": "无需遮罩、可承载复杂内容的应用内非模态弹出窗口。"
+      },
+      "ds-scene-panel": {
+        "name": "场景与面板",
+        "description": "包含命令分组与有界工作区的默认桌面场景结构。"
+      },
+      "ds-list-detail": {
+        "name": "列表详情工作流",
+        "description": "可选择的主列表，以及聚焦的详情或检查器界面。"
+      },
+      "ds-settings-page": {
+        "name": "设置页面",
+        "description": "适用于设置、偏好与服务商配置的标准布局。"
+      },
+      "ds-item-card": {
+        "name": "项目卡片",
+        "description": "适用于任务、应用和其他可操作目录项的可复用卡片结构。"
+      },
+      "ds-tool-card": {
+        "name": "真实工具卡片",
+        "description": "展示已注册 Read 与 Bash 工具实际使用的紧凑型和可展开对话流卡片。"
+      },
+      "ds-navigation-empty-status": {
+        "name": "导航、空状态与状态栏",
+        "description": "用于工作区导航与可靠空状态的辅助组合模式。"
+      },
+      "ds-action-list-row": {
+        "name": "操作列表行",
+        "description": "覆盖选择、元数据、状态、操作、加载与错误的可复用行结构。"
+      },
+      "recipe-agent-session-workbench": {
+        "name": "智能体会话工作台",
+        "description": "用于会话分流、任务续接与实时智能体活动的真实产品场景。"
+      },
+      "recipe-workspace-file-operations": {
+        "name": "工作区文件操作",
+        "description": "用于文件、差异和工作区浏览任务的紧凑导航与详情结构。"
+      },
+      "recipe-model-settings": {
+        "name": "模型与权限设置",
+        "description": "覆盖默认模型、工作区策略与校验状态的设置配方。"
+      },
+      "recipe-tool-execution": {
+        "name": "工具执行卡片",
+        "description": "用于运行中、已完成与失败工具输出的对话流执行结构。"
+      }
+    }
+  }
+}

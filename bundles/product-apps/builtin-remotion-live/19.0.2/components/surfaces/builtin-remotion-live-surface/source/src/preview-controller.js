@@ -2,6 +2,7 @@
 
 import { PLAYER_CONTROL_PROTOCOL_VERSION, PLAYER_HOST_RUNTIME_VERSION } from './constants.js';
 import { compositionDuration, currentComposition } from './model.js';
+import { PLAYER_BASELINE_REVISION } from './player-state-contract.js';
 import { state } from './state.js';
 import { clamp } from './util.js';
 
@@ -35,12 +36,23 @@ function resetPlayerRuntimeState() {
   state.playerDesiredState = null;
   state.playerActualState = null;
   state.playerDesiredRevision = 0;
-  state.playerActualRevision = 0;
+  state.playerActualRevision = PLAYER_BASELINE_REVISION;
   state.playerChannelConnected = false;
   state.playerConnectionState = 'disconnected';
+  state.playerConnectionTransport = null;
+  state.playerConnectionId = null;
+  state.playerStateConnectionId = null;
+  state.playerConnectionErrorCode = null;
+  state.playerRecoveryAttempt = 0;
+  state.playerLastMessageAt = null;
   state.playerChannelNonce = null;
   state.playerPendingCommand = null;
   state.playerInFlightCommand = null;
+  state.playerNeedsReconcile = false;
+  if (state.playerCommandTimer) {
+    clearTimeout(state.playerCommandTimer);
+    state.playerCommandTimer = null;
+  }
   state.playerInstanceId = null;
   state.playerStageKey = null;
   state.playerRenderedStageKey = null;
@@ -49,6 +61,10 @@ function resetPlayerRuntimeState() {
   if (state.playerHandshakeTimer) {
     clearTimeout(state.playerHandshakeTimer);
     state.playerHandshakeTimer = null;
+  }
+  if (state.playerReadyTimer) {
+    clearTimeout(state.playerReadyTimer);
+    state.playerReadyTimer = null;
   }
 }
 

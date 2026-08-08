@@ -15,6 +15,7 @@ pub mod subscriber;
 pub mod surface;
 pub mod title;
 pub mod types;
+pub mod work_object;
 
 pub use assignment::{WorkAssignmentKind, WorkAssignmentRef};
 pub use execution_binding::{
@@ -49,13 +50,14 @@ pub use runtime_bridge::{
 };
 pub use service::{
     AdvanceWorkRequest, AdvanceWorkResponse, ControlWorkAction, ControlWorkRequest,
-    ControlWorkResponse, CreateWorkRequest, DeleteWorkResponse, DispatchNewWorkRequest,
-    DispatchWorkRequest, DispatchWorkResponse, LinkSessionToWorkRequest, PrimarySurfacePolicy,
-    ReclassifyWorkRequest, ResolveAppWorkRequest, ResolveAppWorkResponse,
-    ResolveComponentWorkRequest, ResolveComponentWorkResponse, StartWorkRequest, StartWorkResponse,
-    UpdateWorkRequest, WorkService,
+    ControlWorkResponse, CreateWorkForObjectRequest, CreateWorkForObjectResponse,
+    CreateWorkRequest, DeleteWorkResponse, DispatchNewWorkRequest, DispatchWorkRequest,
+    DispatchWorkResponse, EnsurePrimaryWorkObjectRequest, EnsurePrimaryWorkObjectResponse,
+    LinkSessionToWorkRequest, PrimarySurfacePolicy, ReclassifyWorkRequest, ResolveAppWorkRequest,
+    ResolveAppWorkResponse, ResolveComponentWorkRequest, ResolveComponentWorkResponse,
+    StartWorkRequest, StartWorkResponse, UpdateWorkRequest, WorkService,
 };
-pub use store::{default_work_store, FileWorkStore, MemoryWorkStore, WorkStore};
+pub use store::{default_work_store, FileWorkStore, MemoryWorkStore, WorkObjectStore, WorkStore};
 pub use subject::{
     WorkAppIntent, WorkAppKind, WorkAppRef, WorkAppRelation, WorkAppRelationRole,
     WorkComponentIntent, WorkComponentRef, WorkSubject,
@@ -64,3 +66,7 @@ pub use subscriber::WorkEventSubscriber;
 pub use surface::WorkSurfaceRef;
 pub use title::{WorkTitleSource, WorkTitleState};
 pub use types::{WorkKind, WorkLocator, WorkScope, WorkStatus, WorkVisibility};
+pub use work_object::{
+    WorkObjectId, WorkObjectLifecycle, WorkObjectLocator, WorkObjectOrigin, WorkObjectOriginKind,
+    WorkObjectRecord, WorkObjectRef, WorkObjectRole, WorkObjectStorage, WorkObjectStorageOwner,
+};

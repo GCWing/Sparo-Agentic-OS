@@ -1,4 +1,4 @@
-import type { ContextBudgetSnapshot } from '@/flow_chat/types/flow-chat';
+import type { ContextBudgetSnapshot } from '@/shared/types/context-budget';
 import type {
   DialogTurnData,
   SessionDomain,

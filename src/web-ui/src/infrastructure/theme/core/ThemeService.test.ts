@@ -63,6 +63,7 @@ describe('ThemeService config synchronization', () => {
 
     expect(configManagerMock.watch).toHaveBeenCalledTimes(1);
     expect(service.getCurrentThemeId()).toBe('light');
+    expect(service.getThemeList().map((theme) => theme.id)).toEqual(['light', 'dark']);
 
     configManagerMock.getSetting.mockResolvedValue({ current: 'dark', custom: [] });
     notifyThemesChanged?.();
@@ -113,7 +114,7 @@ describe('ThemeService config synchronization', () => {
     const service = new ThemeService();
     await service.initialize();
     configManagerMock.setSetting.mockImplementationOnce(async () => {
-      configManagerMock.getSetting.mockResolvedValue({ current: 'slate', custom: [] });
+      configManagerMock.getSetting.mockResolvedValue({ current: 'light', custom: [] });
     });
 
     await service.applyTheme('dark');
@@ -122,9 +123,9 @@ describe('ThemeService config synchronization', () => {
       'core.themes.current',
       'dark',
     );
-    expect(service.getCurrentThemeId()).toBe('slate');
-    expect(service.getResolvedThemeId()).toBe('slate');
-    expect(document.documentElement.dataset.theme).toBe('slate');
+    expect(service.getCurrentThemeId()).toBe('light');
+    expect(service.getResolvedThemeId()).toBe('light');
+    expect(document.documentElement.dataset.theme).toBe('light');
   });
 
   it('discards stale reads and leaves the latest queued theme applied', async () => {
@@ -147,11 +148,11 @@ describe('ThemeService config synchronization', () => {
     await vi.waitFor(() => {
       expect(configManagerMock.getSetting).toHaveBeenCalledTimes(3);
     });
-    latestRead.resolve({ current: 'slate', custom: [] });
+    latestRead.resolve({ current: 'light', custom: [] });
 
     await vi.waitFor(() => {
-      expect(service.getCurrentThemeId()).toBe('slate');
-      expect(document.documentElement.dataset.theme).toBe('slate');
+      expect(service.getCurrentThemeId()).toBe('light');
+      expect(document.documentElement.dataset.theme).toBe('light');
     });
   });
 });

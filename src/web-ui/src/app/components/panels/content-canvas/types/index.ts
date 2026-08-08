@@ -39,12 +39,10 @@ export {
 export type {
   PanelContentType,
   PanelContent,
-  CreateTabOptions,
-  CreateTabEventDetail,
+  CanvasItemDescriptor,
 } from './content';
 
 export {
   FILE_VIEWER_TYPES,
   isFileViewerType,
-  TAB_EVENTS,
 } from './content';

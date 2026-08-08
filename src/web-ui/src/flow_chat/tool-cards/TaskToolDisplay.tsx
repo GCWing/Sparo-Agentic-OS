@@ -22,6 +22,7 @@ import { getToolViewState } from '../runtime/toolViewState';
 import { FlowTextBlock } from '../components/FlowTextBlock';
 import { FlowToolCard } from '../components/FlowToolCard';
 import { ModelThinkingDisplay } from './ModelThinkingDisplay';
+import { openActiveAuxiliaryItem } from '@/app/auxiliary-surface';
 import {
   HeavyToolCardTemplate,
   renderHeavyToolRunningStatus,
@@ -246,7 +247,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
       }
       const panelData = { toolItem, taskInput, sessionId };
       const tabInfo = {
-        type: 'task-detail',
+        type: 'task-detail' as const,
         title: taskHeaderLine,
         data: panelData,
         metadata: { taskId: toolItem.id },
@@ -254,7 +255,7 @@ export const TaskToolDisplay: React.FC<ToolCardProps> = ({
       if (onOpenInPanel) {
         onOpenInPanel(tabInfo.type, tabInfo);
       } else {
-        window.dispatchEvent(new CustomEvent('agent-create-tab', { detail: tabInfo }));
+        openActiveAuxiliaryItem(tabInfo);
       }
     },
     [onOpenInPanel, sessionId, taskInput, toolItem, taskHeaderLine, updateCardExpandedState],

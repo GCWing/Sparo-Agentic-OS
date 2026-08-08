@@ -188,6 +188,7 @@ async fn write_product_app_package(
         id: "primary-work".to_string(),
         label: "Primary Work".to_string(),
         scope: WorkObjectScope::Global,
+        reusable_across_works: false,
         identity_schema: json!({
             "type": "object",
             "required": ["workId"],

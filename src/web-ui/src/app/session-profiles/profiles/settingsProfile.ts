@@ -4,13 +4,9 @@ import type { SessionProfile } from '../types';
 export const settingsProfile: SessionProfile = {
   id: 'settings',
 
-  layout: {
-    showChat: true,
-    defaultAuxPane: 'collapsed',
-    chatCollapsible: false,
+  auxiliarySurface: {
+    defaultVisibility: 'collapsed',
   },
-
-  auxTabs: {},
 
   composer: {
     visibility: {

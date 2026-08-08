@@ -154,7 +154,6 @@ const DailyLetterArrivalDock: React.FC = () => {
         onSeal={() => void handleSeal()}
         formatDate={formatDate}
         t={t}
-        originCorner
         onFirstOpen={markDailyLetterAcknowledged}
       />
     </>

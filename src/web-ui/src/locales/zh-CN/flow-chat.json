@@ -29,6 +29,10 @@
       "comfortable": "舒适",
       "expanded": "展开"
     },
+    "sceneFocus": {
+      "backToChat": "返回对话",
+      "title": "专注视图"
+    },
     "resizer": {
       "leftAriaLabel": "调整左侧面板大小",
       "centerAriaLabel": "调整面板大小",
@@ -127,7 +131,35 @@
       "skillDetail": "Skill · {{suite}}",
       "standaloneSkill": "独立 Skill",
       "open": "打开{{label}}",
-      "remove": "移除{{label}}"
+      "remove": "移除{{label}}",
+      "preview": "预览{{label}}",
+      "attachments": "附件",
+      "attachmentNumber": "附件 {{number}}",
+      "showPreviousAttachments": "显示前面的附件",
+      "showMoreAttachments": "显示更多附件",
+      "closePreview": "关闭预览",
+      "previewActions": "预览操作",
+      "openDocked": "完整打开",
+      "openSceneFocus": "场景内全屏",
+      "insertAtCursor": "插入光标处",
+      "removeReference": "移除引用",
+      "removeAttachment": "移除附件",
+      "unsupportedForOperation": "{{operation}} 不会使用附件，请先移除附件后再继续。",
+      "types": {
+        "text-fragment": "长文本",
+        "skill-selection": "Skill",
+        "file": "文件",
+        "directory": "文件夹",
+        "code-snippet": "代码片段",
+        "image": "图片",
+        "terminal-command": "终端命令",
+        "git-ref": "Git 引用",
+        "url": "网页链接",
+        "web-element": "网页元素",
+        "product-app-preview-element-selection": "应用元素",
+        "intent-canvas": "意图画布",
+        "spreadsheet-focus": "表格焦点"
+      }
     },
     "messageTooLarge": "消息超过最大长度 {{max}} 个字符（当前 {{count}} 个字符）。",
     "openWorkspaceFolder": "打开工作区文件夹",
@@ -353,6 +385,8 @@
     "searchOpen": "搜索对话轮次",
     "hideCompletedThinkingItems": "隐藏已完成的思考条目",
     "showCompletedThinkingItems": "显示已完成的思考条目",
+    "expandRightPanel": "展开右侧面板",
+    "collapseRightPanel": "收起右侧面板",
     "resetHistory": "重置历史",
     "moreMenu": "更多",
     "showCompletedThinkingInConversation": "显示／隐藏思考",

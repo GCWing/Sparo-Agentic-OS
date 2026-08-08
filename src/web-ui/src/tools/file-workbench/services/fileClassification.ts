@@ -1,17 +1,8 @@
 import type { FsEntry } from '@/infrastructure/api';
+import { IMAGE_MIME_TYPES, imageMimeTypeFromPath } from '@/shared/media/imageFormats';
 import type { FileCapability, FileCategory, FileEntry, FileScope } from '../types';
 
-export const IMAGE_MIME_TYPES: Record<string, string> = {
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  png: 'image/png',
-  gif: 'image/gif',
-  bmp: 'image/bmp',
-  webp: 'image/webp',
-  svg: 'image/svg+xml',
-  ico: 'image/x-icon',
-  avif: 'image/avif',
-};
+export { IMAGE_MIME_TYPES, imageMimeTypeFromPath } from '@/shared/media/imageFormats';
 
 const TEXT_PREVIEW_EXTENSIONS = new Set([
   'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs',
@@ -56,11 +47,6 @@ export function canOpenInExcelLive(entry: FsEntry): boolean {
   if (entry.kind === 'dir') return false;
   const ext = entry.name.toLowerCase().split('.').pop() || '';
   return SPREADSHEET_EXTENSIONS.has(ext);
-}
-
-export function imageMimeTypeFromPath(filePath: string): string {
-  const ext = filePath.toLowerCase().split('.').pop() || '';
-  return IMAGE_MIME_TYPES[ext] || 'image/*';
 }
 
 export function getLangFamily(name: string): string {

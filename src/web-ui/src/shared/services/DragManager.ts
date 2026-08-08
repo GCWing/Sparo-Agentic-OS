@@ -241,7 +241,11 @@ export class DragManager {
       case 'code-snippet':
         return context.selectedText;
       case 'image':
-        return context.imagePath;
+        return context.sourceRef.kind === 'local-file'
+          ? context.sourceRef.path
+          : context.sourceRef.kind === 'remote-url'
+            ? context.sourceRef.url
+            : context.imageName;
       case 'terminal-command':
         return context.command;
       case 'git-ref':

@@ -1,0 +1,115 @@
+.composer-attachment-identity {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  color: inherit;
+
+  &__number {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 var(--ds-space-1);
+    border-radius: var(--ds-radius-full);
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    font-size: var(--ds-font-size-2xs);
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--ds-font-weight-semibold);
+    line-height: 1;
+  }
+
+  &__icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+    opacity: 0.78;
+  }
+
+  &__copy {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  &__title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: inherit;
+    font-weight: var(--ds-font-weight-medium);
+    white-space: nowrap;
+  }
+
+  &--capsule {
+    max-width: 176px;
+    gap: var(--ds-space-1);
+    padding: 2px var(--ds-space-2) 2px var(--ds-space-1);
+    border-radius: var(--ds-radius-full);
+    background: color-mix(in srgb, currentColor 10%, transparent);
+    font-size: var(--flowchat-font-size-sm);
+    line-height: 1.45;
+
+    .composer-attachment-identity__copy {
+      max-width: 112px;
+    }
+  }
+
+  &--preview {
+    width: 100%;
+    gap: var(--ds-space-2);
+    align-items: stretch;
+
+    .composer-attachment-identity__title {
+      min-width: 0;
+      flex: 1;
+      font-size: var(--ds-font-size-xs);
+      font-weight: var(--ds-font-weight-semibold);
+      line-height: var(--ds-line-height-tight);
+    }
+  }
+
+  &__thumbnail {
+    width: 44px;
+    height: 52px;
+    flex: 0 0 44px;
+    border-radius: var(--ds-radius-md);
+    object-fit: cover;
+  }
+
+  &__preview-meta {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--ds-space-1);
+  }
+
+  &__preview-heading {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: var(--ds-space-1);
+  }
+
+  &__preview-text {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--ds-chat-text-secondary);
+    font-size: var(--ds-font-size-xs);
+    line-height: var(--ds-line-height-normal);
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  &--preview-with-thumbnail {
+    .composer-attachment-identity__preview-text {
+      -webkit-line-clamp: 1;
+    }
+  }
+}

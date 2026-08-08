@@ -47,11 +47,10 @@ describe('sceneOpenTargetResolver', () => {
 
     expect(resolution.mode).toBe('project');
     expect(resolution.targetSceneId).toBe('file-viewer');
-    expect(resolution.sceneJustOpened).toBe(true);
     expect(openWorkspaceSceneMock).toHaveBeenCalledWith('file-viewer', { scope });
   });
 
-  it('treats a file-viewer scope change as a freshly mounted target', () => {
+  it('focuses the file viewer with the new scope', () => {
     const currentScope = projectRuntimeScopeFromWorkspacePath('D:/workspace/project')!;
     const targetScope = externalRuntimeScope('D:/runtime/artifacts')!;
     useWorkspaceSurfaceStore.getState().openSurface({
@@ -67,7 +66,6 @@ describe('sceneOpenTargetResolver', () => {
 
     expect(resolution.mode).toBe('project');
     expect(resolution.targetSceneId).toBe('file-viewer');
-    expect(resolution.sceneJustOpened).toBe(true);
     expect(openWorkspaceSceneMock).toHaveBeenCalledWith('file-viewer', { scope: targetScope });
   });
 });

@@ -27,7 +27,7 @@ export {
 export { SessionProfileProvider } from './SessionProfileProvider';
 export { SessionProfileScope } from './SessionProfileScope';
 export { useSessionProfile } from './useSessionProfile';
-export { openSessionSidecarPanel } from './sidecarActionController';
+export { openActiveSessionSidecarPanel } from './sidecarActionController';
 
 // Individual profiles (useful for type-checking in tests or profile-specific imports)
 export { agenticOsProfile } from './profiles/agenticOsProfile';

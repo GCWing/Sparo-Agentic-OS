@@ -1,10 +1,10 @@
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use crate::agentic::tools::framework::{
     Tool, ToolRenderOptions, ToolResult, ToolUseContext, ValidationResult,
 };
-use crate::agentic_os::tools::work::{handle, WorkInput};
+use crate::agentic_os::tools::work::{handle, work_input_schema, WorkInput};
 use crate::error::{CoreError, CoreResult};
 
 use super::work_tool_support::{work_owner_from_tool_context, work_service_from_tool_context};
@@ -28,81 +28,7 @@ impl Tool for WorkTool {
     }
 
     fn input_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["start", "continue", "status", "control", "reclassify"],
-                    "description": "start: create and launch new Work. continue: add instructions to existing Work. status: read progress and results. control: change lifecycle state. reclassify: change kind or topic attachment."
-                },
-                "work_id": {
-                    "type": "string",
-                    "description": "The Work to target. Required for continue, control, reclassify, and for status of one specific Work. This is the work_id returned by start, not a session id."
-                },
-                "kind": {
-                    "type": "string",
-                    "enum": ["one_shot", "multi_step", "long_running_session", "tracking", "topic", "recurring", "app_workflow"],
-                    "description": "start or reclassify. multi_step (default) for normal multi-step execution; one_shot for a single self-contained task; long_running_session/tracking for ongoing user work; topic for a theme container; recurring for user cadence work; app_workflow when an app subject is attached."
-                },
-                "topic_work_id": {
-                    "type": "string",
-                    "description": "Optional Topic work_id to attach this Work under. Topic target must have kind=topic."
-                },
-                "clear_topic_work_id": {
-                    "type": "boolean",
-                    "description": "reclassify/start only. Clear topic attachment when true."
-                },
-                "title": {
-                    "type": "string",
-                    "description": "start only, required. Short Work title; keep the user's exact title when they give one."
-                },
-                "objective": {
-                    "type": "string",
-                    "description": "start only, required. The durable goal of the Work."
-                },
-                "instructions": {
-                    "type": "string",
-                    "description": "Required for start and continue. The Agent only sees this text, so make it self-contained: goal, context, constraints, expected deliverable, how to verify, and how to report."
-                },
-                "scope": {
-                    "type": "object",
-                    "description": "start only, required. workspace for project work; system for Agentic OS or non-project work.",
-                    "properties": {
-                        "kind": { "type": "string", "enum": ["system", "workspace"] },
-                        "workspace_path": {
-                            "type": "string",
-                            "description": "Required when kind is workspace."
-                        }
-                    },
-                    "required": ["kind"],
-                    "additionalProperties": false
-                },
-                "executor": {
-                    "type": "object",
-                    "description": "start only. Omit to default to Runno.",
-                    "properties": {
-                        "kind": { "type": "string", "enum": ["agent"] },
-                        "agent_type": {
-                            "type": "string",
-                            "description": "Runno for general execution; bitfun-coder for code work; Cowork for office deliverables; Design for UI/UX; DeepResearch for research; AppBuilder for Product Apps and reusable component authoring; OutcomeReview for final-effect review before user handoff."
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "control_action": {
-                    "type": "string",
-                    "enum": ["pause", "resume", "cancel_current_execution", "archive", "reopen"],
-                    "description": "control only, required."
-                },
-                "include_archived": {
-                    "type": "boolean",
-                    "description": "status list only. Include archived Work. Defaults to false."
-                }
-            },
-            "required": ["action"],
-            "additionalProperties": false
-        })
+        work_input_schema()
     }
 
     fn needs_permissions(&self, _input: Option<&Value>) -> bool {
@@ -294,6 +220,7 @@ fn compact_text(value: &str, max_chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn work_schema_is_single_control_plane() {
@@ -309,6 +236,16 @@ mod tests {
             );
         }
         assert_eq!(schema["required"].as_array().expect("required").len(), 1);
+        assert_eq!(schema["additionalProperties"], false);
+        assert!(schema["properties"].get("owner").is_none());
+        assert!(schema["properties"].get("workspace_path").is_none());
+
+        let scope_schema =
+            serde_json::to_string(&schema["properties"]["scope"]).expect("serialize scope schema");
+        assert!(scope_schema.contains("\"global\""));
+        assert!(scope_schema.contains("\"workspace\""));
+        assert!(scope_schema.contains("\"workspace_path\""));
+        assert!(!scope_schema.contains("workspaceId"));
     }
 
     #[test]

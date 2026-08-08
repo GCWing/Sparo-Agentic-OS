@@ -8,6 +8,7 @@ import type { InputAction } from '../../../reducers/inputReducer';
 import type { AgentAction } from '../../../reducers/agentReducer';
 import type { RichTextInputHandle } from '../../RichTextInput';
 import type { ContextItem, SkillSelectionContext } from '@/shared/types/context';
+import type { AttachmentReferenceResolution } from '@/shared/stores/contextStore';
 import type { SkillSelectionTarget } from '@/shared/skillLibrary';
 
 export function useComposerBoostActions({
@@ -16,8 +17,8 @@ export function useComposerBoostActions({
   dispatchInput,
   dispatchMode,
   contexts,
-  addContext,
-  removeContext,
+  resolveAttachmentReference,
+  removeAttachment,
   focusInputSoon,
   handleImageInput,
   isBtwSession,
@@ -30,8 +31,8 @@ export function useComposerBoostActions({
   dispatchInput: Dispatch<InputAction>;
   dispatchMode: Dispatch<AgentAction>;
   contexts: ContextItem[];
-  addContext: (context: ContextItem) => void;
-  removeContext: (id: string) => void;
+  resolveAttachmentReference: (context: ContextItem) => AttachmentReferenceResolution;
+  removeAttachment: (assetId: string) => void;
   focusInputSoon: () => void;
   handleImageInput: () => void;
   isBtwSession: boolean;
@@ -55,7 +56,7 @@ export function useComposerBoostActions({
         const sameSuite = Boolean(target.suiteId) && context.suiteId === target.suiteId;
         if (!sameSuite) return;
         if (target.kind === 'suite' || context.targetKind === 'suite') {
-          removeContext(context.id);
+          removeAttachment(context.id);
         }
       });
 
@@ -74,20 +75,21 @@ export function useComposerBoostActions({
       };
 
       dispatchInput({ type: 'ACTIVATE' });
-      addContext(context);
-      richTextInputRef.current?.insertTag(context);
+      const resolution = resolveAttachmentReference(context);
+      if (resolution.kind === 'rejected') return;
+      richTextInputRef.current?.insertTag(resolution.reference, resolution.asset);
       dismissSkillsFlyout();
       dispatchMode({ type: 'CLOSE_DROPDOWN' });
       focusInputSoon();
     },
     [
-      addContext,
       contexts,
       dismissSkillsFlyout,
       dispatchInput,
       dispatchMode,
       focusInputSoon,
-      removeContext,
+      removeAttachment,
+      resolveAttachmentReference,
       richTextInputRef,
     ],
   );

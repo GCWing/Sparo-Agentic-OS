@@ -58,3 +58,23 @@ test("visual tools bind to Manuscript revisions without exposing Blueprint field
   const review = JSON.parse(fs.readFileSync(path.join(toolsRoot, "review_deck.tool.json"), "utf8"));
   assert.equal(review.inputSchema.properties.alignmentCoverage.properties.checks.minItems, 6);
 });
+
+test("visual composition schemas expose concrete slot element contracts", () => {
+  for (const filename of ["render_design_case.tool.json", "generate_slide_visual.tool.json"]) {
+    const definition = JSON.parse(fs.readFileSync(path.join(toolsRoot, filename), "utf8"));
+    const definitions = definition.inputSchema.$defs;
+    const slotItems = definitions.slide.properties.composition.properties.slots.items;
+    assert.equal(slotItems.$ref, "#/$defs/slotElement", filename);
+    assert.equal(definitions.slide.additionalProperties, false, filename);
+    assert.equal(definitions.slide.properties.composition.additionalProperties, false, filename);
+    assert.equal(definitions.slotElement.additionalProperties, false, filename);
+    assert.deepEqual(definitions.slotElement.required, ["id", "slotId", "type"], filename);
+    assert.deepEqual(
+      definitions.slotElement.properties.type.enum,
+      ["text", "shape", "line", "image", "svg", "chart", "table"],
+      filename,
+    );
+    assert.deepEqual(definitions.chartPoint.required, ["label", "value"], filename);
+    assert.equal(definitions.slotStyle.properties.opacity.maximum, 1, filename);
+  }
+});

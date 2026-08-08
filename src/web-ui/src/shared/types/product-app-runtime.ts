@@ -1,7 +1,9 @@
 import type { WorkLocator } from './work-locator';
+import type { WorkObjectLocator } from './work-object-locator';
 
 export interface ProductAppRuntimeContext {
   workLocator: WorkLocator;
+  workObjectLocator?: WorkObjectLocator | null;
   runtimeInstanceId: string;
   slotId: string;
   appId: string;

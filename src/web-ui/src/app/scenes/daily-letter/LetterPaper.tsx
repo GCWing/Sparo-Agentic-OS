@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Archive, Check } from 'lucide-react';
-import { Button, Dialog, type DialogProps } from '@/design-system';
+import { Button, FloatingCard } from '@/design-system';
 import { Markdown } from '@/shared/markdown';
 import { parseDateKey } from './dailyLetterDateUtils';
 import type { DailyLetterRecord } from './dailyLetterTypes';
@@ -16,7 +17,7 @@ interface PaperScrollState {
 }
 
 /**
- * The paper overlay renders its own masthead, so a duplicated leading
+ * The paper popup renders its own masthead, so a duplicated leading
  * markdown H1 ("# 今日来信 · date") is dropped from the body.
  */
 function letterBodyForPaper(markdown: string): string {
@@ -39,20 +40,11 @@ export interface LetterPaperProps {
   formatDate: FormatDateFn;
   t: TFn;
   /**
-   * When the paper is opened from a corner-anchored surface (e.g. the
-   * bottom-left arrival card), the unfold animation grows from that
-   * corner instead of the viewport center — a cheap way to keep the
-   * "this letter came from where I just clicked" continuity without a
-   * real shared-element transition.
-   */
-  originCorner?: boolean;
-  /**
    * Called once, the first time this record is shown open. Lets callers
    * (the arrival dock, the scene) mark the letter as read in one place
    * regardless of who triggered the open.
    */
   onFirstOpen?: (letter: DailyLetterRecord) => void;
-  dialogProps?: Partial<DialogProps>;
 }
 
 export function LetterPaper({
@@ -64,13 +56,47 @@ export function LetterPaper({
   onSeal,
   formatDate,
   t,
-  originCorner = false,
   onFirstOpen,
-  dialogProps,
 }: LetterPaperProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const popupRef = useRef<HTMLDivElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onOpenChangeRef = useRef(onOpenChange);
   const [scroll, setScroll] = useState<PaperScrollState>({ collapsed: false, progress: 0, atEnd: false });
   const announcedIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    previousFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+
+    const focusFrame = window.requestAnimationFrame(() => popupRef.current?.focus());
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!popupRef.current?.contains(event.target as Node)) {
+        onOpenChangeRef.current(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onOpenChangeRef.current(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [open]);
 
   const readScroll = useCallback(() => {
     const el = viewportRef.current;
@@ -105,7 +131,7 @@ export function LetterPaper({
     onFirstOpen?.(letter);
   }, [letter, onFirstOpen, open]);
 
-  if (!letter) return null;
+  if (!letter || !open) return null;
 
   const scopeLabel = letter.scope === 'agentic_os' ? t('scope.agenticOs') : t('scope.workspace');
   const postmarkDate = `${letter.date.slice(5, 7)} · ${letter.date.slice(8, 10)}`;
@@ -117,91 +143,95 @@ export function LetterPaper({
   }
   const writtenAt = formatDate(new Date(letter.createdAtMs), { timeStyle: 'short' });
 
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      size="xlarge"
-      ariaLabel={t('paper.label')}
-      closeLabel={t('actions.close')}
-      overlayClassName="dl-paper-overlay"
-      className={`dl-paper-dialog${originCorner ? ' dl-paper-dialog--from-corner' : ''}`}
-      contentClassName="dl-paper-scroll"
-      {...dialogProps}
-    >
-      <div
-        className={`dl-paper-shell${scroll.collapsed ? ' is-collapsed' : ''}${scroll.atEnd ? ' is-at-end' : ''}`}
+  return createPortal(
+    <div className="dl-paper-popup-layer">
+      <FloatingCard
+        ref={popupRef}
+        className="dl-paper-popup dl-paper-scroll"
+        padding="compact"
+        onDismiss={() => onOpenChange(false)}
+        dismissLabel={t('actions.close')}
+        dismissTooltip={t('actions.close')}
+        role="dialog"
+        aria-modal="false"
+        aria-label={t('paper.label')}
+        tabIndex={-1}
       >
-        <header className="dl-paper-topbar" aria-hidden={!scroll.collapsed}>
-          <span className="dl-paper-topbar__seed" aria-hidden="true" />
-          <span className="dl-paper-topbar__eyebrow">{t('paper.eyebrow')}</span>
-          <span className="dl-paper-topbar__date">{dateLine}</span>
-          <span
-            className="dl-paper-topbar__progress"
-            style={{ transform: `scaleX(${scroll.progress})` }}
-            aria-hidden="true"
-          />
-        </header>
-        <div className="dl-paper-viewport" ref={viewportRef} onScroll={readScroll}>
-          <article className="dl-paper" data-status={letter.status} data-testid="daily-letter-paper">
-            <div className="dl-paper__postmark" aria-hidden="true">
-              <span>{scopeLabel}</span>
-              <strong>{postmarkDate}</strong>
-            </div>
+        <div
+          className={`dl-paper-shell${scroll.collapsed ? ' is-collapsed' : ''}${scroll.atEnd ? ' is-at-end' : ''}`}
+        >
+          <header className="dl-paper-topbar" aria-hidden={!scroll.collapsed}>
+            <span className="dl-paper-topbar__seed" aria-hidden="true" />
+            <span className="dl-paper-topbar__eyebrow">{t('paper.eyebrow')}</span>
+            <span className="dl-paper-topbar__date">{dateLine}</span>
+            <span
+              className="dl-paper-topbar__progress"
+              style={{ transform: `scaleX(${scroll.progress})` }}
+              aria-hidden="true"
+            />
+          </header>
+          <div className="dl-paper-viewport" ref={viewportRef} onScroll={readScroll}>
+            <article className="dl-paper" data-status={letter.status} data-testid="daily-letter-paper">
+              <div className="dl-paper__postmark" aria-hidden="true">
+                <span>{scopeLabel}</span>
+                <strong>{postmarkDate}</strong>
+              </div>
 
-            <header className="dl-paper__masthead">
-              <p className="dl-paper__eyebrow">{t('paper.eyebrow')}</p>
-              <h2>{dateLine}</h2>
-              <p className="dl-paper__meta">
-                {letter.workspace ? `${letter.workspace.name} · ` : ''}
-                {t('paper.writtenAt', { time: writtenAt })}
-              </p>
-              <span className="dl-paper__rule" aria-hidden="true" />
-            </header>
+              <header className="dl-paper__masthead">
+                <p className="dl-paper__eyebrow">{t('paper.eyebrow')}</p>
+                <h2>{dateLine}</h2>
+                <p className="dl-paper__meta">
+                  {letter.workspace ? `${letter.workspace.name} · ` : ''}
+                  {t('paper.writtenAt', { time: writtenAt })}
+                </p>
+                <span className="dl-paper__rule" aria-hidden="true" />
+              </header>
 
-            <div className="dl-paper__content">
-              <Markdown content={letterBodyForPaper(letter.bodyMarkdown)} />
-            </div>
+              <div className="dl-paper__content">
+                <Markdown content={letterBodyForPaper(letter.bodyMarkdown)} />
+              </div>
 
-            <footer className="dl-paper__sign">
-              {letter.status === 'sealed' && (
-                <span className="dl-paper__seal" aria-hidden="true">{t('status.sealed')}</span>
-              )}
-              <span className="dl-paper__sign-name">{t('paper.signature')}</span>
-              <span className="dl-paper__sign-date">{letter.date}</span>
-            </footer>
-
-            <div className="dl-paper__actions">
-              <div className="dl-paper__actions-note">
-                {pendingCount > 0 && (
-                  <span className="dl-paper__pending">{t('paper.pending', { count: pendingCount })}</span>
+              <footer className="dl-paper__sign">
+                {letter.status === 'sealed' && (
+                  <span className="dl-paper__seal" aria-hidden="true">{t('status.sealed')}</span>
                 )}
+                <span className="dl-paper__sign-name">{t('paper.signature')}</span>
+                <span className="dl-paper__sign-date">{letter.date}</span>
+              </footer>
+
+              <div className="dl-paper__actions">
+                <div className="dl-paper__actions-note">
+                  {pendingCount > 0 && (
+                    <span className="dl-paper__pending">{t('paper.pending', { count: pendingCount })}</span>
+                  )}
+                </div>
+                <div className="dl-paper__actions-buttons">
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    disabled={!pendingCount}
+                    onClick={() => onOpenChange(false)}
+                  >
+                    <Check size={14} aria-hidden="true" />
+                    {t('actions.receipt')}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="small"
+                    disabled={!canSeal}
+                    onClick={onSeal}
+                  >
+                    <Archive size={14} aria-hidden="true" />
+                    {t('actions.seal')}
+                  </Button>
+                </div>
               </div>
-              <div className="dl-paper__actions-buttons">
-                <Button
-                  variant="ghost"
-                  size="small"
-                  disabled={!pendingCount}
-                  onClick={() => onOpenChange(false)}
-                >
-                  <Check size={14} aria-hidden="true" />
-                  {t('actions.receipt')}
-                </Button>
-                <Button
-                  variant="primary"
-                  size="small"
-                  disabled={!canSeal}
-                  onClick={onSeal}
-                >
-                  <Archive size={14} aria-hidden="true" />
-                  {t('actions.seal')}
-                </Button>
-              </div>
-            </div>
-          </article>
+            </article>
+          </div>
         </div>
-      </div>
-    </Dialog>
+      </FloatingCard>
+    </div>,
+    document.body,
   );
 }
 

@@ -1,6 +1,6 @@
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
 import { productAppWorkRef } from '@/app/agentic-os/work/domain/productAppRefs';
-import type { WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
+import type { WorkLocator, WorkRecord } from '@/app/agentic-os/work/domain/workTypes';
 import { openWork } from '@/app/agentic-os/work/navigation/openWork';
 import { useSessionModeStore, type SessionMode } from '@/app/stores/sessionModeStore';
 import { resolveSessionTypeDefinitionForDescriptor } from '@/app/session-profiles';
@@ -19,8 +19,19 @@ export interface LaunchIntelligentAppOptions {
   scope?: AppScope | null;
   title: string;
   objective?: string;
-  /** Resume the most recent compatible Work unless the user explicitly asks for a new one. */
-  workMode?: 'resume' | 'create';
+  /** User intent must stay explicit so a create entry point can never silently resume old Work. */
+  intent: IntelligentAppLaunchIntent;
+}
+
+export type IntelligentAppLaunchIntent =
+  | { kind: 'create_new' }
+  | { kind: 'create_for_existing_object'; sourceWorkLocator: WorkLocator }
+  | { kind: 'resume_last' };
+
+function workModeFromIntent(intent: IntelligentAppLaunchIntent): 'resume' | 'create' | 'existing_object' {
+  if (intent.kind === 'create_new') return 'create';
+  if (intent.kind === 'create_for_existing_object') return 'existing_object';
+  return 'resume';
 }
 
 function agentTypeFor(app: ActiveAppRef): string | null {
@@ -99,9 +110,22 @@ export async function launchActiveIntelligentApp(
     throw new Error(`App ${app.appId} requires a workspace scope`);
   }
   const agentType = agentTypeFor(app);
+  const workMode = workModeFromIntent(options.intent);
 
   if (agentType) {
-    await openAgentAppWork(app, scope, title, objective, agentType, options.workMode ?? 'resume');
+    if (options.intent.kind === 'create_for_existing_object') {
+      throw new Error(
+        `App ${app.appId} does not support starting agent-session Work for an existing WorkObject`,
+      );
+    }
+    await openAgentAppWork(
+      app,
+      scope,
+      title,
+      objective,
+      agentType,
+      options.intent.kind === 'create_new' ? 'create' : 'resume',
+    );
     return;
   }
   if (launch?.kind === 'applicationSurface') {
@@ -109,7 +133,10 @@ export async function launchActiveIntelligentApp(
       scope,
       title,
       objective,
-      workMode: options.workMode ?? 'resume',
+      workMode,
+      sourceWorkLocator: options.intent.kind === 'create_for_existing_object'
+        ? options.intent.sourceWorkLocator
+        : undefined,
     });
     return;
   }

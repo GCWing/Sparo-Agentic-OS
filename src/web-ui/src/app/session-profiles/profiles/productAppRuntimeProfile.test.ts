@@ -10,7 +10,10 @@ const binding: ProductAppRuntimeSessionMetadata = {
   profile: 'product-app-runtime',
   scope: { kind: 'system' },
   runtimeContext: {
-    workId: 'work-1',
+    workLocator: {
+      scope: { kind: 'global' },
+      workId: 'work-1',
+    },
     runtimeInstanceId: 'runtime-1',
     slotId: 'slot-1',
     appId: 'builtin-ppt-live',
@@ -58,5 +61,12 @@ describe('productAppRuntimeProfile', () => {
         },
       },
     });
+  });
+
+  it('restores the same current default tab used for initialization', () => {
+    const extra = { productAppRuntime: binding };
+
+    expect(productAppRuntimeProfile.auxiliarySurface.restore?.('session-1', extra))
+      .toEqual(productAppRuntimeProfile.auxiliarySurface.initialize?.('session-1', extra));
   });
 });

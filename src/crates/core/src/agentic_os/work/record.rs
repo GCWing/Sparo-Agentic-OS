@@ -17,6 +17,7 @@ use super::subject::{
 use super::surface::WorkSurfaceRef;
 use super::title::WorkTitleState;
 use super::types::{WorkKind, WorkLocator, WorkScope, WorkStatus, WorkVisibility};
+use super::work_object::{WorkObjectRef, WorkObjectRole};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentSessionRef {
@@ -159,6 +160,8 @@ pub struct WorkRecord {
     #[serde(skip)]
     pub builder_issues: Vec<WorkBuilderIssue>,
     pub artifact_refs: Vec<ArtifactRef>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub object_refs: Vec<WorkObjectRef>,
     pub memory_refs: Vec<MemoryRef>,
     #[serde(default)]
     pub system_managed: bool,
@@ -220,6 +223,7 @@ impl WorkRecord {
             builder_validation_results: Vec::new(),
             builder_issues: Vec::new(),
             artifact_refs: Vec::new(),
+            object_refs: Vec::new(),
             memory_refs: Vec::new(),
             system_managed: false,
             system_process_kind: None,
@@ -231,6 +235,12 @@ impl WorkRecord {
 
     pub fn touch(&mut self, now: i64) {
         self.updated_at = now;
+    }
+
+    pub fn primary_object_ref(&self) -> Option<&WorkObjectRef> {
+        self.object_refs
+            .iter()
+            .find(|object_ref| object_ref.role == WorkObjectRole::Primary)
     }
 
     pub fn set_status(&mut self, status: WorkStatus, label: impl Into<String>, now: i64) {

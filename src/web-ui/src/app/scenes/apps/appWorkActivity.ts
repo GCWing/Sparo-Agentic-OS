@@ -31,6 +31,24 @@ export function selectOpenAppWorkActivities(works: WorkRecord[]): AppWorkActivit
     .sort((left, right) => right.work.updatedAt - left.work.updatedAt);
 }
 
+/** One durable object may have several Work/Session histories; launchers show it only once. */
+export function selectLatestOpenAppWorkPerObject(
+  activities: AppWorkActivity[],
+): AppWorkActivity[] {
+  const selected: AppWorkActivity[] = [];
+  const seenObjects = new Set<string>();
+  for (const activity of activities) {
+    const primaryObject = activity.work.objectRefs?.find(({ role }) => role === 'primary');
+    const objectKey = primaryObject
+      ? JSON.stringify(primaryObject.locator)
+      : JSON.stringify({ scope: activity.work.scope, legacyWorkId: activity.work.id });
+    if (seenObjects.has(objectKey)) continue;
+    seenObjects.add(objectKey);
+    selected.push(activity);
+  }
+  return selected;
+}
+
 export function selectDistinctOpenAppWorkActivities(
   activities: AppWorkActivity[],
   limit: number,

@@ -1509,6 +1509,7 @@ mod tests {
                 id: "composition".to_string(),
                 label: "Composition".to_string(),
                 scope: WorkObjectScope::Runtime,
+                reusable_across_works: false,
                 identity_schema: json!({ "type": "object" }),
                 context_schema: json!({ "type": "object" }),
             }],

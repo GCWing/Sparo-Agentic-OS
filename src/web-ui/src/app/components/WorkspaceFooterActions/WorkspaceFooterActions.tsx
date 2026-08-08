@@ -6,6 +6,7 @@ import {
   IconButton,
   Panel,
   PanelBody,
+  SPARO_ICON_OPTICAL_STROKE_WIDTH,
   SparoHubIcon,
   useDialogFocusTrap,
 } from '@/design-system';
@@ -36,18 +37,17 @@ import {
 } from './workspaceHubItems';
 import './WorkspaceFooterActions.scss';
 
-const HUB_PREVIEW_ITEM_ROWS = [
-  ['work-center', 'apps'],
-  ['daily-letter', 'memory'],
-  ['files', 'shell'],
-] as const satisfies readonly (readonly WorkspaceHubPreviewItemId[])[];
-
-const HUB_PREVIEW_ITEM_IDS = HUB_PREVIEW_ITEM_ROWS.flat();
+const HUB_PREVIEW_ITEM_IDS = [
+  'work-center',
+  'apps',
+  'daily-letter',
+  'memory',
+  'files',
+  'shell',
+  'capabilities',
+] as const satisfies readonly WorkspaceHubPreviewItemId[];
 const HUB_PREVIEW_ITEM_ID_SET = new Set<string>(HUB_PREVIEW_ITEM_IDS);
-const HUB_DIRECT_ITEM_IDS = ['skills', 'tools', 'subagents', 'settings'] as const satisfies readonly WorkspaceHubItemId[];
 const HUB_LAST_SELECTED_PREVIEW_STORAGE_KEY = 'sparo.workspaceHub.lastPreview.v1';
-
-type WorkspaceHubDirectItemId = (typeof HUB_DIRECT_ITEM_IDS)[number];
 
 function isHubPreviewNavigationItem(
   itemId: string,
@@ -279,7 +279,13 @@ const WorkspaceFooterActions: React.FC = () => {
           aria-current={current ? 'page' : undefined}
           aria-pressed={selected}
           onClick={() => selectPreviewItem(itemId)}
-          onKeyDown={(event) => handleGroupKeyDown(event, HUB_PREVIEW_ITEM_IDS, index, 2)}
+          onKeyDown={(event) => handleGroupKeyDown(
+            event,
+            HUB_PREVIEW_ITEM_IDS,
+            index,
+            1,
+            true,
+          )}
         >
           <span className="sparo-workspace-hub__item-icon" aria-hidden="true">
             {renderWorkspaceHubItemIcon(itemId)}
@@ -310,41 +316,13 @@ const WorkspaceFooterActions: React.FC = () => {
           >
             <FullOpenIcon
               size={14}
-              strokeWidth={1.8}
+              strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
               absoluteStrokeWidth
               aria-hidden="true"
             />
           </IconButton>
         )}
       </div>
-    );
-  };
-
-  const renderDirectItem = (itemId: WorkspaceHubDirectItemId, index: number) => {
-    const current = activeItemId === itemId;
-
-    return (
-      <Button
-        key={itemId}
-        ref={(element) => registerItemRef(itemId, element)}
-        id={`workspace-hub-item-${itemId}`}
-        variant="ghost"
-        size="small"
-        className={`sparo-workspace-hub__direct-item${itemId === 'settings' ? ' is-wide' : ''}${current ? ' is-current' : ''}`}
-        aria-current={current ? 'page' : undefined}
-        onClick={() => { void openItem(itemId); }}
-        onKeyDown={(event) => handleGroupKeyDown(
-          event,
-          HUB_DIRECT_ITEM_IDS,
-          index,
-          3,
-        )}
-      >
-        <span className="sparo-workspace-hub__item-icon" aria-hidden="true">
-          {renderWorkspaceHubItemIcon(itemId)}
-        </span>
-        <span className="sparo-workspace-hub__item-label">{labels[itemId]}</span>
-      </Button>
     );
   };
 
@@ -370,7 +348,7 @@ const WorkspaceFooterActions: React.FC = () => {
         >
           <SparoHubIcon
             size={25}
-            strokeWidth={1.9}
+            strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.regular}
             absoluteStrokeWidth
             aria-hidden="true"
           />
@@ -439,21 +417,11 @@ const WorkspaceFooterActions: React.FC = () => {
                             </nav>
                           </section>
 
-                          <section className="sparo-workspace-hub__nav-group is-direct">
-                            <h2 className="sparo-workspace-hub__nav-group-title">
-                              {t('nav.menuPanel.hub.sections.direct')}
-                            </h2>
-                            <nav
-                              className="sparo-workspace-hub__direct-list"
-                              aria-label={t('nav.menuPanel.hub.aria.direct')}
-                            >
-                              {HUB_DIRECT_ITEM_IDS.map(renderDirectItem)}
-                            </nav>
-                          </section>
                         </div>
 
                         <WorkspaceHubUtilityRail
                           onOpenAbout={openAbout}
+                          onOpenSettings={() => { void openItem('settings'); }}
                         />
                       </div>
 
