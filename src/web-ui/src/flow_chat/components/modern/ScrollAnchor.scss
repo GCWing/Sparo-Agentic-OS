@@ -113,7 +113,7 @@ $scroll-anchor-tick-right: 8px;
   }
 
   &__point--current:not(&__point--active):not(&__point--wave) &__tick {
-    background: var(--ds-chat-danger);
+    background: var(--ds-chat-brand-action);
   }
 
   &__point--wave &__tick {
@@ -125,7 +125,7 @@ $scroll-anchor-tick-right: 8px;
   &__point:hover &__tick,
   &__point--active &__tick,
   &__point:focus-visible &__tick {
-    background: var(--ds-chat-danger);
+    background: var(--ds-chat-brand-action);
   }
 
   &__point:hover,

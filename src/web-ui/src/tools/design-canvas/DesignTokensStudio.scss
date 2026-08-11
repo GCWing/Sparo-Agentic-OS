@@ -203,7 +203,7 @@
   }
 
   &__save-error {
-    color: var(--ds-color-error);
+    color: var(--ds-color-danger);
   }
 
   &__editable-value {
@@ -278,9 +278,9 @@
   &__editor-error {
     padding: 10px 12px;
     border-radius: 8px;
-    border: 1px solid var(--ds-color-error-border);
-    background: var(--ds-color-error-bg);
-    color: var(--ds-color-error);
+    border: 1px solid var(--ds-color-danger-border);
+    background: var(--ds-color-danger-bg);
+    color: var(--ds-color-danger);
     font-size: var(--ds-font-size-xs);
   }
 

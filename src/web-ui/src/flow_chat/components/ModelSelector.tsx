@@ -15,15 +15,17 @@ import React, {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { ChevronDown, Check, Brain } from 'lucide-react';
+import { Brain, Check, ChevronDown, Eye, EyeOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useAIExperienceSettings } from '@/infrastructure/config/hooks';
+import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
 import { configManager } from '@/infrastructure/config/services/ConfigManager';
 import { configSnapshotStore } from '@/infrastructure/config/snapshot/ConfigSnapshotStore';
 import { agentAPI } from '@/infrastructure/api/service-api/AgentAPI';
 import { getProviderDisplayName } from '@/infrastructure/config/services/modelConfigs';
 import { isReasoningVisiblyEnabled } from '@/infrastructure/config/utils/reasoning';
 import type { AIModelConfig } from '@/infrastructure/config/types';
-import { Button, PopupMenu, Tooltip } from '@/design-system';
+import { Button, IconButton, PopupMenu, Tooltip } from '@/design-system';
 import { FlowChatStore } from '../store/FlowChatStore';
 import { flowChatManager } from '../services/FlowChatManager';
 import { createLogger } from '@/shared/utils/logger';
@@ -148,6 +150,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const [agentModels, setAgentModels] = useState<Record<string, string>>({}); // agent_id -> model_id
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [thinkingToggleSaving, setThinkingToggleSaving] = useState(false);
+  const { settings: aiExperienceSettings } = useAIExperienceSettings();
   const configSnapshotState = useSyncExternalStore(
     configSnapshotStore.subscribe,
     configSnapshotStore.getState,
@@ -275,6 +279,27 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         reasoningEffort: m.reasoning_effort,
       }));
   }, [allModels]);
+
+  const showCompletedThinkingItem = aiExperienceSettings?.show_completed_thinking_item === true;
+  const thinkingToggleTooltip = showCompletedThinkingItem
+    ? t('modelSelector.thinkingShown')
+    : t('modelSelector.thinkingHidden');
+
+  const handleToggleCompletedThinkingItems = useCallback(async () => {
+    if (!aiExperienceSettings || thinkingToggleSaving) return;
+
+    setThinkingToggleSaving(true);
+    try {
+      await aiExperienceConfigService.saveSettings({
+        ...aiExperienceSettings,
+        show_completed_thinking_item: !showCompletedThinkingItem,
+      });
+    } catch (error) {
+      log.error('Failed to toggle completed thinking items', { error });
+    } finally {
+      setThinkingToggleSaving(false);
+    }
+  }, [aiExperienceSettings, showCompletedThinkingItem, thinkingToggleSaving]);
   
   const handleSelectModel = useCallback(async (modelId: string) => {
     if (loading) return;
@@ -369,6 +394,35 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             } as React.CSSProperties}
             aria-hidden
           />
+          <div className="sparo-model-selector__toolbar" role="presentation">
+            <span className="sparo-model-selector__toolbar-label">
+              {t('modelSelector.modelSelection')}
+            </span>
+            <IconButton
+              className="sparo-model-selector__thinking-toggle"
+              type="button"
+              variant="ghost"
+              size="xs"
+              role="menuitemcheckbox"
+              aria-checked={showCompletedThinkingItem}
+              aria-label={thinkingToggleTooltip}
+              tooltip={thinkingToggleTooltip}
+              disabled={!aiExperienceSettings || thinkingToggleSaving}
+              data-testid="model-selector-thinking-toggle"
+              onClick={() => {
+                void handleToggleCompletedThinkingItems();
+              }}
+            >
+              {showCompletedThinkingItem ? (
+                <Eye size={14} aria-hidden="true" />
+              ) : (
+                <EyeOff size={14} aria-hidden="true" />
+              )}
+            </IconButton>
+          </div>
+
+          <div className="sparo-model-selector__divider" />
+
           {(() => {
             const primaryModel = allModels.find(m => m.id === defaultModels.primary);
             const primaryTooltip = primaryModel

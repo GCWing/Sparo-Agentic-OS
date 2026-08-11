@@ -1,5 +1,7 @@
 # Sparo VI Design System
 
+> **Historical reference:** the logo geometry, color, application-icon, wordmark, and export guidance in this document has been superseded by [`assets/brand/README.md`](../assets/brand/README.md). The current default logo is the circular warm-field mark with a red core; application launch surfaces use the rounded-rectangle icon. Product copies are managed only through `pnpm run brand:sync`.
+
 > Source image: `png/VI.png`  
 > This document extracts the visible design information from the VI board. A few very small labels are summarized where exact text is not fully legible.
 
@@ -59,7 +61,7 @@ The Sparo logo is built from four symbolic elements:
 | Symbol     | Standalone mark for compact brand recognition   |
 | Horizontal | Symbol plus `Sparo` wordmark                    |
 | Stacked    | Symbol above `Sparo`, for centered layouts      |
-| App Icon   | Symbol placed on dark rounded-square background |
+| App Icon   | Soft inner form and red core on a warm rounded-rectangle field |
 
 
 ### Wordmark
@@ -70,8 +72,8 @@ The Sparo logo is built from four symbolic elements:
 
 ### App Icon
 
-- Background: Sparo Ink
-- Foreground: white logo stroke plus Sparo Print Red / Echo Red accent
+- Background: Warm White rounded rectangle
+- Foreground: Soft Ivory inner form and Core Red center
 - Corner radius: moderate rounded square
 - Use for desktop/app launch surfaces, dock/taskbar icon, and compact product identity.
 

@@ -18,17 +18,13 @@
   --about-text-muted: var(--ds-color-text-muted, var(--color-text-muted, #{tokens.$color-text-muted}));
   --about-border-base: var(--ds-color-border-base, var(--border-base, #{tokens.$border-base}));
   --about-border-subtle: var(--ds-color-border-subtle, var(--border-subtle, #{tokens.$border-subtle}));
-  --about-accent: var(--ds-color-accent-500, var(--color-accent-500, #{tokens.$color-accent-500}));
-  --about-font-sans: var(--ds-font-family-sans, var(--font-family-sans, #{tokens.$font-family-sans}));
+  --about-font-sans: var(--font-family-sans, var(--ds-font-family-sans, #{tokens.$font-family-sans}));
   --about-font-mono: var(--ds-font-family-mono, var(--font-family-mono, #{tokens.$font-family-mono}));
-  --about-font-size-xs: var(--ds-font-size-xs, #{tokens.$font-size-xs});
-  --about-font-size-sm: var(--ds-font-size-sm, #{tokens.$font-size-sm});
-  --about-font-size-base: var(--ds-font-size-base, #{tokens.$font-size-base});
-  --about-font-size-lg: var(--ds-font-size-lg, #{tokens.$font-size-lg});
-  --about-font-size-xl: var(--ds-font-size-xl, #{tokens.$font-size-xl});
-  --about-font-size-3xl: var(--ds-font-size-3xl, #{tokens.$font-size-3xl});
-  --about-font-size-4xl: var(--ds-font-size-4xl, #{tokens.$font-size-4xl});
-  --about-font-size-5xl: var(--ds-font-size-5xl, #{tokens.$font-size-5xl});
+  --about-font-size-xs: var(--font-size-xs, var(--ds-font-size-xs, #{tokens.$font-size-xs}));
+  --about-font-size-sm: var(--font-size-sm, var(--ds-font-size-sm, #{tokens.$font-size-sm}));
+  --about-font-size-base: var(--font-size-base, var(--ds-font-size-base, #{tokens.$font-size-base}));
+  --about-font-size-lg: var(--font-size-lg, var(--ds-font-size-lg, #{tokens.$font-size-lg}));
+  --about-font-weight-normal: var(--ds-font-weight-normal, #{tokens.$font-weight-normal});
   --about-font-weight-medium: var(--ds-font-weight-medium, #{tokens.$font-weight-medium});
   --about-font-weight-semibold: var(--ds-font-weight-semibold, #{tokens.$font-weight-semibold});
   --about-line-height-tight: var(--ds-line-height-tight, #{tokens.$line-height-tight});
@@ -56,6 +52,7 @@
   overscroll-behavior: contain;
   padding: var(--about-space-6) var(--about-space-8) var(--about-space-4);
   color: var(--about-text-secondary);
+  font-family: var(--about-font-sans);
 }
 
 .sparo-about-dialog > .ds-floating-card__dismiss.icon-btn {
@@ -85,12 +82,30 @@
   width: clamp(120px, 52%, 160px);
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(
-    0 var(--about-space-4) var(--about-space-5)
-      color-mix(in srgb, var(--ds-shadow-color-card, transparent) 56%, transparent)
-  );
   user-select: none;
   -webkit-user-drag: none;
+}
+
+.sparo-about-dialog__wordmark-image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.sparo-about-dialog__wordmark-image--primary {
+  visibility: hidden;
+}
+
+:root[data-theme-type='light'] .sparo-about-dialog__wordmark-image--primary {
+  visibility: visible;
+}
+
+:root[data-theme-type='light'] .sparo-about-dialog__wordmark-image--reversed {
+  visibility: hidden;
 }
 
 .sparo-about-dialog__details {
@@ -104,28 +119,28 @@
 
 .sparo-about-dialog__title-line {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   flex-wrap: wrap;
   gap: var(--about-space-3);
   min-width: 0;
 }
 
 .sparo-about-dialog__title {
+  position: relative;
+  display: block;
+  width: min(232px, 100%);
+  aspect-ratio: 475 / 96;
   margin: 0;
-  color: var(--about-text-primary);
-  font-family: var(--about-font-sans);
-  font-size: var(--about-font-size-5xl);
-  font-weight: var(--about-font-weight-semibold);
-  letter-spacing: -0.03em;
-  line-height: var(--about-line-height-tight);
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .sparo-about-dialog__version {
   padding-inline-start: var(--about-space-3);
   border-inline-start: 1px solid var(--about-border-base);
-  color: var(--about-accent);
+  color: var(--about-text-muted);
   font-family: var(--about-font-mono);
-  font-size: var(--about-font-size-sm);
+  font-size: var(--about-font-size-xs);
   font-weight: var(--about-font-weight-medium);
   line-height: var(--about-line-height-tight);
   white-space: nowrap;
@@ -134,8 +149,9 @@
 .sparo-about-dialog__tagline {
   margin: var(--about-space-4) 0 0;
   color: var(--about-text-secondary);
-  font-size: var(--about-font-size-base);
-  line-height: var(--about-line-height-relaxed);
+  font-size: var(--about-font-size-lg);
+  font-weight: var(--about-font-weight-normal);
+  line-height: var(--about-line-height-base);
 }
 
 .sparo-about-dialog__build {
@@ -151,11 +167,10 @@
 }
 
 .sparo-about-dialog__build-title {
-  color: var(--about-text-muted);
-  font-size: var(--about-font-size-xs);
+  color: var(--about-text-secondary);
+  font-size: var(--about-font-size-sm);
   font-weight: var(--about-font-weight-semibold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  line-height: var(--about-line-height-base);
 }
 
 .sparo-about-dialog__build-list {
@@ -179,7 +194,7 @@
   dt {
     color: var(--about-text-muted);
     font-size: var(--about-font-size-xs);
-    font-weight: var(--about-font-weight-medium);
+    font-weight: var(--about-font-weight-normal);
     line-height: var(--about-line-height-base);
   }
 
@@ -187,8 +202,10 @@
     margin-top: var(--about-space-1);
     overflow: hidden;
     color: var(--about-text-primary);
+    font-family: var(--about-font-mono);
     font-size: var(--about-font-size-base);
-    font-weight: var(--about-font-weight-semibold);
+    font-weight: var(--about-font-weight-medium);
+    letter-spacing: 0.01em;
     line-height: var(--about-line-height-base);
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -201,7 +218,7 @@
   justify-content: center;
   width: var(--about-space-8);
   height: var(--about-space-8);
-  color: var(--about-text-secondary);
+  color: var(--about-text-muted);
 
   svg {
     width: var(--about-space-5);
@@ -211,11 +228,6 @@
 
 .sparo-about-dialog__build-copy {
   min-width: 0;
-}
-
-.sparo-about-dialog__build-value--mono {
-  font-family: var(--about-font-mono);
-  letter-spacing: 0.01em;
 }
 
 .sparo-about-dialog__links {
@@ -244,6 +256,7 @@
   gap: var(--about-space-2);
   padding-inline: var(--about-space-3);
   color: var(--about-text-secondary);
+  font-family: var(--about-font-sans);
 
   > svg:first-child {
     flex: 0 0 auto;
@@ -286,13 +299,17 @@
 
 .sparo-about-dialog__license {
   flex: 0 0 auto;
-  color: var(--about-text-secondary);
+  color: var(--about-text-muted);
+  font-family: var(--about-font-sans);
+  font-size: var(--about-font-size-xs);
+  font-weight: var(--about-font-weight-normal);
 }
 
 .sparo-about-dialog__copyright {
   margin: 0;
   color: var(--about-text-muted);
   font-size: var(--about-font-size-xs);
+  font-weight: var(--about-font-weight-normal);
   line-height: var(--about-line-height-base);
   text-align: end;
 }
@@ -358,7 +375,7 @@
   }
 
   .sparo-about-dialog__title {
-    font-size: var(--about-font-size-3xl);
+    width: min(190px, 100%);
   }
 
   .sparo-about-dialog__version {

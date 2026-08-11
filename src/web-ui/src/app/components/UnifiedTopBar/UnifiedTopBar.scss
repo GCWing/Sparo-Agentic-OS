@@ -52,7 +52,6 @@
   }
 
   &__logo-control:hover &__logo-mark {
-    color: var(--ds-color-accent-500);
     transform: scale(1.06);
   }
 
@@ -67,12 +66,10 @@
     justify-content: center;
     width: 28px;
     height: 28px;
-    color: var(--unified-top-bar-logo-color, var(--ds-color-text-primary));
     pointer-events: none;
     user-select: none;
     transform-origin: center;
     transition:
-      color var(--ds-motion-fast) var(--ds-easing-standard),
       transform var(--ds-motion-fast) var(--ds-easing-standard);
   }
 

@@ -1719,7 +1719,7 @@
   margin-top: var(--ds-space-3);
   padding: var(--ds-space-2) var(--ds-space-3);
   border-radius: var(--ds-radius-lg);
-  background: color-mix(in srgb, var(--ds-color-danger-soft) 36%, var(--ds-color-bg-panel));
+  background: var(--ds-color-danger-bg);
   color: var(--ds-color-text-secondary);
   font-size: var(--ds-font-size-xs);
 }

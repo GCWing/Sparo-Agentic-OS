@@ -36,7 +36,7 @@
   }
 
   &--error {
-    --ds-status-color: var(--ds-color-error, var(--color-error));
+    --ds-status-color: var(--ds-color-danger);
   }
 
   &--accent {
@@ -93,8 +93,8 @@
   }
 
   &--error {
-    --ds-status-pill-bg: var(--ds-color-error-bg, var(--color-error-bg));
-    --ds-status-pill-text: var(--ds-color-error, var(--color-error));
+    --ds-status-pill-bg: var(--ds-color-danger-bg);
+    --ds-status-pill-text: var(--ds-color-danger);
   }
 
   &--accent {

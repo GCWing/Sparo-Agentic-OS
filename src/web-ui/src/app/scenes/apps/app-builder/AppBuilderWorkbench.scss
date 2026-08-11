@@ -102,12 +102,12 @@
   }
 
   &.is-running {
-    color: var(--ds-color-danger) !important;
-    border-color: color-mix(in srgb, var(--ds-color-danger) 38%, transparent) !important;
+    color: var(--ds-color-brand-action) !important;
+    border-color: color-mix(in srgb, var(--ds-color-brand-action) 38%, transparent) !important;
 
     &:hover {
-      background: color-mix(in srgb, var(--ds-color-danger) 10%, transparent) !important;
-      border-color: color-mix(in srgb, var(--ds-color-danger) 55%, transparent) !important;
+      background: color-mix(in srgb, var(--ds-color-brand-action) 10%, transparent) !important;
+      border-color: color-mix(in srgb, var(--ds-color-brand-action) 55%, transparent) !important;
     }
   }
 }

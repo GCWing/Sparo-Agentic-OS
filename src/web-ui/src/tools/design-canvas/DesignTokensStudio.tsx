@@ -328,7 +328,7 @@ export const DesignTokensStudio: React.FC<Props> = ({ artifactId, scopePath }) =
     '--dt-accent': resolve('accent', 'primary', 'brand') || 'var(--ds-color-accent-500)',
     '--dt-success': resolve('success') || 'var(--ds-color-success)',
     '--dt-warning': resolve('warning') || resolve('accent', 'primary') || 'var(--ds-color-warning)',
-    '--dt-danger': resolve('danger', 'error') || 'var(--ds-color-error)',
+    '--dt-danger': resolve('danger', 'error') || 'var(--ds-color-danger)',
     '--dt-font': family,
     '--dt-font-mono': monoFamily,
     '--dt-font-display': resolvedCanonical['--dt-font-display'],

@@ -33,7 +33,9 @@ import {
   StatusPill,
   SPARO_ICON_OPTICAL_STROKE_WIDTH,
   SparoAgentIcon,
+  SparoLogoCore,
   SparoLogoMark,
+  SparoLogoMotion,
   SparoSubagentIcon,
   SparoSystemIcon,
   systemIconNames,
@@ -192,6 +194,74 @@ function StatefulNumberField() {
   );
 }
 
+function SparoLogoMotionPreview() {
+  const [startupRun, setStartupRun] = useState(0);
+  const samples = [
+    {
+      motion: 'startup' as const,
+      title: '启动 / Startup',
+      note: '圆形外场从红色核心向外显现，材质与层级同步聚焦',
+    },
+    {
+      motion: 'thinking' as const,
+      title: '思考 / Thinking',
+      note: '外场保持稳定，红色核心区域轻柔聚能与释放',
+    },
+    {
+      motion: 'processing' as const,
+      title: '处理 / Processing',
+      note: '定向材质高光扫过圆形边界，表达持续执行',
+    },
+  ];
+
+  return (
+    <div className="recipe-preview-stack" style={{ minWidth: 280 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(156px, 1fr))',
+          gap: 'var(--ds-space-3)',
+        }}
+      >
+        {samples.map((sample) => (
+          <div
+            key={`${sample.motion}-${sample.motion === 'startup' ? startupRun : 0}`}
+            style={{
+              alignItems: 'center',
+              background: 'var(--ds-color-bg-elevated)',
+              border: '1px solid var(--ds-color-border-subtle)',
+              borderRadius: 'var(--ds-radius-lg)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--ds-space-2)',
+              minWidth: 0,
+              padding: 'var(--ds-space-4)',
+              textAlign: 'center',
+            }}
+          >
+            <SparoLogoMotion motion={sample.motion} size={132} label={sample.title} />
+            <strong style={{ color: 'var(--ds-color-text-primary)', fontSize: 'var(--ds-font-size-sm)' }}>
+              {sample.title}
+            </strong>
+            <span style={{ color: 'var(--ds-color-text-muted)', fontSize: 'var(--ds-font-size-xs)', lineHeight: 1.45 }}>
+              {sample.note}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="recipe-preview-inline" style={{ justifyContent: 'space-between' }}>
+        <Button size="small" variant="secondary" onClick={() => setStartupRun(value => value + 1)}>
+          Replay startup
+        </Button>
+        <div className="recipe-preview-inline" aria-label="Narrow size examples">
+          <SparoLogoMotion motion="thinking" size={64} decorative />
+          <SparoLogoMotion motion="processing" size={88} decorative />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StatefulNullableNumberField() {
   const [value, setValue] = useState<number | null>(null);
   return (
@@ -260,19 +330,15 @@ export const primitivePreviewCategories: PreviewCategory[] = [
       {
         id: 'ds-sparo-logo-mark',
         name: 'Sparo logo mark',
-        description: 'Vector brand mark with configurable size, stroke width, and currentColor inheritance.',
+        description: 'Responsive raster brand mark derived from the approved material master.',
         category: 'ds-primitives',
         render: () => (
           <div className="recipe-preview-inline">
             <SparoLogoMark size={18} aria-label="Sparo OS" role="img" />
             <SparoLogoMark size={24} aria-label="Sparo OS" role="img" />
-            <SparoLogoMark
-              size={32}
-              strokeWidth={5.5}
-              aria-label="Sparo OS brand color"
-              role="img"
-              style={{ color: 'var(--ds-color-accent-500)' }}
-            />
+            <SparoLogoMark size={32} aria-label="Sparo OS" role="img" />
+            <SparoLogoMark size={48} aria-label="Sparo OS" role="img" />
+            <SparoLogoMark size={72} aria-label="Sparo OS" role="img" />
           </div>
         ),
         ai: {
@@ -280,6 +346,40 @@ export const primitivePreviewCategories: PreviewCategory[] = [
           composeWith: ['IconButton', 'Toolbar', 'DialogHeader', 'EmptyState'],
           avoid: ['Generic actions or objects that already have a Lucide icon', 'Raster copies of the brand mark'],
           states: ['default', 'theme', 'narrow'],
+        },
+      },
+      {
+        id: 'ds-sparo-logo-core',
+        name: 'Sparo logo core',
+        description: 'Compact source-derived red core shared with the default tray state.',
+        category: 'ds-primitives',
+        render: () => (
+          <div className="recipe-preview-inline">
+            <SparoLogoCore size={16} aria-label="Sparo OS" role="img" />
+            <SparoLogoCore size={20} aria-label="Sparo OS" role="img" />
+            <SparoLogoCore size={24} aria-label="Sparo OS" role="img" />
+            <SparoLogoCore size={32} aria-label="Sparo OS" role="img" />
+            <SparoLogoCore size={48} aria-label="Sparo OS" role="img" />
+          </div>
+        ),
+        ai: {
+          useWhen: ['Compact Sparo OS app chrome should align with the default tray identity'],
+          composeWith: ['IconButton', 'Toolbar'],
+          avoid: ['Application icons', 'Large identity moments', 'Replacing the full mark outside compact chrome'],
+          states: ['default', 'theme', 'narrow'],
+        },
+      },
+      {
+        id: 'ds-sparo-logo-motion',
+        name: 'Sparo logo motion states',
+        description: 'Canonical circular material logo mapped to startup, thinking, and processing motion semantics.',
+        category: 'ds-primitives',
+        render: () => <SparoLogoMotionPreview />,
+        ai: {
+          useWhen: ['A first-party Sparo OS lifecycle moment needs a recognizable branded state animation'],
+          composeWith: ['StartupScene', 'EmptyState', 'ToolCard', 'StatusBar'],
+          avoid: ['Replacing ordinary inline spinners', 'Changing the circular silhouette during thinking', 'Reconstructing the logo geometry in feature code'],
+          states: ['startup', 'thinking', 'processing', 'narrow', 'theme', 'i18n', 'reduced motion'],
         },
       },
       {
@@ -316,7 +416,7 @@ export const primitivePreviewCategories: PreviewCategory[] = [
         ai: {
           useWhen: ['A first-party Sparo OS destination, work type, navigation surface, or large-format semantic action needs a recognizable icon'],
           composeWith: ['Button', 'IconButton', 'DataList', 'Navigation'],
-          avoid: ['Generic actions that already have a Lucide icon', 'Feature-local copies of the SVG geometry'],
+          avoid: ['Generic actions that already have a Lucide icon', 'Feature-local redraws or recolored copies'],
           states: ['default', 'theme', 'narrow'],
         },
       },

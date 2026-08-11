@@ -1,7 +1,7 @@
 @use '@/design-system/foundation/tokens/tokens.scss' as *;
 
 .memory-scene {
-  --memory-seal-red: var(--ds-color-danger);
+  --memory-seal-red: var(--ds-color-brand-core);
   --memory-core: var(--ds-color-warning);
 
   position: relative;

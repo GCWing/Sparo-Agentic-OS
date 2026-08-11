@@ -8,8 +8,10 @@
   color: var(--ds-color-text-secondary, var(--color-text-secondary));
   animation: ds-floating-card-enter 180ms cubic-bezier(0.16, 1, 0.3, 1);
 
-  &:focus {
+  &:focus,
+  &:focus-visible {
     outline: none;
+    border-radius: var(--ds-radius-2xl, 20px);
   }
 
   &--padding-compact {

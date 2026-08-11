@@ -15,7 +15,7 @@
   }
 
   &__required {
-    color: var(--color-error);
+    color: var(--ds-color-danger);
     margin-left: 4px;
   }
 
@@ -94,7 +94,7 @@
 
   &__error-message {
     font-size: 12px;
-    color: var(--color-error);
+    color: var(--ds-color-danger);
     line-height: 1.4;
   }
 
@@ -106,10 +106,10 @@
   }
 
   &--error &__field {
-    border-color: var(--color-error-border);
+    border-color: var(--ds-color-danger-border);
 
     &:focus {
-      border-color: var(--color-error-border);
+      border-color: var(--ds-color-danger-border);
       background: var(--element-bg-subtle);
     }
 

@@ -10,6 +10,7 @@ import {
   Button,
   FloatingCard,
   IconButton,
+  SparoLogoMark,
   useBodyScrollLock,
   useDialogFocusTrap,
 } from '@/design-system';
@@ -101,7 +102,6 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
       icon: Clock3,
       label: t('about.buildDate'),
       value: buildDateLabel,
-      isMonospace: false,
     },
     version.gitCommit
       ? {
@@ -109,7 +109,6 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
           icon: Hash,
           label: t('about.commit'),
           value: version.gitCommit.slice(0, 7),
-          isMonospace: true,
         }
       : null,
     version.gitBranch
@@ -118,7 +117,6 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
           icon: GitBranch,
           label: t('about.branch'),
           value: version.gitBranch,
-          isMonospace: true,
         }
       : null,
   ].filter((item): item is {
@@ -126,7 +124,6 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
     icon: typeof Clock3;
     label: string;
     value: string;
-    isMonospace: boolean;
   } => item !== null);
 
   if (!isOpen || typeof document === 'undefined') {
@@ -156,18 +153,35 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
       >
         <div className="sparo-about-dialog__main">
           <section className="sparo-about-dialog__brand-panel" aria-label={t('about.productTitle')}>
-            <img
+            <SparoLogoMark
               className="sparo-about-dialog__logo"
-              src="/sparo-logo-mark.png"
+              size={160}
               alt=""
-              draggable={false}
+              aria-hidden="true"
             />
           </section>
 
           <section className="sparo-about-dialog__details">
             <header className="sparo-about-dialog__identity">
               <div className="sparo-about-dialog__title-line">
-                <h1 className="sparo-about-dialog__title">{t('about.productTitle')}</h1>
+                <h1 className="sparo-about-dialog__title" aria-label={t('about.productTitle')}>
+                  <img
+                    className="sparo-about-dialog__wordmark-image sparo-about-dialog__wordmark-image--primary"
+                    src="/brand/sparo-wordmark-primary.png"
+                    alt=""
+                    width="475"
+                    height="96"
+                    draggable={false}
+                  />
+                  <img
+                    className="sparo-about-dialog__wordmark-image sparo-about-dialog__wordmark-image--reversed"
+                    src="/brand/sparo-wordmark-reversed.png"
+                    alt=""
+                    width="475"
+                    height="96"
+                    draggable={false}
+                  />
+                </h1>
                 <span className="sparo-about-dialog__version">
                   {t('about.version', { version: versionLabel })}
                 </span>
@@ -192,16 +206,14 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
               </div>
 
               <dl className="sparo-about-dialog__build-list">
-                {buildItems.map(({ key, icon: Icon, label, value, isMonospace }) => (
+                {buildItems.map(({ key, icon: Icon, label, value }) => (
                   <div key={key} className="sparo-about-dialog__build-item">
                     <span className="sparo-about-dialog__build-icon" aria-hidden="true">
                       <Icon size={24} strokeWidth={1.7} />
                     </span>
                     <div className="sparo-about-dialog__build-copy">
                       <dt>{label}</dt>
-                      <dd className={isMonospace ? 'sparo-about-dialog__build-value--mono' : undefined}>
-                        {value}
-                      </dd>
+                      <dd>{value}</dd>
                     </div>
                   </div>
                 ))}

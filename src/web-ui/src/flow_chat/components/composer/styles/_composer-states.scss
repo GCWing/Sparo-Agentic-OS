@@ -23,11 +23,11 @@
       overflow: visible;
 
       &:hover {
-        border-color: color-mix(in srgb, var(--ds-chat-danger) 34%, transparent);
+        border-color: var(--ds-chat-border-strong);
       }
 
       &:focus-within {
-        border-color: color-mix(in srgb, var(--ds-chat-danger) 46%, transparent);
+        border-color: color-mix(in srgb, var(--ds-chat-focus-ring) 46%, transparent);
       }
     }
 
@@ -118,7 +118,7 @@
       background: transparent;
 
       &:hover:not(:disabled) {
-        background: color-mix(in srgb, var(--ds-chat-danger) 18%, transparent);
+        background: color-mix(in srgb, var(--ds-chat-brand-action) 12%, transparent);
       }
     }
 
@@ -174,7 +174,7 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: var(--ds-chat-danger);
+    background: var(--ds-chat-brand-action);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--ds-color-bg-app) 6%, transparent);
     animation: breathing-pulse 2.5s ease-in-out infinite;
 
@@ -185,7 +185,7 @@
       margin: auto;
       width: 8px;
       height: 8px;
-      background: var(--ds-color-on-danger, white);
+      background: var(--ds-chat-brand-on-action);
     }
   }
 
@@ -197,8 +197,8 @@
     height: 11px;
     padding: 0 3px;
     border-radius: 999px;
-    background: var(--ds-chat-danger);
-    color: var(--ds-color-on-danger, white);
+    background: var(--ds-chat-brand-action);
+    color: var(--ds-chat-brand-on-action);
     display: inline-flex;
     align-items: center;
     justify-content: center;

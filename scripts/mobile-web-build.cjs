@@ -105,9 +105,9 @@ function buildMobileWeb(options = {}) {
 
   cleanStaleMobileWebResources(logInfo);
 
-  const brandSync = runSilent('node scripts/generate-mobile-web-icons.mjs', ROOT_DIR);
+  const brandSync = runSilent('node scripts/sync-brand-assets.mjs --target mobile', ROOT_DIR);
   if (!brandSync.ok) {
-    logError('mobile-web brand sync failed (scripts/generate-mobile-web-icons.mjs)');
+    logError('mobile-web brand sync failed (scripts/sync-brand-assets.mjs)');
     const output = tailOutput(brandSync.stderr || brandSync.stdout);
     if (output) logError(output);
     return { ok: false };

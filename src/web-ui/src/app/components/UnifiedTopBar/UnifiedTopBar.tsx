@@ -26,7 +26,7 @@ import {
   Button,
   Dialog,
   IconButton,
-  SparoLogoMark,
+  SparoLogoCore,
   Tooltip,
   WindowControls,
 } from '@/design-system';
@@ -493,7 +493,11 @@ const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                 data-testid="unified-top-bar-home"
               >
                 <span className="unified-top-bar__logo-mark" aria-hidden="true">
-                  <SparoLogoMark className="unified-top-bar__logo-svg" size={22} />
+                  <SparoLogoCore
+                    className="unified-top-bar__logo-svg"
+                    size={24}
+                    sourceSize={48}
+                  />
                 </span>
               </IconButton>
             </Tooltip>

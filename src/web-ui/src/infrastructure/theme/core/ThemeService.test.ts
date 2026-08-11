@@ -23,6 +23,7 @@ vi.mock('../integrations/MonacoThemeSync', () => ({
   monacoThemeSync: { syncTheme: vi.fn() },
 }));
 
+import { applyCssVars, createThemeCssVarMap } from '@/design-system';
 import { ThemeService } from './ThemeService';
 
 function deferred<T>(): {
@@ -75,7 +76,7 @@ describe('ThemeService config synchronization', () => {
     expect(configManagerMock.setSetting).not.toHaveBeenCalled();
   });
 
-  it('fails closed when the authoritative projection cannot be loaded', async () => {
+  it('keeps complete bootstrap tokens while authoritative loading fails closed', async () => {
     configManagerMock.getSetting.mockRejectedValueOnce(new Error('snapshot unavailable'));
     const service = new ThemeService();
 
@@ -84,7 +85,11 @@ describe('ThemeService config synchronization', () => {
     expect(service.getCurrentThemeId()).toBeNull();
     expect(service.getResolvedThemeId()).toBeNull();
     expect(() => service.getCurrentTheme()).toThrow('no authoritative current theme');
-    expect(document.documentElement.dataset.theme).toBeUndefined();
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(createThemeCssVarMap).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'light' }),
+    );
+    expect(applyCssVars).toHaveBeenCalled();
   });
 
   it('rejects legacy theme aliases instead of translating them', async () => {
@@ -94,7 +99,7 @@ describe('ThemeService config synchronization', () => {
     await expect(service.initialize()).rejects.toThrow('Unknown current theme id: sparo-dark');
 
     expect(service.getCurrentThemeId()).toBeNull();
-    expect(document.documentElement.dataset.theme).toBeUndefined();
+    expect(document.documentElement.dataset.theme).toBe('light');
   });
 
   it('does not apply a requested theme when persistence fails', async () => {

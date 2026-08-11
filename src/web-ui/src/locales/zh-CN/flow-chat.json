@@ -383,14 +383,8 @@
     "searchNext": "下一个匹配轮次",
     "searchClose": "关闭搜索",
     "searchOpen": "搜索对话轮次",
-    "hideCompletedThinkingItems": "隐藏已完成的思考条目",
-    "showCompletedThinkingItems": "显示已完成的思考条目",
     "expandRightPanel": "展开右侧面板",
     "collapseRightPanel": "收起右侧面板",
-    "resetHistory": "重置历史",
-    "moreMenu": "更多",
-    "showCompletedThinkingInConversation": "显示／隐藏思考",
-    "resetSession": "重置会话",
     "sidecar": {
       "groupLabel": "会话面板",
       "more": "更多面板",
@@ -564,7 +558,9 @@
     "currentMode": "当前模式",
     "primaryModel": "Primary 模型",
     "fastModel": "Fast 模型",
-    "modelNotConfigured": "未配置"
+    "modelNotConfigured": "未配置",
+    "thinkingShown": "思考记录已显示",
+    "thinkingHidden": "思考记录已隐藏"
   },
   "reasoningEffort": {
     "title": "推理深度",

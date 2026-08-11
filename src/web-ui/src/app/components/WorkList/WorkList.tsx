@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Archive, Info, XCircle } from 'lucide-react';
 import { EmptyState, IconButton } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
@@ -26,6 +26,12 @@ interface IndexedWorkProjection {
   index: number;
 }
 
+interface StableWorkOrder {
+  selectionKey: string;
+  membershipKey: string;
+  workIds: string[];
+}
+
 export interface WorkListProps {
   className?: string;
   query?: string;
@@ -33,6 +39,7 @@ export interface WorkListProps {
   runningFilter?: 'all' | 'running' | 'not-running';
   includeArchived?: boolean;
   includeCompleted?: boolean;
+  activeWorkId?: string | null;
   selectedResultIndex?: number;
   showGroupLabels?: boolean;
   onResultCountChange?: (count: number) => void;
@@ -65,6 +72,7 @@ const WorkList: React.FC<WorkListProps> = ({
   runningFilter = 'all',
   includeArchived = false,
   includeCompleted = true,
+  activeWorkId = null,
   selectedResultIndex = -1,
   showGroupLabels = false,
   onResultCountChange,
@@ -73,17 +81,42 @@ const WorkList: React.FC<WorkListProps> = ({
   const { works, projections, loading, error, refreshWorks } = useWorks();
   const getWork = useWorkStore((state) => state.getWork);
   const controlWork = useWorkStore((state) => state.controlWork);
+  const stableOrderRef = useRef<StableWorkOrder | null>(null);
 
   const workById = useMemo(() => new Map(works.map((work) => [work.id, work])), [works]);
 
   const visibleWorks = useMemo(() => {
-    return selectWorksForDockList(projections, {
+    const candidates = selectWorksForDockList(projections, {
       query,
-      maxWorks,
       runningFilter,
       includeArchived,
       includeCompleted,
     });
+    const selectionKey = JSON.stringify({ query, runningFilter, includeArchived, includeCompleted });
+    const membershipKey = JSON.stringify(candidates.map((work) => work.id).sort());
+    let stableOrder = stableOrderRef.current;
+
+    if (
+      !stableOrder
+      || stableOrder.selectionKey !== selectionKey
+      || stableOrder.membershipKey !== membershipKey
+    ) {
+      stableOrder = {
+        selectionKey,
+        membershipKey,
+        workIds: candidates.map((work) => work.id),
+      };
+      stableOrderRef.current = stableOrder;
+    }
+
+    const orderByWorkId = new Map(
+      stableOrder.workIds.map((workId, index) => [workId, index])
+    );
+    const stableCandidates = [...candidates].sort(
+      (left, right) => (orderByWorkId.get(left.id) ?? 0) - (orderByWorkId.get(right.id) ?? 0)
+    );
+
+    return typeof maxWorks === 'number' ? stableCandidates.slice(0, maxWorks) : stableCandidates;
   }, [includeArchived, includeCompleted, maxWorks, projections, query, runningFilter]);
 
   const indexedVisibleWorks = useMemo<IndexedWorkProjection[]>(
@@ -115,11 +148,11 @@ const WorkList: React.FC<WorkListProps> = ({
     }
   }, [controlWork, t]);
 
-  const handleRemove = useCallback(async (work: WorkProjection) => {
+  const handleArchive = useCallback(async (work: WorkProjection) => {
     try {
       await controlWork({ locator: { scope: work.scope, workId: work.id }, action: 'archive' });
-    } catch (removeError) {
-      log.error('Failed to remove work from Work Dock', { workId: work.id, error: removeError });
+    } catch (archiveError) {
+      log.error('Failed to archive work from Work Dock', { workId: work.id, error: archiveError });
       notificationService.error(t('nav.workDock.removeFailed'));
     }
   }, [controlWork, t]);
@@ -182,8 +215,9 @@ const WorkList: React.FC<WorkListProps> = ({
           )}
           {group.items.map(({ work, index }) => {
             const selected = index === selectedResultIndex;
+            const active = work.id === activeWorkId;
             const showCancelAction = isCancellableStatus(work.status);
-            const showRemoveAction = !showCancelAction && work.status !== 'archived';
+            const showArchiveAction = !showCancelAction && work.status !== 'archived';
             const statusClass = statusKey(work.status);
             const instrumented = isInstrumentedStatus(work.status);
             return (
@@ -193,6 +227,7 @@ const WorkList: React.FC<WorkListProps> = ({
                   'work-list__item',
                   `work-list__item--${statusClass}`,
                   instrumented && 'has-state-instrument',
+                  active && 'is-active',
                   selected && 'is-keyboard-active',
                 ].filter(Boolean).join(' ')}
                 data-sparo-work-list-result-index={index}
@@ -205,10 +240,11 @@ const WorkList: React.FC<WorkListProps> = ({
                   className="work-list__item-main"
                   onClick={() => void handleOpen(work)}
                   aria-label={`${work.title}, ${t(`nav.workDock.status.${work.status}`)}`}
+                  aria-current={active ? 'page' : undefined}
                 >
                   <span className="work-list__item-icon" aria-hidden>
                     <span className="work-list__item-icon-glyph">
-                      <WorkIcon work={work} size={18} />
+                      <WorkIcon work={work} size={16} />
                     </span>
                     {instrumented ? <span className="work-list__item-state-mark" /> : null}
                   </span>
@@ -228,21 +264,21 @@ const WorkList: React.FC<WorkListProps> = ({
                     data-sparo-work-list-details-action
                     onClick={() => handleOpenDetails(work)}
                   >
-                    <Info className="work-list__item-action-icon" size={13} aria-hidden />
+                    <Info size={13} aria-hidden />
                   </IconButton>
                   {showCancelAction ? (
                     <IconButton
                       type="button"
-                      className="work-list__item-action work-list__item-action--always-visible"
+                      className="work-list__item-action"
                       size="xs"
                       variant="ghost"
                       aria-label={t('nav.workDock.cancelRunningWork')}
                       tooltip={t('nav.workDock.cancelRunningWork')}
                       onClick={() => void handleCancel(work)}
                     >
-                      <XCircle className="work-list__item-action-icon" size={13} aria-hidden />
+                      <XCircle size={13} aria-hidden />
                     </IconButton>
-                  ) : showRemoveAction ? (
+                  ) : showArchiveAction ? (
                     <IconButton
                       type="button"
                       className="work-list__item-action"
@@ -250,9 +286,9 @@ const WorkList: React.FC<WorkListProps> = ({
                       variant="ghost"
                       aria-label={t('nav.workDock.removeWork')}
                       tooltip={t('nav.workDock.removeWork')}
-                      onClick={() => void handleRemove(work)}
+                      onClick={() => void handleArchive(work)}
                     >
-                      <Archive className="work-list__item-action-icon" size={13} aria-hidden />
+                      <Archive size={13} aria-hidden />
                     </IconButton>
                   ) : null}
                 </div>

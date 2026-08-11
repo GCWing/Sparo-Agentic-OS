@@ -2,14 +2,16 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/sparo-app-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
     <!--
-      Preload the splash logo so the breathing mark is visible at the same
+      Preload the splash wordmarks so the selected theme variant is visible at the same
       time as the first paint, instead of arriving a frame later as a blank
       <img>. Loaded with `fetchpriority=high` because the splash is the very
       first thing the user looks at.
     -->
-    <link rel="preload" as="image" href="/sparo-logo-mark.png" fetchpriority="high" />
+    <link rel="preload" as="image" href="/brand/sparo-mark-256.png" fetchpriority="high" />
+    <link rel="preload" as="image" href="/brand/sparo-wordmark-primary.png" fetchpriority="high" />
+    <link rel="preload" as="image" href="/brand/sparo-wordmark-reversed.png" fetchpriority="high" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="/fonts/fonts.css" />
     <title>Sparo OS</title>
@@ -113,11 +115,13 @@
       /*
        * Splash: shown the instant the HTML reaches the webview, so the user
        * never stares at an empty colored rectangle while Vite walks the
-       * import graph (dev) or the bundle parses (prod). The brand logo
-       * breathes in place — quiet branding, not a "still loading" spinner.
+       * import graph (dev) or the bundle parses (prod). The critical-path mark
+       * is static HTML/CSS so React and the design-system bundle cannot block
+       * its frames. It mirrors the reusable logo motion's approved timing.
        *
-       * main.tsx subscribes to the boot-stage event and removes the splash
-       * once the backend reports `workspaceReady` (or `degraded`).
+       * The startup entry paints and reveals this surface first, then loads
+       * main.tsx. The main app removes the splash once the backend reports
+       * `workspaceReady` (or `degraded`).
        *
        * Hidden on the agent-companion window — that window is intentionally
        * transparent and renders a custom pet widget.
@@ -213,40 +217,300 @@
         height: 10px;
       }
 
-      .sparo-splash-logo {
+      .sparo-splash-brand {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+        visibility: hidden;
+      }
+
+      #sparo-splash[data-motion-ready='1'] .sparo-splash-brand {
+        visibility: visible;
+      }
+
+      .sparo-splash-delayed-loader {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: min(304px, 76vw);
+        aspect-ratio: 1;
+        overflow: visible;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translate(-50%, -50%) scale(0.9);
+      }
+
+      #sparo-splash[data-delayed-loader='1'] .sparo-splash-delayed-loader {
+        visibility: visible;
+        animation: sparo-splash-delayed-loader-arrive 1.7s cubic-bezier(0.22, 0.68, 0.2, 1) both;
+      }
+
+      .sparo-splash-delayed-loader__track,
+      .sparo-splash-delayed-loader__arc {
+        fill: none;
+        vector-effect: non-scaling-stroke;
+        transform-origin: center;
+      }
+
+      .sparo-splash-delayed-loader__track {
+        stroke: var(--ds-color-border-subtle, rgba(148, 163, 184, 0.28));
+        stroke-width: 1.2;
+        stroke-dasharray: 4.6 50.9;
+        opacity: 0;
+      }
+
+      .sparo-splash-delayed-loader__orbit {
+        transform-box: view-box;
+        transform-origin: center;
+      }
+
+      .sparo-splash-delayed-loader__arc {
+        stroke: var(--ds-color-brand-core, #e53935);
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-dasharray: 2.7 663.3;
+        opacity: 0;
+      }
+
+      #sparo-splash[data-delayed-loader='1'] .sparo-splash-delayed-loader__track {
+        animation: sparo-splash-delayed-loader-assemble 1.7s ease-out both;
+      }
+
+      #sparo-splash[data-delayed-loader='1'] .sparo-splash-delayed-loader__orbit {
+        animation: sparo-splash-delayed-loader-orbit 5.2s linear infinite;
+      }
+
+      #sparo-splash[data-delayed-loader='1'] .sparo-splash-delayed-loader__arc {
+        animation:
+          sparo-splash-delayed-loader-arc-arrive 1.7s ease-out both,
+          sparo-splash-delayed-loader-arc-breathe 3.8s ease-in-out 1.7s infinite;
+      }
+
+      @keyframes sparo-splash-delayed-loader-arrive {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.9);
+        }
+        100% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1);
+        }
+      }
+
+      @keyframes sparo-splash-delayed-loader-assemble {
+        0% {
+          opacity: 0;
+          stroke-dasharray: 4.6 78.7;
+        }
+        42% {
+          opacity: 0.72;
+          stroke-dasharray: 4.6 50.9;
+        }
+        100% {
+          opacity: 0.72;
+          stroke-dasharray: 666 0;
+        }
+      }
+
+      @keyframes sparo-splash-delayed-loader-arc-arrive {
+        0% {
+          opacity: 0;
+          stroke-dasharray: 2.7 663.3;
+        }
+        38% {
+          opacity: 1;
+          stroke-dasharray: 5.3 660.7;
+        }
+        100% {
+          opacity: 1;
+          stroke-dasharray: 106.6 559.4;
+        }
+      }
+
+      @keyframes sparo-splash-delayed-loader-arc-breathe {
+        0%,
+        100% {
+          stroke-dasharray: 106.6 559.4;
+          opacity: 0.82;
+        }
+        50% {
+          stroke-dasharray: 133.2 532.8;
+          opacity: 1;
+        }
+      }
+
+      @keyframes sparo-splash-delayed-loader-orbit {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .sparo-splash-mark-slot {
         width: min(128px, 32vw);
         aspect-ratio: 1;
+      }
+
+      .sparo-splash-mark {
+        position: relative;
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+
+      .sparo-splash-mark__surface,
+      .sparo-splash-mark__focus {
+        position: absolute;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
         object-fit: contain;
         user-select: none;
         -webkit-user-drag: none;
-        /* Initial state matches the trough of the breath cycle so there is
-           no visual jump when the keyframes take over on the next tick. */
-        opacity: 0.45;
-        transform: scale(0.985);
-        will-change: opacity, transform;
-        animation: sparo-splash-breathe 2600ms cubic-bezier(0.42, 0, 0.58, 1) infinite;
-        filter: drop-shadow(0 8px 28px rgba(91, 140, 255, 0.18));
+        transform-origin: center;
+        pointer-events: none;
+        backface-visibility: hidden;
       }
-      @keyframes sparo-splash-breathe {
-        0%, 100% {
-          opacity: 0.45;
-          transform: scale(0.985);
+
+      .sparo-splash-mark__focus {
+        opacity: 0;
+        clip-path: circle(21% at 50% 51%);
+      }
+
+      .sparo-splash-mark[data-motion='startup'] .sparo-splash-mark__surface {
+        animation: sparo-splash-materialize 860ms cubic-bezier(0.22, 0.68, 0.2, 1) both;
+        will-change: opacity, transform;
+      }
+
+      .sparo-splash-mark[data-motion='startup'] .sparo-splash-mark__focus {
+        animation: sparo-splash-startup-core 860ms cubic-bezier(0.22, 0.68, 0.2, 1) both;
+        will-change: opacity, transform;
+      }
+
+      .sparo-splash-mark[data-motion='thinking'] .sparo-splash-mark__surface {
+        animation: sparo-splash-breathe 2.6s ease-in-out infinite;
+        will-change: transform;
+      }
+
+      .sparo-splash-mark[data-motion='thinking'] .sparo-splash-mark__focus {
+        animation: sparo-splash-focus 2.6s ease-in-out infinite;
+        filter: saturate(1.08) brightness(1.025);
+        will-change: opacity, transform;
+      }
+
+      @keyframes sparo-splash-materialize {
+        0% {
+          opacity: 0.12;
+          transform: scale(0.86);
         }
-        50% {
+        100% {
           opacity: 1;
           transform: scale(1);
         }
       }
 
+      @keyframes sparo-splash-startup-core {
+        0% {
+          opacity: 0.92;
+          transform: scale(0.94);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.08);
+        }
+      }
+
+      @keyframes sparo-splash-breathe {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.006);
+        }
+      }
+
+      @keyframes sparo-splash-focus {
+        0%,
+        100% {
+          opacity: 0;
+          transform: scale(0.96);
+        }
+        50% {
+          opacity: 0.44;
+          transform: scale(1.025);
+        }
+      }
+
+      .sparo-splash-wordmark {
+        position: relative;
+        width: min(220px, 55vw);
+        aspect-ratio: 475 / 96;
+      }
+
+      .sparo-splash-wordmark img {
+        position: absolute;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+        user-select: none;
+        -webkit-user-drag: none;
+      }
+
+      .sparo-splash-wordmark--primary {
+        visibility: hidden;
+      }
+
+      html[data-theme-type='light'] .sparo-splash-wordmark--primary {
+        visibility: visible;
+      }
+
+      html[data-theme-type='light'] .sparo-splash-wordmark--reversed {
+        visibility: hidden;
+      }
+
       @media (prefers-reduced-motion: reduce) {
-        .sparo-splash-logo {
-          animation: none;
-          opacity: 0.85;
+        .sparo-splash-window-control {
+          transition: none;
+        }
+
+        .sparo-splash-mark__surface,
+        .sparo-splash-mark__focus {
+          animation: none !important;
+          filter: none;
+          opacity: 1;
           transform: none;
         }
 
-        .sparo-splash-window-control {
-          transition: none;
+        .sparo-splash-mark__focus {
+          display: none;
+        }
+
+        #sparo-splash[data-delayed-loader='1'] .sparo-splash-delayed-loader,
+        .sparo-splash-delayed-loader__track,
+        .sparo-splash-delayed-loader__orbit,
+        .sparo-splash-delayed-loader__arc {
+          animation: none !important;
+        }
+
+        #sparo-splash[data-delayed-loader='1'] .sparo-splash-delayed-loader {
+          opacity: 1;
+          transform: translate(-50%, -50%);
+        }
+
+        .sparo-splash-delayed-loader__track {
+          opacity: 0.72;
+          stroke-dasharray: 666 0;
+        }
+
+        .sparo-splash-delayed-loader__arc {
+          opacity: 1;
+          stroke-dasharray: 106.6 559.4;
         }
       }
     </style>
@@ -360,15 +624,71 @@
           </button>
         </div>
       </div>
-      <img
-        class="sparo-splash-logo"
-        src="/sparo-logo-mark.png"
-        alt=""
-        draggable="false"
-        aria-hidden="true"
-      />
+      <div class="sparo-splash-brand" aria-hidden="true">
+        <svg
+          class="sparo-splash-delayed-loader"
+          viewBox="0 0 240 240"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <circle
+            class="sparo-splash-delayed-loader__track"
+            cx="120"
+            cy="120"
+            r="106"
+            pathLength="100"
+          />
+          <g class="sparo-splash-delayed-loader__orbit">
+            <circle
+              class="sparo-splash-delayed-loader__arc"
+              cx="120"
+              cy="120"
+              r="106"
+              pathLength="100"
+            />
+          </g>
+        </svg>
+        <div class="sparo-splash-mark-slot">
+          <div id="sparo-splash-motion-root" class="sparo-splash-mark" data-motion="idle">
+            <img
+              class="sparo-splash-mark__surface"
+              src="/brand/sparo-mark-256.png"
+              alt=""
+              width="256"
+              height="256"
+              draggable="false"
+            />
+            <img
+              class="sparo-splash-mark__focus"
+              src="/brand/sparo-mark-256.png"
+              alt=""
+              width="256"
+              height="256"
+              draggable="false"
+            />
+          </div>
+        </div>
+        <div class="sparo-splash-wordmark">
+          <img
+            class="sparo-splash-wordmark--primary"
+            src="/brand/sparo-wordmark-primary.png"
+            alt=""
+            width="475"
+            height="96"
+            draggable="false"
+          />
+          <img
+            class="sparo-splash-wordmark--reversed"
+            src="/brand/sparo-wordmark-reversed.png"
+            alt=""
+            width="475"
+            height="96"
+            draggable="false"
+          />
+        </div>
+      </div>
     </div>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/boot/startupSplash.tsx"></script>
   </body>
 </html>

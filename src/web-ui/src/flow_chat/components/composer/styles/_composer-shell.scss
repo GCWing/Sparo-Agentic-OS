@@ -50,14 +50,14 @@
     transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:has(.sparo-chat-input__box:focus-within) {
-    --sparo-chat-input-box-border: color-mix(in srgb, var(--ds-chat-danger) 44%, transparent);
+    --sparo-chat-input-box-border: color-mix(in srgb, var(--ds-chat-focus-ring) 44%, transparent);
     --sparo-chat-input-box-shadow: var(--ds-chat-shadow-focus);
     --sparo-chat-input-model-opacity: 1;
     --sparo-chat-input-model-color: var(--ds-chat-text-primary);
   }
 
   &--expanded {
-    --sparo-chat-input-box-border: color-mix(in srgb, var(--ds-chat-danger) 44%, transparent);
+    --sparo-chat-input-box-border: var(--ds-chat-border-strong);
     --sparo-chat-input-box-shadow: var(--ds-chat-shadow-focus);
     --sparo-chat-input-model-opacity: 1;
     --sparo-chat-input-model-color: var(--ds-chat-text-primary);
@@ -89,7 +89,7 @@
 
       &:hover {
         background: color-mix(in srgb, var(--ds-chat-surface) 38%, transparent);
-        border: 1px solid color-mix(in srgb, var(--ds-chat-danger) 34%, transparent);
+        border: 1px solid var(--ds-chat-border-strong);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         box-shadow: var(--ds-chat-shadow-focus);
@@ -109,7 +109,7 @@
 
         &:hover {
           background: color-mix(in srgb, var(--ds-chat-surface-elevated) 45%, transparent);
-          border: 1px solid color-mix(in srgb, var(--ds-chat-danger) 34%, transparent);
+          border: 1px solid var(--ds-chat-border-strong);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
           box-shadow: var(--ds-chat-shadow-focus);
@@ -372,13 +372,13 @@
 
       &:hover {
         background: var(--ds-chat-surface-hover);
-        border-color: color-mix(in srgb, var(--ds-chat-danger) 34%, transparent);
+        border-color: var(--ds-chat-border-strong);
         box-shadow: var(--ds-chat-shadow-control);
       }
 
       &:focus-within {
         background: var(--ds-chat-surface-hover);
-        border-color: color-mix(in srgb, var(--ds-chat-danger) 46%, transparent);
+        border-color: color-mix(in srgb, var(--ds-chat-focus-ring) 46%, transparent);
         box-shadow: var(--ds-chat-shadow-focus);
       }
     }
@@ -934,7 +934,7 @@
 
     &--expanded {
       max-height: calc(100vh - 178px);
-      border-color: color-mix(in srgb, var(--ds-chat-danger) 44%, transparent);
+      border-color: var(--ds-chat-border-strong);
       box-shadow: var(--ds-chat-shadow-focus);
 
       .sparo-chat-input__input-area {

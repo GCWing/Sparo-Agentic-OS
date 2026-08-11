@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LanguageToggleButton from '../components/LanguageToggleButton';
+import { SparoMark } from '../components/brand/SparoMark';
 import { useI18n } from '../i18n';
 import { RelayHttpClient } from '../services/RelayHttpClient';
 import { RemoteSessionManager } from '../services/RemoteSessionManager';
 import { useMobileStore } from '../services/store';
-import logoMark from '../assets/sparo-logo-mark.png';
 
 interface PairingPageProps {
   onPaired: (client: RelayHttpClient, sessionMgr: RemoteSessionManager) => void;
@@ -255,7 +255,7 @@ const PairingPage: React.FC<PairingPageProps> = ({ onPaired }) => {
 
       {/* Sparo Logo */}
       <div className="pairing-page__mark">
-        <img src={logoMark} alt="Sparo OS" className="pairing-page__logo-img" />
+        <SparoMark size={72} alt="Sparo OS" className="pairing-page__logo-img" />
       </div>
 
       <div className="pairing-page__brand">

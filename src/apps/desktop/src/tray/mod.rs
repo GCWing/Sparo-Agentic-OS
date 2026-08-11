@@ -162,7 +162,8 @@ pub fn init_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     TrayIconBuilder::with_id("sparo-main")
         .icon(icon)
-        .icon_as_template(cfg!(target_os = "macos"))
+        // Runtime state is encoded by the mark's single solid color on every OS.
+        .icon_as_template(false)
         .tooltip("Sparo OS")
         .show_menu_on_left_click(false)
         .menu(&initial_menu)

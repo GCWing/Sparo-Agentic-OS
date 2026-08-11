@@ -26,8 +26,8 @@
   --app-agent-companion-attention-border: color-mix(in srgb, var(--ds-color-warning) 38%, transparent);
   --app-agent-companion-completed-tint: color-mix(in srgb, var(--ds-color-success) 12%, transparent);
   --app-agent-companion-completed-border: color-mix(in srgb, var(--ds-color-success) 34%, transparent);
-  --app-agent-companion-error-tint: color-mix(in srgb, var(--ds-color-error) 12%, transparent);
-  --app-agent-companion-error-border: color-mix(in srgb, var(--ds-color-error) 34%, transparent);
+  --app-agent-companion-error-tint: color-mix(in srgb, var(--ds-color-danger) 12%, transparent);
+  --app-agent-companion-error-border: color-mix(in srgb, var(--ds-color-danger) 34%, transparent);
 
   width: 100vw;
   height: 100vh;

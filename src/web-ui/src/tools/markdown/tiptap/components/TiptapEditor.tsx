@@ -18,7 +18,7 @@ import type { Editor as TiptapEditorInstance, JSONContent } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { Selection, TextSelection } from '@tiptap/pm/state';
 import { useI18n } from '@/infrastructure/i18n';
-import { Button, IconButton, Input } from '@/design-system';
+import { Button, IconButton, Input, SparoLogoMark } from '@/design-system';
 import { markdownAiAPI } from '@/infrastructure/api/service-api/MarkdownAiAPI';
 import { notificationService } from '@/shared/notification-system';
 import { createLogger } from '@/shared/utils/logger';
@@ -3041,7 +3041,7 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
                 } : current);
               }}
             >
-              <img src="/sparo-logo-mark.png" alt="" aria-hidden="true" />
+              <SparoLogoMark size={20} aria-hidden="true" />
             </button>
           ) : (
             <form
@@ -3052,7 +3052,7 @@ export const TiptapEditor = React.forwardRef<TiptapEditorHandle, TiptapEditorPro
               }}
             >
               <span className="m-editor-selection-coauthor__brand" aria-hidden="true">
-                <img src="/sparo-logo-mark.png" alt="" />
+                <SparoLogoMark size={16} aria-hidden="true" />
               </span>
               <input
                 ref={coauthorSelectionInputRef}
