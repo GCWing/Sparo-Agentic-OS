@@ -49,7 +49,7 @@ const CONTEXT_KIND_META: Record<ContextSegmentKind, { labelKey: string; color: s
   tool_schemas: { labelKey: 'toolDefinitions', color: 'var(--ds-status-surface-success-fg)', order: 6 },
   skill_catalog: { labelKey: 'skills', color: 'var(--ds-chat-accent, var(--ds-status-surface-info-fg))', order: 7 },
   subagent_catalog: { labelKey: 'subagentDefinitions', color: 'var(--ds-tool-family-agent-fg, var(--ds-chat-text-secondary))', order: 8 },
-  conversation_history: { labelKey: 'conversation', color: 'var(--ds-chat-danger, var(--ds-status-surface-danger-fg))', order: 9 },
+  conversation_history: { labelKey: 'conversation', color: 'var(--ds-chat-text-secondary)', order: 9 },
   current_user_message: { labelKey: 'currentMessage', color: 'var(--ds-chat-accent)', order: 10 },
   assistant_history: { labelKey: 'assistant', color: 'var(--ds-chat-text-muted)', order: 11 },
   tool_results: { labelKey: 'toolResults', color: 'var(--ds-status-surface-success-fg)', order: 12 },

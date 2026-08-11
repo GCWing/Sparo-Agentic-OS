@@ -1,0 +1,773 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "pnpm run brand:sync",
+  "sourceManifestSha256": "d6295853926cce0400be22fc41f7f6caa93d02d616359bed19fe6f3a990b94be",
+  "configSha256": "b968b24d3485dece1100b13168b83e52e93d47b41c30c6239132e08908fe1f42",
+  "files": [
+    {
+      "path": "installer/src-tauri/icons/128x128.png",
+      "bytes": 22999,
+      "sha256": "76e85fe60cf8d3ebcd1a089771b627806b8281deffb8c697dc47d52ac639432e"
+    },
+    {
+      "path": "installer/src-tauri/icons/128x128@2x.png",
+      "bytes": 75057,
+      "sha256": "a18d68acdf055c735735f58d15a95e59bf8464146028861c8aed2123ae6e5241"
+    },
+    {
+      "path": "installer/src-tauri/icons/32x32.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "installer/src-tauri/icons/64x64.png",
+      "bytes": 7228,
+      "sha256": "d2c4c5ca72928ee29f3b6ede38b87af9d519581b0065b7d44e9249c6448848d1"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square107x107Logo.png",
+      "bytes": 16914,
+      "sha256": "b8ea0dc5276770fb2d7665436dd6ffdf3bc1f3df2da0622f3b3258fd2297bf61"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square142x142Logo.png",
+      "bytes": 26888,
+      "sha256": "f63ae5c093caccf98ade422291a3c1f425b6d64260ed3ab38fca8ec426ea5681"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square150x150Logo.png",
+      "bytes": 29368,
+      "sha256": "31f5f5f505afc75891da0b01441e44c2056989034459b99154203094e8874ca8"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square284x284Logo.png",
+      "bytes": 87937,
+      "sha256": "79c8fc7c0fc1907c6e61f35c2e680212bd368c7c77a2da1eae8fe3202e8939c2"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square30x30Logo.png",
+      "bytes": 2327,
+      "sha256": "04aa27294dcae70b5a466befb6991b85a560e85d93439b91c6fbf0187853f05f"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square310x310Logo.png",
+      "bytes": 103579,
+      "sha256": "7ace27c517cbf0a20f03550281d36db3fe0f38423cca9ffad2208b3ab1ffa110"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square44x44Logo.png",
+      "bytes": 4361,
+      "sha256": "ceb53f67fe5a42ad93d80de1525e0422214af302e7049075a64cbc38b2646372"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square71x71Logo.png",
+      "bytes": 8661,
+      "sha256": "2589792c6b966f193c2dee8d9dd59bded04c4cdb98f6177ff54fada83ac928a3"
+    },
+    {
+      "path": "installer/src-tauri/icons/Square89x89Logo.png",
+      "bytes": 12476,
+      "sha256": "2b055cb5c3c3c07b5f98e65116edcf9bd060d094769f1a5dbd0cdd17b1ba1910"
+    },
+    {
+      "path": "installer/src-tauri/icons/StoreLogo.png",
+      "bytes": 5188,
+      "sha256": "e2c2d3335326a8b7ea97af2cd08360bcff2914d6cf0864c506fb56461d9bb817"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-anydpi-v26/ic_launcher.xml",
+      "bytes": 261,
+      "sha256": "760d4b8a06bf7163dd010c33ad2cac9e4a75fa0177afaba042f83e311eef0c3e"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-hdpi/ic_launcher.png",
+      "bytes": 4128,
+      "sha256": "f7a47ad0933472e6218e1d203c54dfe1c0cb0d8ba030bceb5d9ab6a774e89199"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-hdpi/ic_launcher_foreground.png",
+      "bytes": 26742,
+      "sha256": "e44f601d55c965b868272422d07cde0dc67237329369cb60e252100b58c1e2c3"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-hdpi/ic_launcher_round.png",
+      "bytes": 4128,
+      "sha256": "f7a47ad0933472e6218e1d203c54dfe1c0cb0d8ba030bceb5d9ab6a774e89199"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-mdpi/ic_launcher.png",
+      "bytes": 3855,
+      "sha256": "3d1dff05ffdd4337b8982b4bfce7aef53c4a205227f5e7a73974aab81e422783"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-mdpi/ic_launcher_foreground.png",
+      "bytes": 13226,
+      "sha256": "05a4b7bccae17fba2e9f10f02e572e04a4081b3eed5fa47d4d9bae73fe8d07e7"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-mdpi/ic_launcher_round.png",
+      "bytes": 3855,
+      "sha256": "3d1dff05ffdd4337b8982b4bfce7aef53c4a205227f5e7a73974aab81e422783"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-xhdpi/ic_launcher.png",
+      "bytes": 10916,
+      "sha256": "ab3db37b6e5aede879bf927ea6304294e233b481fb202f78fec9db02aaaa59ad"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-xhdpi/ic_launcher_foreground.png",
+      "bytes": 44333,
+      "sha256": "406e7bd86457207167a07bd2568e2915114665df701d65cfa2e43ebe3970d77f"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-xhdpi/ic_launcher_round.png",
+      "bytes": 10916,
+      "sha256": "ab3db37b6e5aede879bf927ea6304294e233b481fb202f78fec9db02aaaa59ad"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-xxhdpi/ic_launcher.png",
+      "bytes": 21787,
+      "sha256": "023174b84c84a7d12dacd805a113d030960ec77614980271d365ad365e083a7c"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-xxhdpi/ic_launcher_foreground.png",
+      "bytes": 92756,
+      "sha256": "a6920b81ba4e3c64c7dc4aaba3b7b51ba3159cc46851a3feab653503eb931245"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-xxhdpi/ic_launcher_round.png",
+      "bytes": 21787,
+      "sha256": "023174b84c84a7d12dacd805a113d030960ec77614980271d365ad365e083a7c"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png",
+      "bytes": 36148,
+      "sha256": "0bc97a240d00b1f4e0b623c3d33eb00edea683e7192f2f48fc50a25ab8c31093"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_foreground.png",
+      "bytes": 167030,
+      "sha256": "f3a42f7b7205cc667ff890ee3ce4b2380d817751c0a7b77efa78df85a284715f"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_round.png",
+      "bytes": 36148,
+      "sha256": "0bc97a240d00b1f4e0b623c3d33eb00edea683e7192f2f48fc50a25ab8c31093"
+    },
+    {
+      "path": "installer/src-tauri/icons/android/values/ic_launcher_background.xml",
+      "bytes": 118,
+      "sha256": "cfd1fe5d927768c1684791c0acb0fa62cab2156d009268446f5532756294aa20"
+    },
+    {
+      "path": "installer/src-tauri/icons/icon.icns",
+      "bytes": 1418891,
+      "sha256": "efd1d8bf22a5d2e1a92bf93f4e315022c42d6828dcf045e063ccfece2f2a31d1"
+    },
+    {
+      "path": "installer/src-tauri/icons/icon.ico",
+      "bytes": 114681,
+      "sha256": "b54f4e48202d083a4d4c101418e999fdbf9bc17ab2d789a494841e7a125d7482"
+    },
+    {
+      "path": "installer/src-tauri/icons/icon.png",
+      "bytes": 286843,
+      "sha256": "ee957c7ef29958df5a47290c50e4cc71161d7dcd228c04cf4beb221a271edca2"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-20x20@1x.png",
+      "bytes": 1008,
+      "sha256": "a2a39dc0772ffc5e8aa5bdc8181b8ac86e8d8a5ab3d0c5e8f806824014f8244d"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-20x20@2x-1.png",
+      "bytes": 3051,
+      "sha256": "d6cbfe05c02f477d00737f152a4bbe03df94146ef227b885bc7e16f23a4adcfa"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-20x20@2x.png",
+      "bytes": 3051,
+      "sha256": "d6cbfe05c02f477d00737f152a4bbe03df94146ef227b885bc7e16f23a4adcfa"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-20x20@3x.png",
+      "bytes": 5936,
+      "sha256": "d0726369fdd5fc4a337006ce14e918b92d0494ea9c29344dffa8526c8b71ed23"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-29x29@1x.png",
+      "bytes": 1789,
+      "sha256": "f0d5ec605ec54483c5869bc1a2b6eaf6bd284e1013acd0af9f55406b4ae8c351"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-29x29@2x-1.png",
+      "bytes": 5608,
+      "sha256": "af280c5c0ac4ef04bf2ff249a4939feb03b51ec574f1c84782e4750fa7c1090e"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-29x29@2x.png",
+      "bytes": 5608,
+      "sha256": "af280c5c0ac4ef04bf2ff249a4939feb03b51ec574f1c84782e4750fa7c1090e"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-29x29@3x.png",
+      "bytes": 9345,
+      "sha256": "f0d560f35d035bc22adf7e877df9dcb7f696c1ef25bc6ab13bb03a5275da4537"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-40x40@1x.png",
+      "bytes": 3051,
+      "sha256": "d6cbfe05c02f477d00737f152a4bbe03df94146ef227b885bc7e16f23a4adcfa"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-40x40@2x-1.png",
+      "bytes": 8057,
+      "sha256": "92e72d0655bbef95409fe120d2f0de29ae129628da9006551891a1cd6619af67"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-40x40@2x.png",
+      "bytes": 8057,
+      "sha256": "92e72d0655bbef95409fe120d2f0de29ae129628da9006551891a1cd6619af67"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-40x40@3x.png",
+      "bytes": 15964,
+      "sha256": "fa89bd4d1d57d98a01aa27681a102bd31a610e3e8ec2779953685b74c64c2349"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-512@2x.png",
+      "bytes": 868655,
+      "sha256": "9e56dc0ac53ee8fde77647e57fe322673fbc5e76205632bd7b3c6aa87343f24d"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-60x60@2x.png",
+      "bytes": 15964,
+      "sha256": "fa89bd4d1d57d98a01aa27681a102bd31a610e3e8ec2779953685b74c64c2349"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-60x60@3x.png",
+      "bytes": 31778,
+      "sha256": "9f569deeab77490d2df63ee2a20965bf7b31bd70504a980ee8676c6dbb4548b3"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-76x76@1x.png",
+      "bytes": 7348,
+      "sha256": "0105d01b2ba4f091d0039385506acd8ade2b31702759ce84abf2fac8daa2a351"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-76x76@2x.png",
+      "bytes": 23983,
+      "sha256": "0ed26e0918b9e18a36ceffdc55f329610ab1ae029c518964a27b6bad7f6137fb"
+    },
+    {
+      "path": "installer/src-tauri/icons/ios/AppIcon-83.5x83.5@2x.png",
+      "bytes": 28253,
+      "sha256": "0fa0fcaf13711cad20686a8112af1600db69db8184b966efdaa916090cf7da56"
+    },
+    {
+      "path": "installer/src/assets/brand/sparo-mark-16.png",
+      "bytes": 793,
+      "sha256": "17a69d0395848de0a3c5506ea1b7df986949b0596d8652fb607c0a49582ef074"
+    },
+    {
+      "path": "installer/src/assets/brand/sparo-mark-24.png",
+      "bytes": 1429,
+      "sha256": "9be58d8aabb5a18baac37ea92b66f61bd0e530eb345e646068b94aec16b72dbc"
+    },
+    {
+      "path": "installer/src/assets/brand/sparo-mark-32.png",
+      "bytes": 2220,
+      "sha256": "03d12b7f4bd2fe97296c1a28f33d20648ef4a41e1f51eee65c8ef0c0cea4f236"
+    },
+    {
+      "path": "installer/src/assets/brand/sparo-mark-48.png",
+      "bytes": 4254,
+      "sha256": "6bc33619b7b8fc5f359496177d1fe32c29e39f145fd2ef297474350ea16ec81b"
+    },
+    {
+      "path": "installer/src/assets/brand/sparo-mark-full.png",
+      "bytes": 237905,
+      "sha256": "290b3b68a69e4e61f239d88a965f95b1ba55bc52d9704b1b430d178b24bfccdd"
+    },
+    {
+      "path": "src/apps/desktop/icons/128x128.png",
+      "bytes": 22999,
+      "sha256": "76e85fe60cf8d3ebcd1a089771b627806b8281deffb8c697dc47d52ac639432e"
+    },
+    {
+      "path": "src/apps/desktop/icons/128x128@2x.png",
+      "bytes": 75057,
+      "sha256": "a18d68acdf055c735735f58d15a95e59bf8464146028861c8aed2123ae6e5241"
+    },
+    {
+      "path": "src/apps/desktop/icons/32x32.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "src/apps/desktop/icons/64x64.png",
+      "bytes": 7228,
+      "sha256": "d2c4c5ca72928ee29f3b6ede38b87af9d519581b0065b7d44e9249c6448848d1"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square107x107Logo.png",
+      "bytes": 16914,
+      "sha256": "b8ea0dc5276770fb2d7665436dd6ffdf3bc1f3df2da0622f3b3258fd2297bf61"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square142x142Logo.png",
+      "bytes": 26888,
+      "sha256": "f63ae5c093caccf98ade422291a3c1f425b6d64260ed3ab38fca8ec426ea5681"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square150x150Logo.png",
+      "bytes": 29368,
+      "sha256": "31f5f5f505afc75891da0b01441e44c2056989034459b99154203094e8874ca8"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square284x284Logo.png",
+      "bytes": 87937,
+      "sha256": "79c8fc7c0fc1907c6e61f35c2e680212bd368c7c77a2da1eae8fe3202e8939c2"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square30x30Logo.png",
+      "bytes": 2327,
+      "sha256": "04aa27294dcae70b5a466befb6991b85a560e85d93439b91c6fbf0187853f05f"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square310x310Logo.png",
+      "bytes": 103579,
+      "sha256": "7ace27c517cbf0a20f03550281d36db3fe0f38423cca9ffad2208b3ab1ffa110"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square44x44Logo.png",
+      "bytes": 4361,
+      "sha256": "ceb53f67fe5a42ad93d80de1525e0422214af302e7049075a64cbc38b2646372"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square71x71Logo.png",
+      "bytes": 8661,
+      "sha256": "2589792c6b966f193c2dee8d9dd59bded04c4cdb98f6177ff54fada83ac928a3"
+    },
+    {
+      "path": "src/apps/desktop/icons/Square89x89Logo.png",
+      "bytes": 12476,
+      "sha256": "2b055cb5c3c3c07b5f98e65116edcf9bd060d094769f1a5dbd0cdd17b1ba1910"
+    },
+    {
+      "path": "src/apps/desktop/icons/StoreLogo.png",
+      "bytes": 5188,
+      "sha256": "e2c2d3335326a8b7ea97af2cd08360bcff2914d6cf0864c506fb56461d9bb817"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-anydpi-v26/ic_launcher.xml",
+      "bytes": 261,
+      "sha256": "760d4b8a06bf7163dd010c33ad2cac9e4a75fa0177afaba042f83e311eef0c3e"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-hdpi/ic_launcher.png",
+      "bytes": 4128,
+      "sha256": "f7a47ad0933472e6218e1d203c54dfe1c0cb0d8ba030bceb5d9ab6a774e89199"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-hdpi/ic_launcher_foreground.png",
+      "bytes": 26742,
+      "sha256": "e44f601d55c965b868272422d07cde0dc67237329369cb60e252100b58c1e2c3"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-hdpi/ic_launcher_round.png",
+      "bytes": 4128,
+      "sha256": "f7a47ad0933472e6218e1d203c54dfe1c0cb0d8ba030bceb5d9ab6a774e89199"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-mdpi/ic_launcher.png",
+      "bytes": 3855,
+      "sha256": "3d1dff05ffdd4337b8982b4bfce7aef53c4a205227f5e7a73974aab81e422783"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-mdpi/ic_launcher_foreground.png",
+      "bytes": 13226,
+      "sha256": "05a4b7bccae17fba2e9f10f02e572e04a4081b3eed5fa47d4d9bae73fe8d07e7"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-mdpi/ic_launcher_round.png",
+      "bytes": 3855,
+      "sha256": "3d1dff05ffdd4337b8982b4bfce7aef53c4a205227f5e7a73974aab81e422783"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-xhdpi/ic_launcher.png",
+      "bytes": 10916,
+      "sha256": "ab3db37b6e5aede879bf927ea6304294e233b481fb202f78fec9db02aaaa59ad"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-xhdpi/ic_launcher_foreground.png",
+      "bytes": 44333,
+      "sha256": "406e7bd86457207167a07bd2568e2915114665df701d65cfa2e43ebe3970d77f"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-xhdpi/ic_launcher_round.png",
+      "bytes": 10916,
+      "sha256": "ab3db37b6e5aede879bf927ea6304294e233b481fb202f78fec9db02aaaa59ad"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-xxhdpi/ic_launcher.png",
+      "bytes": 21787,
+      "sha256": "023174b84c84a7d12dacd805a113d030960ec77614980271d365ad365e083a7c"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-xxhdpi/ic_launcher_foreground.png",
+      "bytes": 92756,
+      "sha256": "a6920b81ba4e3c64c7dc4aaba3b7b51ba3159cc46851a3feab653503eb931245"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-xxhdpi/ic_launcher_round.png",
+      "bytes": 21787,
+      "sha256": "023174b84c84a7d12dacd805a113d030960ec77614980271d365ad365e083a7c"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-xxxhdpi/ic_launcher.png",
+      "bytes": 36148,
+      "sha256": "0bc97a240d00b1f4e0b623c3d33eb00edea683e7192f2f48fc50a25ab8c31093"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-xxxhdpi/ic_launcher_foreground.png",
+      "bytes": 167030,
+      "sha256": "f3a42f7b7205cc667ff890ee3ce4b2380d817751c0a7b77efa78df85a284715f"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/mipmap-xxxhdpi/ic_launcher_round.png",
+      "bytes": 36148,
+      "sha256": "0bc97a240d00b1f4e0b623c3d33eb00edea683e7192f2f48fc50a25ab8c31093"
+    },
+    {
+      "path": "src/apps/desktop/icons/android/values/ic_launcher_background.xml",
+      "bytes": 118,
+      "sha256": "cfd1fe5d927768c1684791c0acb0fa62cab2156d009268446f5532756294aa20"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/128x128/apps/sparo-os.png",
+      "bytes": 22999,
+      "sha256": "76e85fe60cf8d3ebcd1a089771b627806b8281deffb8c697dc47d52ac639432e"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/16x16/apps/sparo-os.png",
+      "bytes": 813,
+      "sha256": "81321112286d69c31a13b99a10ba3e3248cc305774cf6f4e4858263851bef83f"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/256x256/apps/sparo-os.png",
+      "bytes": 75057,
+      "sha256": "a18d68acdf055c735735f58d15a95e59bf8464146028861c8aed2123ae6e5241"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/32x32/apps/sparo-os.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/48x48/apps/sparo-os.png",
+      "bytes": 4554,
+      "sha256": "b57e8dc54b97d931844d6d4b358f9d2963c427fac9b36a5c8a875e335d90426d"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/512x512/apps/sparo-os.png",
+      "bytes": 286843,
+      "sha256": "ee957c7ef29958df5a47290c50e4cc71161d7dcd228c04cf4beb221a271edca2"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/64x64/apps/sparo-os.png",
+      "bytes": 7228,
+      "sha256": "d2c4c5ca72928ee29f3b6ede38b87af9d519581b0065b7d44e9249c6448848d1"
+    },
+    {
+      "path": "src/apps/desktop/icons/hicolor/96x96/apps/sparo-os.png",
+      "bytes": 14197,
+      "sha256": "8b5594005c89ed50a14e663f0b7e1aca41160db7f510bdaec940c8cfc0489a1a"
+    },
+    {
+      "path": "src/apps/desktop/icons/icon.icns",
+      "bytes": 1418891,
+      "sha256": "dcd23153b7157f2db0d7f4aa8c002be5269fe047f8cd2b774b753adc680bc14b"
+    },
+    {
+      "path": "src/apps/desktop/icons/icon.ico",
+      "bytes": 114681,
+      "sha256": "b54f4e48202d083a4d4c101418e999fdbf9bc17ab2d789a494841e7a125d7482"
+    },
+    {
+      "path": "src/apps/desktop/icons/icon.png",
+      "bytes": 286843,
+      "sha256": "ee957c7ef29958df5a47290c50e4cc71161d7dcd228c04cf4beb221a271edca2"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-20x20@1x.png",
+      "bytes": 1008,
+      "sha256": "a2a39dc0772ffc5e8aa5bdc8181b8ac86e8d8a5ab3d0c5e8f806824014f8244d"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-20x20@2x-1.png",
+      "bytes": 3051,
+      "sha256": "d6cbfe05c02f477d00737f152a4bbe03df94146ef227b885bc7e16f23a4adcfa"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-20x20@2x.png",
+      "bytes": 3051,
+      "sha256": "d6cbfe05c02f477d00737f152a4bbe03df94146ef227b885bc7e16f23a4adcfa"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-20x20@3x.png",
+      "bytes": 5936,
+      "sha256": "d0726369fdd5fc4a337006ce14e918b92d0494ea9c29344dffa8526c8b71ed23"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-29x29@1x.png",
+      "bytes": 1789,
+      "sha256": "f0d5ec605ec54483c5869bc1a2b6eaf6bd284e1013acd0af9f55406b4ae8c351"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-29x29@2x-1.png",
+      "bytes": 5608,
+      "sha256": "af280c5c0ac4ef04bf2ff249a4939feb03b51ec574f1c84782e4750fa7c1090e"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-29x29@2x.png",
+      "bytes": 5608,
+      "sha256": "af280c5c0ac4ef04bf2ff249a4939feb03b51ec574f1c84782e4750fa7c1090e"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-29x29@3x.png",
+      "bytes": 9345,
+      "sha256": "f0d560f35d035bc22adf7e877df9dcb7f696c1ef25bc6ab13bb03a5275da4537"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-40x40@1x.png",
+      "bytes": 3051,
+      "sha256": "d6cbfe05c02f477d00737f152a4bbe03df94146ef227b885bc7e16f23a4adcfa"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-40x40@2x-1.png",
+      "bytes": 8057,
+      "sha256": "92e72d0655bbef95409fe120d2f0de29ae129628da9006551891a1cd6619af67"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-40x40@2x.png",
+      "bytes": 8057,
+      "sha256": "92e72d0655bbef95409fe120d2f0de29ae129628da9006551891a1cd6619af67"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-40x40@3x.png",
+      "bytes": 15964,
+      "sha256": "fa89bd4d1d57d98a01aa27681a102bd31a610e3e8ec2779953685b74c64c2349"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-512@2x.png",
+      "bytes": 868655,
+      "sha256": "9e56dc0ac53ee8fde77647e57fe322673fbc5e76205632bd7b3c6aa87343f24d"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-60x60@2x.png",
+      "bytes": 15964,
+      "sha256": "fa89bd4d1d57d98a01aa27681a102bd31a610e3e8ec2779953685b74c64c2349"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-60x60@3x.png",
+      "bytes": 31778,
+      "sha256": "9f569deeab77490d2df63ee2a20965bf7b31bd70504a980ee8676c6dbb4548b3"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-76x76@1x.png",
+      "bytes": 7348,
+      "sha256": "0105d01b2ba4f091d0039385506acd8ade2b31702759ce84abf2fac8daa2a351"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-76x76@2x.png",
+      "bytes": 23983,
+      "sha256": "0ed26e0918b9e18a36ceffdc55f329610ab1ae029c518964a27b6bad7f6137fb"
+    },
+    {
+      "path": "src/apps/desktop/icons/ios/AppIcon-83.5x83.5@2x.png",
+      "bytes": 28253,
+      "sha256": "0fa0fcaf13711cad20686a8112af1600db69db8184b966efdaa916090cf7da56"
+    },
+    {
+      "path": "src/apps/desktop/icons/tray/tray-error.png",
+      "bytes": 2359,
+      "sha256": "f8262c27dbd553f84a4648aaf037f208598926d349993a1e9670d517f1dcbc26"
+    },
+    {
+      "path": "src/apps/desktop/icons/tray/tray-idle.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "src/apps/desktop/icons/tray/tray-running.png",
+      "bytes": 2360,
+      "sha256": "8d6c230705373932a75184280d07152dedca28c215c0810e3f710a93f2b899b5"
+    },
+    {
+      "path": "src/apps/desktop/icons/tray/tray-waiting.png",
+      "bytes": 2357,
+      "sha256": "793bf22cf7d1dde92affdbfba7a9deeea6278564c450cc5d63edd38da5e9d2ad"
+    },
+    {
+      "path": "src/apps/relay-server/static/brand/app-icon-180.png",
+      "bytes": 39902,
+      "sha256": "9d5507571b8b6ffb547842f7e75d19aa36abe5e278870c596cd7430359ccfa46"
+    },
+    {
+      "path": "src/apps/relay-server/static/brand/favicon-32.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "src/apps/relay-server/static/brand/sparo-mark-16.png",
+      "bytes": 793,
+      "sha256": "17a69d0395848de0a3c5506ea1b7df986949b0596d8652fb607c0a49582ef074"
+    },
+    {
+      "path": "src/apps/relay-server/static/brand/sparo-mark-24.png",
+      "bytes": 1429,
+      "sha256": "9be58d8aabb5a18baac37ea92b66f61bd0e530eb345e646068b94aec16b72dbc"
+    },
+    {
+      "path": "src/apps/relay-server/static/brand/sparo-mark-32.png",
+      "bytes": 2220,
+      "sha256": "03d12b7f4bd2fe97296c1a28f33d20648ef4a41e1f51eee65c8ef0c0cea4f236"
+    },
+    {
+      "path": "src/apps/relay-server/static/brand/sparo-mark-48.png",
+      "bytes": 4254,
+      "sha256": "6bc33619b7b8fc5f359496177d1fe32c29e39f145fd2ef297474350ea16ec81b"
+    },
+    {
+      "path": "src/apps/relay-server/static/brand/sparo-mark-full.png",
+      "bytes": 237905,
+      "sha256": "290b3b68a69e4e61f239d88a965f95b1ba55bc52d9704b1b430d178b24bfccdd"
+    },
+    {
+      "path": "src/mobile-web/public/brand/app-icon-180.png",
+      "bytes": 39902,
+      "sha256": "9d5507571b8b6ffb547842f7e75d19aa36abe5e278870c596cd7430359ccfa46"
+    },
+    {
+      "path": "src/mobile-web/public/brand/favicon-32.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "src/mobile-web/public/brand/sparo-mark-16.png",
+      "bytes": 793,
+      "sha256": "17a69d0395848de0a3c5506ea1b7df986949b0596d8652fb607c0a49582ef074"
+    },
+    {
+      "path": "src/mobile-web/public/brand/sparo-mark-24.png",
+      "bytes": 1429,
+      "sha256": "9be58d8aabb5a18baac37ea92b66f61bd0e530eb345e646068b94aec16b72dbc"
+    },
+    {
+      "path": "src/mobile-web/public/brand/sparo-mark-32.png",
+      "bytes": 2220,
+      "sha256": "03d12b7f4bd2fe97296c1a28f33d20648ef4a41e1f51eee65c8ef0c0cea4f236"
+    },
+    {
+      "path": "src/mobile-web/public/brand/sparo-mark-48.png",
+      "bytes": 4254,
+      "sha256": "6bc33619b7b8fc5f359496177d1fe32c29e39f145fd2ef297474350ea16ec81b"
+    },
+    {
+      "path": "src/mobile-web/public/brand/sparo-mark-full.png",
+      "bytes": 237905,
+      "sha256": "290b3b68a69e4e61f239d88a965f95b1ba55bc52d9704b1b430d178b24bfccdd"
+    },
+    {
+      "path": "src/web-ui/public/brand/app-icon-512.png",
+      "bytes": 286830,
+      "sha256": "f453249bbc010d885cac92f94c9f236cd8cf63b1057d90a175afb142bd11500d"
+    },
+    {
+      "path": "src/web-ui/public/brand/favicon-32.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "src/web-ui/public/brand/sparo-mark-256.png",
+      "bytes": 66587,
+      "sha256": "f1869e6ae634eaf53dc49e44d96b6fd838c8648892687b25e490fff33a371835"
+    },
+    {
+      "path": "src/web-ui/public/brand/sparo-mark-full.png",
+      "bytes": 237905,
+      "sha256": "290b3b68a69e4e61f239d88a965f95b1ba55bc52d9704b1b430d178b24bfccdd"
+    },
+    {
+      "path": "src/web-ui/public/brand/sparo-wordmark-primary.png",
+      "bytes": 34510,
+      "sha256": "ac61b6608967a896889ef42eed5fcb838c258fbce0bee984a7746d149db5c4c3"
+    },
+    {
+      "path": "src/web-ui/public/brand/sparo-wordmark-reversed.png",
+      "bytes": 34511,
+      "sha256": "772b0f73821ba015ae6b3f37cfbbdb897fd4db07b504d5fdf70062cf5c207348"
+    },
+    {
+      "path": "src/web-ui/src/design-system/foundation/brand/sparo-app-icon-32.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "src/web-ui/src/design-system/foundation/brand/sparo-core-16.png",
+      "bytes": 583,
+      "sha256": "d8c56ce81f3e842aa9dded49b862b052d82ce3fb3f40d9364c0dae4aae4de9ac"
+    },
+    {
+      "path": "src/web-ui/src/design-system/foundation/brand/sparo-core-20.png",
+      "bytes": 817,
+      "sha256": "0a8dcd51fd7be98662cb0a61557ded28dda83a3b5169909978a1ec1f021df3c7"
+    },
+    {
+      "path": "src/web-ui/src/design-system/foundation/brand/sparo-core-24.png",
+      "bytes": 1010,
+      "sha256": "ed51d728c8b6dfad5353b57bbea5ef1e04f6a97d7f8f3417ded98c323f375236"
+    },
+    {
+      "path": "src/web-ui/src/design-system/foundation/brand/sparo-core-32.png",
+      "bytes": 1490,
+      "sha256": "d5b8e8716df53caac81df865cfbb9262dd525b52923090e233cf1470ec6ee3bc"
+    },
+    {
+      "path": "src/web-ui/src/design-system/foundation/brand/sparo-core-48.png",
+      "bytes": 2721,
+      "sha256": "cc42a80faeb9e22ca8fea8971bc350caac29ea0c673a420a3c176e4f8c8f5367"
+    },
+    {
+      "path": "src/web-ui/src/design-system/foundation/brand/sparo-mark-16.png",
+      "bytes": 793,
+      "sha256": "17a69d0395848de0a3c5506ea1b7df986949b0596d8652fb607c0a49582ef074"
+    },
+    {
+      "path": "src/web-ui/src/design-system/foundation/brand/sparo-mark-24.png",
+      "bytes": 1429,
+      "sha256": "9be58d8aabb5a18baac37ea92b66f61bd0e530eb345e646068b94aec16b72dbc"
+    },
+    {
+      "path": "src/web-ui/src/design-system/foundation/brand/sparo-mark-256.png",
+      "bytes": 66587,
+      "sha256": "f1869e6ae634eaf53dc49e44d96b6fd838c8648892687b25e490fff33a371835"
+    },
+    {
+      "path": "src/web-ui/src/design-system/foundation/brand/sparo-mark-32.png",
+      "bytes": 2220,
+      "sha256": "03d12b7f4bd2fe97296c1a28f33d20648ef4a41e1f51eee65c8ef0c0cea4f236"
+    },
+    {
+      "path": "src/web-ui/src/design-system/foundation/brand/sparo-mark-48.png",
+      "bytes": 4254,
+      "sha256": "6bc33619b7b8fc5f359496177d1fe32c29e39f145fd2ef297474350ea16ec81b"
+    },
+    {
+      "path": "src/web-ui/src/design-system/foundation/brand/sparo-mark-full.png",
+      "bytes": 237905,
+      "sha256": "290b3b68a69e4e61f239d88a965f95b1ba55bc52d9704b1b430d178b24bfccdd"
+    }
+  ]
+}

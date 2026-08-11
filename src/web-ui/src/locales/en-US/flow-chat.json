@@ -383,14 +383,8 @@
     "searchNext": "Next matching turn",
     "searchClose": "Close search",
     "searchOpen": "Search in turns",
-    "hideCompletedThinkingItems": "Hide completed thinking items",
-    "showCompletedThinkingItems": "Show completed thinking items",
     "expandRightPanel": "Expand right panel",
     "collapseRightPanel": "Collapse right panel",
-    "resetHistory": "Reset history",
-    "moreMenu": "More",
-    "showCompletedThinkingInConversation": "Show/hide thinking",
-    "resetSession": "Reset session",
     "sidecar": {
       "groupLabel": "Session panels",
       "more": "More panels",
@@ -564,7 +558,9 @@
     "currentMode": "Current Mode",
     "primaryModel": "Primary Model",
     "fastModel": "Fast Model",
-    "modelNotConfigured": "Not Configured"
+    "modelNotConfigured": "Not Configured",
+    "thinkingShown": "Thinking history is shown",
+    "thinkingHidden": "Thinking history is hidden"
   },
   "reasoningEffort": {
     "title": "Reasoning Effort",

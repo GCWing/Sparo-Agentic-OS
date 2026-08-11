@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FolderOpen } from 'lucide-react';
+import { ArrowRight, FolderOpen } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import {
-  Button,
   FloatingCard,
   IconButton,
   Input,
-  SegmentedControl,
   Select,
+  TabPane,
+  Tabs,
   type SelectOption,
 } from '@/design-system';
 import { useI18n } from '@/infrastructure/i18n';
@@ -398,11 +398,6 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
     [intelligentExecutors, knownBuiltinChoices, t]
   );
 
-  const startModeOptions = useMemo(() => [
-    { value: 'manual', label: t('nav.workDock.modeManual') },
-    { value: 'agentic-os', label: t('nav.workDock.modeAgenticOs') },
-  ], [t]);
-
   const renderAgentOption = useCallback((option: SelectOption) => (
     <div className="new-work-dialog__agent-option">
       <span className="new-work-dialog__agent-option-main">
@@ -425,13 +420,10 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
       <div className="new-work-dialog__agent-option new-work-dialog__agent-option--value">
         <span className="new-work-dialog__agent-option-main">
           <span className="new-work-dialog__agent-option-label">{option.label}</span>
-          {knownBuiltinChoices.has(String(option.value)) && (
-            <span className="new-work-dialog__system-badge">{t('nav.workDock.executor.systemBadge')}</span>
-          )}
         </span>
       </div>
     );
-  }, [knownBuiltinChoices, t]);
+  }, []);
 
   const handleBrowse = useCallback(async () => {
     try {
@@ -572,6 +564,31 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
     && (startMode === 'agentic-os' || !parseAppSlotWorkChoice(agentChoice) || Boolean(selectedExecutor))
     && !submitting;
 
+  const renderActions = () => {
+    const confirmLabel = startMode === 'agentic-os'
+      ? t('nav.workDock.confirmDispatch')
+      : t('nav.workDock.confirmCreate');
+
+    return (
+      <footer className="new-work-dialog__actions">
+        <IconButton
+          type="button"
+          variant="primary"
+          size="medium"
+          isLoading={submitting}
+          onClick={() => void handleConfirm()}
+          disabled={!canSubmit}
+          aria-label={confirmLabel}
+          tooltip={confirmLabel}
+          tooltipPlacement="top"
+          data-testid="new-work-confirm"
+        >
+          <ArrowRight size={18} aria-hidden />
+        </IconButton>
+      </footer>
+    );
+  };
+
   if (!isOpen) return null;
 
   return createPortal(
@@ -586,121 +603,112 @@ export const NewWorkDialog: React.FC<NewWorkDialogProps> = ({
         role="dialog"
         aria-modal="false"
         aria-labelledby="new-work-dialog-title"
+        aria-describedby="new-work-dialog-hint"
         tabIndex={-1}
         data-testid="new-work-dialog"
       >
-        <header className="new-work-dialog__header">
-          <h2 className="new-work-dialog__title" id="new-work-dialog-title">
-            {t('nav.workDock.createTitle')}
-          </h2>
-          <SegmentedControl
-            className="new-work-dialog__mode"
-            options={startModeOptions}
-            value={startMode}
-            onChange={(value) => setStartMode(value as NewWorkStartMode)}
-            size="small"
-            variant="accent"
-            ariaLabel={t('nav.workDock.modeAriaLabel')}
-          />
-        </header>
+        <h2 className="new-work-dialog__title" id="new-work-dialog-title">
+          {t('nav.workDock.createTitle')}
+        </h2>
 
-        <div className="new-work-dialog__mode-content">
-          {startMode === 'manual' ? (
-            <div className="new-work-dialog__sentence" key="manual">
-              <span className="new-work-dialog__sentence-copy">{t('nav.workDock.sentencePrefix')}</span>
-              <div className="new-work-dialog__agent-select">
-                <Select
-                  id="new-work-agent-select"
-                  size="medium"
-                  shape="pill"
-                  options={agentOptions}
-                  value={agentChoice}
-                  onChange={(value) => setAgentChoice(value as NewWorkAgentChoice)}
-                  renderOption={renderAgentOption}
-                  renderValue={renderAgentValue}
-                  dropdownWidth="min(360px, calc(100vw - 32px))"
-                  searchPlaceholder={t('nav.workDock.agentSearchPlaceholder')}
-                  searchable
-                />
-              </div>
-              <span className="new-work-dialog__sentence-copy">{t('nav.workDock.sentenceInfix')}</span>
-              <div className="new-work-dialog__workspace-field">
-                <div className="new-work-dialog__workspace-select">
+        <Tabs
+          className="new-work-dialog__tabs"
+          type="line"
+          size="medium"
+          activeKey={startMode}
+          onChange={(value) => setStartMode(value as NewWorkStartMode)}
+        >
+          <TabPane tabKey="manual" label={t('nav.workDock.modeManual')}>
+            <section className="new-work-dialog__stage">
+              <p className="new-work-dialog__hint" id="new-work-dialog-hint">
+                {t('nav.workDock.definitionHint')}
+              </p>
+              <div className="new-work-dialog__sentence" key="manual">
+                <span className="new-work-dialog__sentence-copy">{t('nav.workDock.sentencePrefix')}</span>
+                <div className="new-work-dialog__agent-select">
                   <Select
-                    id="new-work-workspace-select"
+                    id="new-work-agent-select"
                     size="medium"
                     shape="pill"
-                    options={workspaceOptions}
-                    value={workspaceId ?? ''}
-                    onChange={(value) => {
-                      const selectedValue = String(value);
-                      setWorkspaceId(selectedValue);
-                      if (selectedValue !== BROWSED_WORKSPACE_VALUE) {
-                        setBrowsedWorkspacePath(null);
-                      }
-                    }}
-                    placeholder={t('nav.workDock.workspacePlaceholder')}
+                    options={agentOptions}
+                    value={agentChoice}
+                    onChange={(value) => setAgentChoice(value as NewWorkAgentChoice)}
+                    renderOption={renderAgentOption}
+                    renderValue={renderAgentValue}
+                    dropdownWidth="min(360px, calc(100vw - 32px))"
+                    searchPlaceholder={t('nav.workDock.agentSearchPlaceholder')}
                     searchable
-                    dropdownWidth="min(420px, calc(100vw - 32px))"
-                    dropdownAlign="end"
-                    emptyText={t('nav.workDock.noOpenWorkspace')}
                   />
                 </div>
-                <IconButton
-                  type="button"
-                  variant="ghost"
-                  size="medium"
-                  className="new-work-dialog__browse"
-                  onClick={() => void handleBrowse()}
-                  aria-label={t('nav.workDock.browseWorkspace')}
-                  tooltip={t('nav.workDock.browseWorkspace')}
-                  tooltipPlacement="top"
-                >
-                  <FolderOpen size={16} aria-hidden />
-                </IconButton>
+                <span className="new-work-dialog__sentence-copy">{t('nav.workDock.sentenceInfix')}</span>
+                <div className="new-work-dialog__workspace-field">
+                  <div className="new-work-dialog__workspace-select">
+                    <Select
+                      id="new-work-workspace-select"
+                      size="medium"
+                      shape="pill"
+                      options={workspaceOptions}
+                      value={workspaceId ?? ''}
+                      onChange={(value) => {
+                        const selectedValue = String(value);
+                        setWorkspaceId(selectedValue);
+                        if (selectedValue !== BROWSED_WORKSPACE_VALUE) {
+                          setBrowsedWorkspacePath(null);
+                        }
+                      }}
+                      placeholder={t('nav.workDock.workspacePlaceholder')}
+                      searchable
+                      dropdownWidth="min(420px, calc(100vw - 32px))"
+                      dropdownAlign="end"
+                      emptyText={t('nav.workDock.noOpenWorkspace')}
+                    />
+                  </div>
+                  <IconButton
+                    type="button"
+                    variant="ghost"
+                    size="medium"
+                    className="new-work-dialog__browse"
+                    onClick={() => void handleBrowse()}
+                    aria-label={t('nav.workDock.browseWorkspace')}
+                    tooltip={t('nav.workDock.browseWorkspace')}
+                    tooltipPlacement="top"
+                  >
+                    <FolderOpen size={16} aria-hidden />
+                  </IconButton>
+                </div>
+                <span className="new-work-dialog__sentence-copy">{t('nav.workDock.sentenceSuffix')}</span>
               </div>
-              <span className="new-work-dialog__sentence-copy">{t('nav.workDock.sentenceSuffix')}</span>
-            </div>
-          ) : (
-            <div className="new-work-dialog__sentence new-work-dialog__sentence--delegate" key="agentic-os">
-              <span className="new-work-dialog__sentence-copy">{t('nav.workDock.delegatePrefix')}</span>
-              <Input
-                className="new-work-dialog__objective"
-                value={objective}
-                onChange={(event) => setObjective(event.target.value)}
-                placeholder={t('nav.workDock.objectivePlaceholder')}
-                size="medium"
-                shape="pill"
-                focusTone="danger"
-                maxLength={600}
-                autoFocus
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && canSubmit) void handleConfirm();
-                }}
-              />
-              <span className="new-work-dialog__sentence-copy">{t('nav.workDock.delegateSuffix')}</span>
-            </div>
-          )}
-        </div>
+              {renderActions()}
+            </section>
+          </TabPane>
 
-        <footer className="new-work-dialog__actions">
-          <Button type="button" variant="ghost" size="small" onClick={onClose} disabled={submitting}>
-            {t('actions.cancel')}
-          </Button>
-          <Button
-            type="button"
-            variant="primary"
-            size="small"
-            isLoading={submitting}
-            onClick={() => void handleConfirm()}
-            disabled={!canSubmit}
-            data-testid="new-work-confirm"
-          >
-            {startMode === 'agentic-os'
-              ? t('nav.workDock.confirmDispatch')
-              : t('nav.workDock.confirmCreate')}
-          </Button>
-        </footer>
+          <TabPane tabKey="agentic-os" label={t('nav.workDock.modeAgenticOs')}>
+            <section className="new-work-dialog__stage">
+              <p className="new-work-dialog__hint" id="new-work-dialog-hint">
+                {t('nav.workDock.definitionHint')}
+              </p>
+              <div className="new-work-dialog__sentence new-work-dialog__sentence--delegate" key="agentic-os">
+                <span className="new-work-dialog__sentence-copy">{t('nav.workDock.delegatePrefix')}</span>
+                <Input
+                  className="new-work-dialog__objective"
+                  value={objective}
+                  onChange={(event) => setObjective(event.target.value)}
+                  placeholder={t('nav.workDock.objectivePlaceholder')}
+                  size="medium"
+                  shape="pill"
+                  focusTone="danger"
+                  maxLength={600}
+                  autoFocus
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && canSubmit) void handleConfirm();
+                  }}
+                />
+                <span className="new-work-dialog__sentence-copy">{t('nav.workDock.delegateSuffix')}</span>
+              </div>
+              {renderActions()}
+            </section>
+          </TabPane>
+        </Tabs>
       </FloatingCard>
     </div>,
     document.body,

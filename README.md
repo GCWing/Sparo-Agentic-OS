@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Sparo OS](./image/Sparo_title.png)
+![Sparo OS](./image/sparo-readme-wordmark.png)
 
 </div>
 <div align="center">
@@ -34,7 +34,7 @@ Technical foundation derived from the upstream [GCWing/BitFun](https://github.co
 
 </div>
 
-![Sparo OS Hero](./image/readme_hero.png)
+![Sparo OS Hero](./image/readme_hero.webp)
 
 ---
 

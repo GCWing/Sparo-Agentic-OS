@@ -1,0 +1,393 @@
+{
+  "schemaVersion": 5,
+  "brandVersion": "2026.08-tight-circular-system-icons",
+  "status": "current",
+  "generatedBy": "pnpm run brand:generate",
+  "provenance": {
+    "mark": {
+      "path": "source/sparo-mark-master.png",
+      "pixels": [
+        1536,
+        1024
+      ],
+      "sha256": "10c9328ae0f8543b1713ffb68d752a4d4e8d26a76dae283c597826c92cc5e14d",
+      "treatment": "Low-alpha speckles removed, visible bounds normalized to a true circle, supplied material detail preserved."
+    },
+    "core": {
+      "path": "source/sparo-core-master.png",
+      "pixels": [
+        1536,
+        1024
+      ],
+      "sha256": "9bdbc6ebd4d750fb534a7aa166bafaf2313232567acec12c7a0a1c9444c5b3ce",
+      "treatment": "Source silhouette and material preserved for compact in-product core exports; target sizes use alpha-safe reduction and lossless PNG compression."
+    },
+    "reference": {
+      "path": "reference/sparo-identity-board.png",
+      "pixels": [
+        1448,
+        1086
+      ],
+      "sha256": "0b2d0032de23174be0381976f8edc90094e7fa380a37dfb7147f873e9e388e4f"
+    },
+    "appIcon": "Transparent margins are removed on all four sides of the normalized circular material Logo before platform-size reduction; source proportions and material are preserved.",
+    "wordmark": "Deterministic transparent raster extraction from the approved identity board with a global 3px optical stroke expansion; the approved letter geometry and red core are preserved without redrawn paths."
+  },
+  "roles": {
+    "defaultLogo": "circular",
+    "applicationIcon": "circular at every size, including taskbar and window icons",
+    "trayIcon": "edge-fitted circular material Logo with the red core; active states add a compact status badge",
+    "wordmark": "Globally optically bold Sparo OS wordmark with a red core inside the lowercase a"
+  },
+  "formatPolicy": "Brand artwork is PNG-only. Product code must not redraw or embed brand geometry as SVG.",
+  "qaPolicy": "QA preview boards are validated for presence, PNG format, and dimensions but excluded from cross-platform byte hashes because their labels use host font rasterization.",
+  "colors": {
+    "coreRed": "#E53935",
+    "warmWhite": "#F5F2EE",
+    "softIvory": "#ECE7E1",
+    "sandGray": "#D8D3CC",
+    "deepCharcoal": "#1A1A1A"
+  },
+  "sourceProcessing": {
+    "alphaThreshold": 8,
+    "detectedVisibleBounds": {
+      "left": 337,
+      "top": 53,
+      "width": 858,
+      "height": 872
+    },
+    "detectedCoreBounds": {
+      "left": 392,
+      "top": 67,
+      "width": 752,
+      "height": 882
+    },
+    "normalizedCanvas": [
+      1024,
+      1024
+    ],
+    "wordmark": {
+      "neutralStrokeExpansionPx": 3,
+      "primaryAndReversedPreserveRedCore": true,
+      "redrawnGeometry": false
+    }
+  },
+  "sizePolicy": {
+    "canonicalMinimumPx": 64,
+    "responsiveMinimumPx": 16,
+    "rule": "Use the normalized raster master at 64px and above and target-specific raster reductions at 16-48px.",
+    "smallSizes": [
+      16,
+      24,
+      32,
+      48
+    ]
+  },
+  "appIcon": {
+    "master": "exports/app-icon/sparo-app-icon-1024.png",
+    "geometry": "circular",
+    "transparentOutsideCircle": true,
+    "edgeFit": "Visible bounds fill all four sides of the square canvas; only the circular corners remain transparent.",
+    "smallSizeProcessing": "Premultiplied-alpha Lanczos reduction from the normalized circular mark.",
+    "iosOpaqueBackground": "#F5F2EE"
+  },
+  "tray": {
+    "geometry": "Direct target-size raster derivatives of the edge-fitted circular material Logo with its red core.",
+    "stateBadges": {
+      "idle": null,
+      "running": "#168A5B",
+      "waiting": "#C77B12",
+      "error": "#8B3AA8"
+    },
+    "sizes": [
+      16,
+      20,
+      24,
+      32,
+      48
+    ],
+    "contentLimit": "Visible circular Logo fills all four sides of the target canvas without added transparent padding.",
+    "compression": "Lossless PNG, level 9, adaptive filtering."
+  },
+  "sources": {
+    "source/sparo-mark-master.png": {
+      "bytes": 983141,
+      "sha256": "10c9328ae0f8543b1713ffb68d752a4d4e8d26a76dae283c597826c92cc5e14d"
+    },
+    "source/sparo-core-master.png": {
+      "bytes": 904102,
+      "sha256": "9bdbc6ebd4d750fb534a7aa166bafaf2313232567acec12c7a0a1c9444c5b3ce"
+    },
+    "reference/sparo-identity-board.png": {
+      "bytes": 1506523,
+      "sha256": "0b2d0032de23174be0381976f8edc90094e7fa380a37dfb7147f873e9e388e4f"
+    }
+  },
+  "files": [
+    {
+      "path": "exports/app-icon/sparo-app-icon-1024.png",
+      "bytes": 1021655,
+      "sha256": "c65833124c839750b6b6b82bb89ef8748caa5f21264ffd77213a781cb641534c"
+    },
+    {
+      "path": "exports/app-icon/sparo-app-icon-128.png",
+      "bytes": 22827,
+      "sha256": "0da0e354ae77f215b79f0ea298d4d6046dac332cefb6fca47514e5c9dace7d91"
+    },
+    {
+      "path": "exports/app-icon/sparo-app-icon-16.png",
+      "bytes": 813,
+      "sha256": "81321112286d69c31a13b99a10ba3e3248cc305774cf6f4e4858263851bef83f"
+    },
+    {
+      "path": "exports/app-icon/sparo-app-icon-24.png",
+      "bytes": 1517,
+      "sha256": "2b9475092c8c0de07d30f49ee78c1e93a9bd6e0aeff740911d1ec0d982696804"
+    },
+    {
+      "path": "exports/app-icon/sparo-app-icon-256.png",
+      "bytes": 75322,
+      "sha256": "70a88b176dd76df6336b65d0f67aabe146e4ca9c977c320c90e9e16b6ccc0f69"
+    },
+    {
+      "path": "exports/app-icon/sparo-app-icon-32.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "exports/app-icon/sparo-app-icon-48.png",
+      "bytes": 4554,
+      "sha256": "b57e8dc54b97d931844d6d4b358f9d2963c427fac9b36a5c8a875e335d90426d"
+    },
+    {
+      "path": "exports/app-icon/sparo-app-icon-512.png",
+      "bytes": 286830,
+      "sha256": "f453249bbc010d885cac92f94c9f236cd8cf63b1057d90a175afb142bd11500d"
+    },
+    {
+      "path": "exports/app-icon/sparo-app-icon-64.png",
+      "bytes": 7228,
+      "sha256": "d2c4c5ca72928ee29f3b6ede38b87af9d519581b0065b7d44e9249c6448848d1"
+    },
+    {
+      "path": "exports/core/sparo-core-16.png",
+      "bytes": 583,
+      "sha256": "d8c56ce81f3e842aa9dded49b862b052d82ce3fb3f40d9364c0dae4aae4de9ac"
+    },
+    {
+      "path": "exports/core/sparo-core-20.png",
+      "bytes": 817,
+      "sha256": "0a8dcd51fd7be98662cb0a61557ded28dda83a3b5169909978a1ec1f021df3c7"
+    },
+    {
+      "path": "exports/core/sparo-core-24.png",
+      "bytes": 1010,
+      "sha256": "ed51d728c8b6dfad5353b57bbea5ef1e04f6a97d7f8f3417ded98c323f375236"
+    },
+    {
+      "path": "exports/core/sparo-core-32.png",
+      "bytes": 1490,
+      "sha256": "d5b8e8716df53caac81df865cfbb9262dd525b52923090e233cf1470ec6ee3bc"
+    },
+    {
+      "path": "exports/core/sparo-core-48.png",
+      "bytes": 2721,
+      "sha256": "cc42a80faeb9e22ca8fea8971bc350caac29ea0c673a420a3c176e4f8c8f5367"
+    },
+    {
+      "path": "exports/lockup/sparo-lockup-horizontal-mono.png",
+      "bytes": 52446,
+      "sha256": "5be09ea9fb2b54d350efa40b0d910ce0038d45a38975ae6ba6be81608dd275de"
+    },
+    {
+      "path": "exports/lockup/sparo-lockup-horizontal-primary.png",
+      "bytes": 113890,
+      "sha256": "d2a230460323355ad34bb1ac2b92f32319819279a1a8ac066e981c96751878ce"
+    },
+    {
+      "path": "exports/lockup/sparo-lockup-horizontal-reversed.png",
+      "bytes": 114771,
+      "sha256": "3e32ebde378d5111256dc30b6041d8ec3521590cb769d33f8785454ef2855ed7"
+    },
+    {
+      "path": "exports/mark/sparo-mark-128.png",
+      "bytes": 21235,
+      "sha256": "22aeeda3f6881a4be6292a1de7758ca9fc58dbc7b7da61ff707b404c7e28cbb7"
+    },
+    {
+      "path": "exports/mark/sparo-mark-16.png",
+      "bytes": 793,
+      "sha256": "17a69d0395848de0a3c5506ea1b7df986949b0596d8652fb607c0a49582ef074"
+    },
+    {
+      "path": "exports/mark/sparo-mark-24.png",
+      "bytes": 1429,
+      "sha256": "9be58d8aabb5a18baac37ea92b66f61bd0e530eb345e646068b94aec16b72dbc"
+    },
+    {
+      "path": "exports/mark/sparo-mark-256.png",
+      "bytes": 66587,
+      "sha256": "f1869e6ae634eaf53dc49e44d96b6fd838c8648892687b25e490fff33a371835"
+    },
+    {
+      "path": "exports/mark/sparo-mark-32.png",
+      "bytes": 2220,
+      "sha256": "03d12b7f4bd2fe97296c1a28f33d20648ef4a41e1f51eee65c8ef0c0cea4f236"
+    },
+    {
+      "path": "exports/mark/sparo-mark-48.png",
+      "bytes": 4254,
+      "sha256": "6bc33619b7b8fc5f359496177d1fe32c29e39f145fd2ef297474350ea16ec81b"
+    },
+    {
+      "path": "exports/mark/sparo-mark-512.png",
+      "bytes": 237905,
+      "sha256": "290b3b68a69e4e61f239d88a965f95b1ba55bc52d9704b1b430d178b24bfccdd"
+    },
+    {
+      "path": "exports/mark/sparo-mark-64.png",
+      "bytes": 6634,
+      "sha256": "bf938438a21f593cfa68471ac79a729586ef8816a0fabe736fc847d8c830377c"
+    },
+    {
+      "path": "exports/tray/sparo-tray-16-dark.png",
+      "bytes": 813,
+      "sha256": "81321112286d69c31a13b99a10ba3e3248cc305774cf6f4e4858263851bef83f"
+    },
+    {
+      "path": "exports/tray/sparo-tray-16-light.png",
+      "bytes": 813,
+      "sha256": "81321112286d69c31a13b99a10ba3e3248cc305774cf6f4e4858263851bef83f"
+    },
+    {
+      "path": "exports/tray/sparo-tray-20-dark.png",
+      "bytes": 1157,
+      "sha256": "eb6b0eca83a5d63585db9a51add1e5f3e3d708f98bcf6f02e3a78d858fe21191"
+    },
+    {
+      "path": "exports/tray/sparo-tray-20-light.png",
+      "bytes": 1157,
+      "sha256": "eb6b0eca83a5d63585db9a51add1e5f3e3d708f98bcf6f02e3a78d858fe21191"
+    },
+    {
+      "path": "exports/tray/sparo-tray-24-dark.png",
+      "bytes": 1517,
+      "sha256": "2b9475092c8c0de07d30f49ee78c1e93a9bd6e0aeff740911d1ec0d982696804"
+    },
+    {
+      "path": "exports/tray/sparo-tray-24-light.png",
+      "bytes": 1517,
+      "sha256": "2b9475092c8c0de07d30f49ee78c1e93a9bd6e0aeff740911d1ec0d982696804"
+    },
+    {
+      "path": "exports/tray/sparo-tray-32-dark.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "exports/tray/sparo-tray-32-light.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "exports/tray/sparo-tray-48-dark.png",
+      "bytes": 4554,
+      "sha256": "b57e8dc54b97d931844d6d4b358f9d2963c427fac9b36a5c8a875e335d90426d"
+    },
+    {
+      "path": "exports/tray/sparo-tray-48-light.png",
+      "bytes": 4554,
+      "sha256": "b57e8dc54b97d931844d6d4b358f9d2963c427fac9b36a5c8a875e335d90426d"
+    },
+    {
+      "path": "exports/tray/sparo-tray-error.png",
+      "bytes": 2359,
+      "sha256": "f8262c27dbd553f84a4648aaf037f208598926d349993a1e9670d517f1dcbc26"
+    },
+    {
+      "path": "exports/tray/sparo-tray-idle-16.png",
+      "bytes": 813,
+      "sha256": "81321112286d69c31a13b99a10ba3e3248cc305774cf6f4e4858263851bef83f"
+    },
+    {
+      "path": "exports/tray/sparo-tray-idle-20.png",
+      "bytes": 1157,
+      "sha256": "eb6b0eca83a5d63585db9a51add1e5f3e3d708f98bcf6f02e3a78d858fe21191"
+    },
+    {
+      "path": "exports/tray/sparo-tray-idle-24.png",
+      "bytes": 1517,
+      "sha256": "2b9475092c8c0de07d30f49ee78c1e93a9bd6e0aeff740911d1ec0d982696804"
+    },
+    {
+      "path": "exports/tray/sparo-tray-idle-32.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "exports/tray/sparo-tray-idle-48.png",
+      "bytes": 4554,
+      "sha256": "b57e8dc54b97d931844d6d4b358f9d2963c427fac9b36a5c8a875e335d90426d"
+    },
+    {
+      "path": "exports/tray/sparo-tray-idle.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "exports/tray/sparo-tray-running.png",
+      "bytes": 2360,
+      "sha256": "8d6c230705373932a75184280d07152dedca28c215c0810e3f710a93f2b899b5"
+    },
+    {
+      "path": "exports/tray/sparo-tray-waiting.png",
+      "bytes": 2357,
+      "sha256": "793bf22cf7d1dde92affdbfba7a9deeea6278564c450cc5d63edd38da5e9d2ad"
+    },
+    {
+      "path": "exports/web/apple-touch-icon-180.png",
+      "bytes": 39902,
+      "sha256": "9d5507571b8b6ffb547842f7e75d19aa36abe5e278870c596cd7430359ccfa46"
+    },
+    {
+      "path": "exports/web/favicon-16.png",
+      "bytes": 813,
+      "sha256": "81321112286d69c31a13b99a10ba3e3248cc305774cf6f4e4858263851bef83f"
+    },
+    {
+      "path": "exports/web/favicon-32.png",
+      "bytes": 2395,
+      "sha256": "f1f2566dfeba2e8593676da2f79587696ac70838dc9391dce676348768bcc808"
+    },
+    {
+      "path": "exports/web/favicon-48.png",
+      "bytes": 4554,
+      "sha256": "b57e8dc54b97d931844d6d4b358f9d2963c427fac9b36a5c8a875e335d90426d"
+    },
+    {
+      "path": "exports/web/web-app-icon-192.png",
+      "bytes": 45123,
+      "sha256": "3f81f7bf0ed8ef06962be12e4ec22d9ebfb1ce1ff2e98d312b77e97c9d0984a7"
+    },
+    {
+      "path": "exports/web/web-app-icon-512.png",
+      "bytes": 286843,
+      "sha256": "ee957c7ef29958df5a47290c50e4cc71161d7dcd228c04cf4beb221a271edca2"
+    },
+    {
+      "path": "exports/wordmark/sparo-wordmark-mono.png",
+      "bytes": 34145,
+      "sha256": "9b42f1aac05dfeb3161e202235ec3cbf443a190fe528975f464d63550eae63b2"
+    },
+    {
+      "path": "exports/wordmark/sparo-wordmark-primary.png",
+      "bytes": 34510,
+      "sha256": "ac61b6608967a896889ef42eed5fcb838c258fbce0bee984a7746d149db5c4c3"
+    },
+    {
+      "path": "exports/wordmark/sparo-wordmark-reversed.png",
+      "bytes": 34511,
+      "sha256": "772b0f73821ba015ae6b3f37cfbbdb897fd4db07b504d5fdf70062cf5c207348"
+    }
+  ]
+}

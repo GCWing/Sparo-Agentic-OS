@@ -11,9 +11,14 @@
   --ds-chat-text-secondary: var(--ds-color-text-secondary, var(--ds-chat-text-secondary));
   --ds-chat-text-muted: var(--ds-color-text-muted, var(--ds-chat-text-muted));
   --ds-chat-text-disabled: var(--ds-color-text-disabled, var(--ds-chat-text-disabled));
+  --ds-chat-brand-core: var(--ds-color-brand-core, var(--ds-color-accent-500));
+  --ds-chat-brand-action: var(--ds-color-brand-action, var(--ds-color-accent-500));
+  --ds-chat-brand-action-hover: var(--ds-color-brand-action-hover, var(--ds-color-accent-600));
+  --ds-chat-brand-action-active: var(--ds-color-brand-action-active, var(--ds-color-accent-800));
+  --ds-chat-brand-on-action: var(--ds-color-brand-on-action, var(--ds-color-text-inverse));
   --ds-chat-accent: var(--ds-color-accent-500, var(--ds-chat-accent));
   --ds-chat-accent-soft: var(--ds-color-accent-100, var(--ds-color-accent-100));
-  --ds-chat-focus-ring: var(--ds-color-border-focus, var(--ds-color-accent-400));
+  --ds-chat-focus-ring: var(--ds-color-brand-focus-ring, var(--ds-color-border-focus));
   --ds-chat-danger: var(--ds-color-danger, var(--ds-chat-danger));
   --ds-chat-danger-bg: var(--ds-color-danger-bg, var(--ds-chat-danger-bg));
   --ds-chat-danger-border: var(--ds-color-danger-border, var(--ds-chat-danger-border));

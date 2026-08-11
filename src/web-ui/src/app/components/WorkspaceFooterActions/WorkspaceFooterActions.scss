@@ -132,9 +132,9 @@
   min-width: 40px;
   height: 40px;
   padding: 0;
-  color: var(--ds-color-text-inverse);
-  background: var(--ds-color-accent-500);
-  border: 1px solid transparent;
+  color: var(--ds-color-text-primary);
+  background: var(--ds-color-bg-elevated);
+  border: 1px solid var(--ds-color-border-base);
   border-radius: var(--ds-radius-full);
   box-shadow: var(--ds-shadow-sm);
   transform: none;
@@ -150,15 +150,17 @@
 
   &:hover:not(:disabled),
   &:focus-visible {
-    color: var(--ds-color-text-inverse);
-    background: var(--ds-color-accent-600);
-    border-color: transparent;
+    color: var(--ds-color-text-primary);
+    background: var(--ds-color-element-medium);
+    border-color: var(--ds-color-border-medium);
     transform: scale(1.035);
   }
 
   &.is-open {
     z-index: var(--ds-z-tooltip);
-    background: var(--ds-color-accent-500);
+    color: var(--ds-color-brand-on-action);
+    background: var(--ds-color-brand-action);
+    border-color: transparent;
     box-shadow: none;
     transform: none;
   }
@@ -177,8 +179,8 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  color: var(--ds-color-text-inverse);
-  background: var(--ds-color-danger);
+  color: var(--ds-color-brand-on-action);
+  background: var(--ds-color-brand-action);
   border: 2px solid var(--ds-color-bg-panel);
   border-radius: var(--ds-radius-full);
   box-shadow: var(--ds-shadow-sm);
@@ -352,7 +354,7 @@
   &.is-selected,
   &.is-selected:hover,
   &.is-selected:focus-within {
-    background: var(--ds-color-accent-500);
+    background: color-mix(in srgb, var(--ds-color-brand-action) 10%, transparent);
   }
 
   &:hover .sparo-workspace-hub__preview-item-open,
@@ -419,16 +421,15 @@
   .sparo-workspace-hub__preview-item,
   .sparo-workspace-hub__preview-item:hover:not(:disabled),
   .sparo-workspace-hub__preview-item:focus-visible {
-    color: var(--ds-color-text-inverse);
+    color: var(--ds-color-text-primary);
   }
 
   .sparo-workspace-hub__item-meta {
-    color: var(--ds-color-text-inverse);
-    opacity: 0.72;
+    color: var(--ds-color-text-secondary);
   }
 
   .sparo-workspace-hub__preview-item-open {
-    color: var(--ds-color-text-inverse);
+    color: var(--ds-color-brand-action);
 
     &:hover:not(:disabled),
     &:focus-visible {
@@ -487,7 +488,7 @@
   z-index: var(--ds-z-local);
   width: 6px;
   height: 6px;
-  background: var(--ds-color-danger);
+  background: var(--ds-color-brand-action);
   border: 1px solid var(--ds-color-bg-panel);
   border-radius: var(--ds-radius-full);
 }
@@ -838,8 +839,8 @@
 
   .ds-segmented-control__item--selected .sparo-workspace-hub__theme-preview,
   .ds-segmented-control__item--selected .sparo-workspace-hub__system-theme-preview {
-    color: $color-error;
-    border-color: $color-error;
+    color: var(--ds-color-brand-action);
+    border-color: var(--ds-color-brand-action);
   }
 }
 

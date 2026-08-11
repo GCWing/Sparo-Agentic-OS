@@ -53,7 +53,7 @@
 
   &__required,
   &__error {
-    color: var(--ds-color-danger, var(--color-error));
+    color: var(--ds-color-danger);
   }
 
   &__description {

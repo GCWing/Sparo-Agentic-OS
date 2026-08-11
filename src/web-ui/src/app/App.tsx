@@ -23,6 +23,7 @@ import { useSettingsStore } from './scenes/settings/settingsStore';
 import { openWorkspaceScene } from './navigation/workspaceNavigation';
 import { aiApi } from '@/infrastructure/api';
 import { ConfigRecoveryPrompt } from './components/ConfigRecoveryPrompt';
+import { requestMainWindowShow } from '@/boot/startupSplash';
 
 const log = createLogger('App');
 /**
@@ -57,8 +58,7 @@ function App() {
     mainWindowShownRef.current = true;
 
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('show_main_window');
+      await requestMainWindowShow();
       log.debug('Main window shown', { reason });
     } catch (error: any) {
       log.error('Failed to show main window', error);

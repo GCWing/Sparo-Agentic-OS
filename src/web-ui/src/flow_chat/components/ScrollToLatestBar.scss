@@ -74,7 +74,7 @@
   // ========== Circle arrow button ==========
   &__control.icon-btn {
     --scroll-to-latest-ring-angle: 0turn;
-    --scroll-to-latest-ring-color: var(--ds-chat-danger, var(--ds-status-surface-danger-fg));
+    --scroll-to-latest-ring-color: var(--ds-chat-brand-action);
 
     display: flex;
     align-items: center;
@@ -148,7 +148,7 @@
     outline: none;
 
     .scroll-to-latest-bar__control.icon-btn {
-      border-color: var(--ds-chat-danger, var(--ds-status-surface-danger-fg));
+      border-color: var(--ds-chat-focus-ring);
       color: var(--ds-chat-text-primary);
     }
   }

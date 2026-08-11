@@ -317,7 +317,7 @@ $_indent-width: 8px;
   }
 
   &--html {
-    color: var(--ds-language-html-fg, var(--ds-color-danger));
+    color: var(--ds-language-html-fg, var(--ds-color-accent-500));
   }
 
   &--css {
@@ -357,7 +357,7 @@ $_indent-width: 8px;
   }
 
   &--video {
-    color: var(--ds-color-danger);
+    color: var(--ds-color-purple-500, var(--ds-color-text-secondary));
   }
 
   &--archive {

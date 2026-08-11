@@ -45,11 +45,11 @@
   }
 
   &--red {
-    background: rgba(239, 68, 68, 0.14);
-    color: tokens.$color-error;
+    background: color-mix(in srgb, var(--ds-color-danger) 14%, transparent);
+    color: var(--ds-color-danger);
 
     &:hover {
-      background: rgba(239, 68, 68, 0.2);
+      background: color-mix(in srgb, var(--ds-color-danger) 20%, transparent);
     }
   }
 

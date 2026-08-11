@@ -46,7 +46,7 @@
   }
 
   &--error {
-    border-color: var(--ds-color-error, var(--color-error));
+    border-color: var(--ds-color-danger);
   }
 
   &--loading {
@@ -106,7 +106,7 @@
 }
 
 .ds-action-list-row__error {
-  color: var(--ds-color-error, var(--color-error));
+  color: var(--ds-color-danger);
   overflow-wrap: anywhere;
 }
 

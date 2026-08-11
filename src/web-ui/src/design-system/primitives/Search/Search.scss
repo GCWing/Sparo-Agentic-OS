@@ -197,18 +197,18 @@
 
   &--error {
     .search__wrapper {
-      border-color: var(--color-error);
+      border-color: var(--ds-color-danger);
     }
 
     .search__prefix {
-      color: var(--color-error);
+      color: var(--ds-color-danger);
     }
   }
 
   &__error-message {
     margin-top: $size-gap-2;
     font-size: var(--font-size-xs);
-    color: var(--color-error);
+    color: var(--ds-color-danger);
     display: flex;
     align-items: center;
     gap: $size-gap-1;

@@ -6,8 +6,8 @@
  * here, exposes the current stage as React state, and uses it to decide when
  * to render the main `<App />`.
  *
- * There is **no minimum splash duration**: the splash exits the moment the
- * backend reports `workspaceReady`, so a warm cache start can paint < 200 ms.
+ * Backend readiness is immediate, while the splash handoff may wait for the
+ * finite brand reveal to resolve so it never cuts away mid-animation.
  */
 
 import { createLogger } from '@/shared/utils/logger';

@@ -10,6 +10,7 @@ export const DESIGN_SYSTEM_ICON_POLICY = {
   strokeWidth: 1.8,
   iconOnlyButtonRequiresLabel: true,
   customSemanticIcons: [
+    'SparoLogoCore',
     'SparoLogoMark',
     'SparoAgentIcon',
     'SparoSubagentIcon',

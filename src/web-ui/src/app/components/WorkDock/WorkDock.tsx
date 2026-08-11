@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, ChevronDown, Info, LayoutDashboard, ListChecks, Plus, XCircle } from 'lucide-react';
+import { LayoutDashboard, ListChecks, PanelLeftClose, Plus } from 'lucide-react';
 import {
   Button,
   IconButton,
@@ -11,7 +11,7 @@ import { useI18n } from '@/infrastructure/i18n';
 import { useWorks } from '@/app/agentic-os/work/hooks/useWorks';
 import { WorkIcon } from '@/app/agentic-os/work/presentation/WorkIcon';
 import { useWorkStore } from '@/app/agentic-os/work/data/workStore';
-import { openWork, openWorkCenterHome, openWorkInCenter } from '@/app/agentic-os/work/navigation/openWork';
+import { openWork, openWorkCenterHome } from '@/app/agentic-os/work/navigation/openWork';
 import type { WorkStatus } from '@/app/agentic-os/work/domain/workTypes';
 import type { WorkProjection } from '@/app/agentic-os/work/projections/workProjection';
 import {
@@ -21,8 +21,6 @@ import {
 } from '@/app/agentic-os/work/domain/workClassification';
 import { useWorkDockStore } from '@/app/stores/workDockStore';
 import { useWorkspaceSurfaceStore } from '@/app/navigation/workspaceSurfaceStore';
-import { notificationService } from '@/shared/notification-system';
-import { createLogger } from '@/shared/utils/logger';
 import WorkList from '../WorkList/WorkList';
 import {
   getWorkToneValue,
@@ -31,7 +29,6 @@ import {
 import { NewWorkDialog } from './NewWorkDialog';
 import './WorkDock.scss';
 
-const log = createLogger('WorkDock');
 const RUNNING_WORK_COLLAPSED_LIMIT = 5;
 const STORAGE_KEY = 'sparo.workDock.expanded';
 const STORAGE_PINNED = 'sparo.workDock.pinned';
@@ -72,26 +69,17 @@ function isDockVisibleStatus(status: WorkStatus): boolean {
   return isWorkRunningStatus(status) || isWorkAttentionStatus(status);
 }
 
-function isCancellableStatus(status: WorkStatus): boolean {
-  return status === 'running' || status === 'waiting_user' || status === 'blocked';
-}
-
-function isPixelStatus(status: WorkStatus): boolean {
-  return status === 'running';
-}
-
 const WorkDock: React.FC = () => {
   const { t } = useI18n('common');
   const activeSurface = useWorkspaceSurfaceStore((state) => state.activeSurface);
+  const surfaceContext = useWorkspaceSurfaceStore((state) => state.surfaceContext);
   const workDockOpenNonce = useWorkDockStore((state) => state.workDockOpenNonce);
   const { works, projections } = useWorks();
   const getWork = useWorkStore((state) => state.getWork);
-  const controlWork = useWorkStore((state) => state.controlWork);
 
   const [expanded, setExpanded] = useState<boolean>(readExpandedFromStorage);
   const [pinned, setPinned] = useState<boolean>(readPinnedFromStorage);
   const [surfaceExpanded, setSurfaceExpanded] = useState(false);
-  const [hoverExpanded, setHoverExpanded] = useState(false);
   const [listFilterQuery, setListFilterQuery] = useState('');
   const [selectedListResultIndex, setSelectedListResultIndex] = useState(0);
   const [listResultCount, setListResultCount] = useState(0);
@@ -119,25 +107,11 @@ const WorkDock: React.FC = () => {
     await openWork(record);
   }, [getWork, workById]);
 
-  const handleCancelWork = useCallback(async (work: WorkProjection) => {
-    try {
-      await controlWork({ locator: { scope: work.scope, workId: work.id }, action: 'cancel_current_execution' });
-    } catch (error) {
-      log.error('Failed to cancel work from Work Dock', { workId: work.id, error });
-      notificationService.error(t('nav.workDock.cancelFailed'));
-    }
-  }, [controlWork, t]);
-
-  const handleOpenWorkDetails = useCallback((work: WorkProjection) => {
-    openWorkInCenter(work.id);
-  }, []);
-
   const handleOpenWorkCenter = useCallback(() => {
     openWorkCenterHome();
   }, []);
 
   const openWorkDock = useCallback(() => {
-    setHoverExpanded(false);
     if (activeSurface.kind === 'scene') {
       setSurfaceExpanded(true);
       return;
@@ -147,7 +121,6 @@ const WorkDock: React.FC = () => {
   }, [activeSurface.kind]);
 
   const closeWorkDock = useCallback(() => {
-    setHoverExpanded(false);
     if (activeSurface.kind === 'scene') {
       setSurfaceExpanded(false);
       return;
@@ -157,7 +130,6 @@ const WorkDock: React.FC = () => {
   }, [activeSurface.kind]);
 
   const toggleWorkDock = useCallback(() => {
-    setHoverExpanded(false);
     if (activeSurface.kind === 'scene') {
       setSurfaceExpanded((value) => !value);
       return;
@@ -184,10 +156,6 @@ const WorkDock: React.FC = () => {
   useEffect(() => {
     if (!surfaceExpanded) setListFilterQuery('');
   }, [surfaceExpanded]);
-
-  useEffect(() => {
-    if (!hoverExpanded) setListFilterQuery('');
-  }, [hoverExpanded]);
 
   useEffect(() => {
     setSelectedListResultIndex(0);
@@ -218,12 +186,13 @@ const WorkDock: React.FC = () => {
   const isSessionSurface = activeSurface.kind === 'agentic-os-home' || activeSurface.kind === 'session';
   const suppressInWorkCenter = activeSurface.kind === 'scene' && activeSurface.sceneId === 'work-center';
   const showExpandedPanel = !suppressInWorkCenter && (
-    hoverExpanded || (isSessionSurface ? (expanded || newWorkDialogOpen) : surfaceExpanded)
+    isSessionSurface ? (expanded || newWorkDialogOpen) : surfaceExpanded
   );
   const liftAboveSurface = activeSurface.kind === 'scene';
   const showCollapsedDock = isSessionSurface && !suppressInWorkCenter;
   const showRunningCollapsedDock = !suppressInWorkCenter && !showExpandedPanel && runningCount > 0;
   const isSearchingWorks = listFilterQuery.trim().length > 0;
+  const activeWorkId = surfaceContext?.kind === 'work' ? surfaceContext.workId : null;
 
   useEffect(() => {
     if (!showExpandedPanel || newWorkDialogOpen) return;
@@ -232,7 +201,24 @@ const WorkDock: React.FC = () => {
     });
   }, [newWorkDialogOpen, showExpandedPanel]);
 
+  useEffect(() => {
+    if (!showExpandedPanel || newWorkDialogOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      closeWorkDock();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [closeWorkDock, newWorkDialogOpen, showExpandedPanel]);
+
   const handleListSearchKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeWorkDock();
+      return;
+    }
+
     if (!listFilterQuery.trim() || listResultCount <= 0) return;
 
     if (event.key === 'ArrowDown') {
@@ -257,7 +243,7 @@ const WorkDock: React.FC = () => {
       );
       row?.click();
     }
-  }, [listFilterQuery, listResultCount, selectedListResultIndex]);
+  }, [closeWorkDock, listFilterQuery, listResultCount, selectedListResultIndex]);
 
   useEffect(() => {
     if (!showExpandedPanel || pinned || newWorkDialogOpen) return;
@@ -289,27 +275,18 @@ const WorkDock: React.FC = () => {
       ].filter(Boolean).join(' ')}
       aria-label={t('nav.workDock.label')}
       data-testid="work-dock"
+      data-state={showExpandedPanel ? 'expanded' : showRunningCollapsedDock ? 'active' : 'idle'}
       data-sparo-ignore-work-dock-outside
-      onMouseEnter={showRunningCollapsedDock ? () => setHoverExpanded(true) : undefined}
-      onMouseLeave={hoverExpanded ? () => setHoverExpanded(false) : undefined}
-      onFocus={showRunningCollapsedDock ? openWorkDock : undefined}
     >
       {showExpandedPanel ? (
         <>
-          <div className="work-dock__title-bar">
-            <Search
-              ref={listSearchInputRef}
-              className="work-dock__search-input work-dock__search--pill"
-              placeholder={t('nav.workDock.searchPlaceholder')}
-              value={listFilterQuery}
-              onChange={setListFilterQuery}
-              onClear={() => setListFilterQuery('')}
-              onKeyDown={handleListSearchKeyDown}
-              clearable
-              size="small"
-              enterToSearch={false}
-              inputAriaLabel={t('nav.workDock.searchPlaceholder')}
-            />
+          <header className="work-dock__panel-header">
+            <div className="work-dock__heading">
+              <strong className="work-dock__title">{t('nav.workDock.title')}</strong>
+              <span className="work-dock__subtitle">
+                {t('nav.workDock.subtitle', { count: runningCount })}
+              </span>
+            </div>
             <div className="work-dock__title-actions">
               <IconButton
                 size="xs"
@@ -322,20 +299,49 @@ const WorkDock: React.FC = () => {
                 tooltipPlacement="top"
               >
                 <PanelPinnedIcon
-                  size={12}
+                  size={16}
                   strokeWidth={SPARO_ICON_OPTICAL_STROKE_WIDTH.compact}
                   absoluteStrokeWidth
                   aria-hidden="true"
                 />
               </IconButton>
+              <IconButton
+                size="xs"
+                variant="ghost"
+                className="work-dock__icon-action"
+                onClick={closeWorkDock}
+                aria-label={t('nav.workDock.collapse')}
+                tooltip={t('nav.workDock.collapse')}
+                tooltipPlacement="top"
+                aria-controls="sparo-work-dock-panel"
+              >
+                <PanelLeftClose size={16} aria-hidden />
+              </IconButton>
             </div>
+          </header>
+
+          <div className="work-dock__search-row">
+            <Search
+              ref={listSearchInputRef}
+              className="work-dock__search-input work-dock__search--pill"
+              placeholder={t('nav.workDock.searchPlaceholder')}
+              value={listFilterQuery}
+              onChange={setListFilterQuery}
+              onClear={() => setListFilterQuery('')}
+              onKeyDown={handleListSearchKeyDown}
+              clearable
+              size="medium"
+              enterToSearch={false}
+              inputAriaLabel={t('nav.workDock.searchPlaceholder')}
+            />
           </div>
 
-          <div className="work-dock__list">
+          <div id="sparo-work-dock-panel" className="work-dock__list">
             <WorkList
               query={listFilterQuery}
               maxWorks={WORK_DOCK_LIST_LIMIT}
               includeCompleted={isSearchingWorks}
+              activeWorkId={activeWorkId}
               selectedResultIndex={isSearchingWorks ? selectedListResultIndex : -1}
               onResultCountChange={setListResultCount}
             />
@@ -350,7 +356,7 @@ const WorkDock: React.FC = () => {
               aria-label={t('nav.workDock.newWorkButton')}
               data-testid="work-dock-new-work"
             >
-              <Plus size={13} strokeWidth={2.25} />
+              <Plus size={14} strokeWidth={2.25} />
               <span>{t('nav.workDock.newWorkButton')}</span>
             </Button>
             <IconButton
@@ -363,120 +369,81 @@ const WorkDock: React.FC = () => {
               tooltipPlacement="top"
               data-testid="work-dock-open-center"
             >
-              <LayoutDashboard size={13} strokeWidth={2.25} />
+              <LayoutDashboard size={14} strokeWidth={2.25} />
             </IconButton>
           </div>
           <NewWorkDialog open={newWorkDialogOpen} onClose={() => setNewWorkDialogOpen(false)} />
         </>
       ) : showRunningCollapsedDock ? (
-          <div className="work-dock__running-panel">
-            <div className="work-dock__running-hd">
-            <span className="work-dock__running-hd-label">{t('nav.workDock.activeWorksGroupLabel')}</span>
-            <span className="work-dock__running-count">{runningCount}</span>
-          </div>
+        <nav className="work-dock__running-panel" aria-label={t('nav.workDock.activeWorksGroupLabel')}>
           <div className="work-dock__running-rows">
-            {runningWorks.map((work) => {
-              const pixelStatus = isPixelStatus(work.status);
-              const showCancelAction = isCancellableStatus(work.status);
+            {runningWorks.map((work, index) => {
               return (
-                <div
+                <button
+                  type="button"
                   key={work.id}
                   className={[
-                    'work-dock__running-row-wrap',
-                    pixelStatus && 'has-pixel-status',
+                    'work-dock__running-row',
+                    activeWorkId === work.id && 'is-active',
+                    work.status === 'failed' && 'work-dock__running-row--failed',
                   ].filter(Boolean).join(' ')}
                   data-sparo-work-id={work.id}
                   data-sparo-work-title={work.title}
                   style={{ '--work-dock-tone': getWorkToneValue(work.status) } as React.CSSProperties}
+                  onClick={() => void handleOpenWork(work)}
+                  aria-label={`${work.title}, ${t(`nav.workDock.status.${work.status}`)}`}
+                  aria-current={activeWorkId === work.id ? 'page' : undefined}
+                  title={work.title}
                 >
-                  <button
-                    type="button"
+                  <span
                     className={[
-                      'work-dock__running-row',
-                      work.status === 'failed' && 'work-dock__running-row--failed',
+                      'work-dock__mode-avatar',
+                      `work-dock__mode-avatar--${work.status.replace('_', '-')}`,
                     ].filter(Boolean).join(' ')}
-                    onClick={() => void handleOpenWork(work)}
-                    aria-label={work.title}
                   >
-                    <div
-                      className={[
-                        'work-dock__mode-avatar',
-                        pixelStatus && 'work-dock__mode-avatar--pixel',
-                        `work-dock__mode-avatar--${work.status.replace('_', '-')}`,
-                      ].filter(Boolean).join(' ')}
-                    >
-                      <WorkIcon work={work} size={18} />
-                    </div>
-                    <div className="work-dock__running-row-copy">
-                      <span className="work-dock__running-row-title">{work.title}</span>
-                    </div>
-                  </button>
-                  <div className="work-dock__running-row-actions" aria-label={t('nav.workDock.rowActions')}>
-                    <IconButton
-                      className="work-dock__running-row-action"
-                      size="xs"
-                      variant="ghost"
-                      aria-label={t('nav.workDock.openWork')}
-                      tooltip={t('nav.workDock.openWork')}
-                      onClick={() => void handleOpenWork(work)}
-                    >
-                      <ArrowRight size={13} />
-                    </IconButton>
-                    <IconButton
-                      className="work-dock__running-row-action"
-                      size="xs"
-                      variant="ghost"
-                      aria-label={t('nav.workDock.openWorkDetails')}
-                      tooltip={t('nav.workDock.openWorkDetails')}
-                      onClick={() => handleOpenWorkDetails(work)}
-                    >
-                      <Info size={13} />
-                    </IconButton>
-                    {showCancelAction ? (
-                      <IconButton
-                        className="work-dock__running-row-action work-dock__running-row-action--danger"
-                        size="xs"
-                        variant="ghost"
-                        aria-label={t('nav.workDock.cancelRunningWork')}
-                        tooltip={t('nav.workDock.cancelRunningWork')}
-                        onClick={() => void handleCancelWork(work)}
-                      >
-                        <XCircle size={13} />
-                      </IconButton>
+                    <WorkIcon work={work} size={14} />
+                    {index === runningWorks.length - 1 && runningCount > RUNNING_WORK_COLLAPSED_LIMIT ? (
+                      <span className="work-dock__overflow-count" aria-hidden>
+                        +{runningCount - RUNNING_WORK_COLLAPSED_LIMIT}
+                      </span>
                     ) : null}
-                  </div>
-                </div>
+                  </span>
+                </button>
               );
             })}
           </div>
-          <div className="work-dock__running-ft">
-            <div className="work-dock__running-actions">
-              <button
-                type="button"
-                className="work-dock__open-list-action work-dock__open-list-action--full"
-                onClick={toggleWorkDock}
-                aria-label={t('actions.more')}
-              >
-                <ChevronDown size={12} />
-                <span>{t('actions.more')}</span>
-              </button>
-            </div>
-          </div>
-        </div>
+          <Button
+            size="small"
+            variant="ghost"
+            className="work-dock__arc-trigger"
+            onClick={openWorkDock}
+            aria-label={t('nav.workDock.openWorkList')}
+            aria-expanded={false}
+            aria-controls="sparo-work-dock-panel"
+          >
+            <span className="work-dock__arc-trigger-label">{t('nav.workDock.openWorkList')}</span>
+          </Button>
+        </nav>
       ) : (
-        <IconButton
-          size="small"
-          variant="ghost"
-          className="work-dock__trigger"
-          onClick={toggleWorkDock}
-          aria-label={t('nav.workDock.openWorkList')}
-          aria-expanded={false}
-          tooltip={t('nav.workDock.openWorkList')}
-          tooltipPlacement="right"
-          data-testid="work-dock-trigger"
-        >
-          <ListChecks size={15} />
-        </IconButton>
+        <>
+          <IconButton
+            size="small"
+            variant="ghost"
+            className="work-dock__trigger"
+            onClick={toggleWorkDock}
+            aria-label={t('nav.workDock.openWorkList')}
+            aria-expanded={false}
+            aria-controls="sparo-work-dock-panel"
+            data-testid="work-dock-trigger"
+          >
+            <span className="work-dock__trigger-surface" aria-hidden>
+              <ListChecks size={12} />
+            </span>
+          </IconButton>
+          <span className="work-dock__idle-hint" aria-hidden>
+            {t('nav.workDock.idleHint')}
+          </span>
+        </>
       )}
     </div>
   );

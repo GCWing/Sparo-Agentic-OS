@@ -163,7 +163,7 @@ export function ComposerVoiceInputButton({ controller }: ComposerVoiceInputButto
           <IconButton
             aria-label={controlsDisabled ? controller.tooltip : controller.sendTooltip}
             className="sparo-chat-input__voice-pill-send"
-            variant="danger"
+            variant="brand"
             size="xs"
             shape="circle"
             disabled={controlsDisabled}

@@ -47,7 +47,7 @@ export interface BuildLayoutInput {
 
 export const TYPE_COLORS: Record<MemoryRecordType, string> = {
   memory: 'var(--ds-color-warning)',
-  soul: 'var(--ds-color-danger)',
+  soul: 'var(--ds-color-brand-core)',
   user: 'var(--ds-color-info)',
   milestone: 'var(--ds-color-success)',
   host_overview: 'var(--ds-color-accent-500)',
@@ -146,7 +146,7 @@ const colorForGroup = (id: string, isCore: boolean): string => {
     'var(--ds-color-accent-500)',
     'var(--ds-color-purple-500)',
     'var(--ds-color-success)',
-    'var(--ds-color-danger)',
+    'var(--ds-color-brand-core)',
     'var(--ds-color-warning)',
     'var(--ds-color-accent-400)',
   ];

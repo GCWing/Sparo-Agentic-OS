@@ -30,7 +30,7 @@ export function ComposerSendAction({
         disabled
         shape="circle"
         size="small"
-        variant="danger"
+        variant="brand"
       >
         <ArrowUp size={11} />
       </IconButton>
@@ -52,7 +52,7 @@ export function ComposerSendAction({
           variant="ghost"
         >
           <div className="sparo-chat-input__breathing-circle" />
-          {hasQueuedInput && <Badge className="sparo-chat-input__queued-badge" variant="error">1</Badge>}
+          {hasQueuedInput && <Badge className="sparo-chat-input__queued-badge" variant="accent">1</Badge>}
         </IconButton>
       </Tooltip>
     );
@@ -98,7 +98,7 @@ export function ComposerSendAction({
           tooltip={labels.queueShortcut}
           shape="circle"
           size="small"
-          variant="danger"
+          variant="brand"
         >
           <ArrowUp size={11} />
         </IconButton>
@@ -116,7 +116,7 @@ export function ComposerSendAction({
       tooltip={labels.sendShortcut}
       shape="circle"
       size="small"
-      variant="danger"
+      variant="brand"
     >
       <ArrowUp size={11} />
     </IconButton>

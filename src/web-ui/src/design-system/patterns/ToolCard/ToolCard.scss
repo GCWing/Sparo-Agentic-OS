@@ -22,7 +22,7 @@
 
   &--danger,
   &--error {
-    border-color: var(--ds-color-danger-border, var(--color-error-border));
+    border-color: var(--ds-color-danger-border);
   }
 
   &--ai {

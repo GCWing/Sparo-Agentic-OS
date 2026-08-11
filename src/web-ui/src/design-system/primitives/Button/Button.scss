@@ -22,8 +22,8 @@
   transition: all var(--motion-fast, 0.15s) var(--easing-standard, cubic-bezier(0.4, 0, 0.2, 1));
 
   &:focus-visible {
-    outline: 2px solid rgba(96, 165, 250, 0.5);
-    outline-offset: 1px;
+    outline: 2px solid var(--ds-focus-ring, var(--color-brand-focus-ring, #C62828));
+    outline-offset: 2px;
   }
 
   &-sm {
@@ -76,11 +76,7 @@
     }
 
     &:focus-visible {
-      outline-color: color-mix(
-        in srgb,
-        var(--btn-primary-color, var(--color-accent-500, #60a5fa)) 55%,
-        transparent
-      );
+      outline-color: var(--ds-focus-ring, var(--color-brand-focus-ring, #C62828));
     }
   }
 
@@ -201,16 +197,16 @@
   }
 
   &-danger {
-    background: rgba(199, 112, 112, 0.18);
+    background: color-mix(in srgb, var(--ds-color-danger) 18%, transparent);
     color: var(--color-text-primary, #ffffff);
 
     &:hover {
-      background: rgba(199, 112, 112, 0.36);
+      background: color-mix(in srgb, var(--ds-color-danger) 36%, transparent);
       color: var(--color-text-primary, #ffffff);
     }
 
     &:active {
-      background: rgba(199, 112, 112, 0.28);
+      background: color-mix(in srgb, var(--ds-color-danger) 28%, transparent);
     }
   }
 
@@ -237,12 +233,12 @@
 
 .btn.btn-action-danger {
   &:hover:not(:disabled) {
-    background: rgba(199, 112, 112, 0.36);
+    background: color-mix(in srgb, var(--ds-color-danger) 36%, transparent);
     color: var(--color-text-primary, #ffffff);
   }
 
   &:active:not(:disabled) {
-    background: rgba(199, 112, 112, 0.28);
+    background: color-mix(in srgb, var(--ds-color-danger) 28%, transparent);
   }
 }
 

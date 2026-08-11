@@ -35,8 +35,8 @@
   }
 
   &--error &__icon {
-    background: color-mix(in srgb, var(--color-error) 15%, transparent);
-    color: var(--color-error);
+    background: color-mix(in srgb, var(--ds-color-danger) 15%, transparent);
+    color: var(--ds-color-danger);
   }
 
   &--success &__icon {

@@ -3,31 +3,26 @@
  *
  * The session title and the "return to Agentic OS" button have been moved to
  * UnifiedTopBar so the whole application shares a single top chrome.
- * Agentic OS: reset and thinking display live under a "more" menu on
- * the right; other sessions keep the inline thinking toggle. Session files badge
- * stays on the left.
+ * Agentic OS session creation/reset lives in its timeline. Thinking display
+ * is controlled from the Chat Input model selector across session types.
+ * Session files badge stays on the left.
  */
 
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   ChevronDown,
   ChevronUp,
-  Eye,
-  EyeOff,
   List,
-  MoreVertical,
   Search,
   X,
 } from 'lucide-react';
 import {
-  DropdownMenu,
   IconButton,
   Input,
   PanelRightClosedIcon,
   PanelRightOpenIcon,
   SPARO_ICON_OPTICAL_STROKE_WIDTH,
 } from '@/design-system';
-import type { DropdownMenuEntry } from '@/design-system';
 import { useTranslation } from 'react-i18next';
 import {
   selectActiveAuxiliaryHostState,
@@ -37,13 +32,8 @@ import {
 import { SessionFilesBadge } from './SessionFilesBadge';
 import { FlowChatSidecarActions } from './FlowChatSidecarActions';
 import GoalHeaderControl from '../goal/GoalHeaderControl';
-import { useAIExperienceSettings } from '@/infrastructure/config/hooks';
-import { aiExperienceConfigService } from '@/infrastructure/config/services/AIExperienceConfigService';
-import { createLogger } from '@/shared/utils/logger';
 import type { FlowChatSidecarActionViewModel } from './useSessionSidecarActions';
 import './FlowChatHeader.scss';
-
-const log = createLogger('FlowChatHeader');
 
 export interface FlowChatHeaderTurnSummary {
   turnId: string;
@@ -82,6 +72,8 @@ export interface FlowChatHeaderProps {
   onSearchClose?: () => void;
   /** Increments each time the parent requests to open the search bar (e.g. Ctrl+F). */
   searchOpenRequest?: number;
+  /** Whether to render the header-level message search control. */
+  showSearchControl?: boolean;
 
   /** Timeline sidebar open state (controlled by parent). */
   timelineOpen?: boolean;
@@ -100,12 +92,8 @@ export interface FlowChatHeaderProps {
   timelinePanelId?: string;
   /** Test id for the timeline toggle. */
   timelineControlTestId?: string;
-
-  /**
-   * Agentic OS: start a new backend session; shown to the user as
-   * resetting history rather than "new session".
-   */
-  onResetHistory?: () => void;
+  /** Whether to render the session-scoped goal control. */
+  showGoalControl?: boolean;
 
   /** Profile-declared right-panel actions for this session. */
   sidecarActions?: FlowChatSidecarActionViewModel[];
@@ -124,6 +112,7 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   onSearchPrev,
   onSearchClose,
   searchOpenRequest = 0,
+  showSearchControl = true,
   timelineOpen = false,
   onTimelineOpenChange,
   forceTimelineEnabled = false,
@@ -131,15 +120,12 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
   showTimelineControl = true,
   timelinePanelId = 'agentic-os-timeline-sidebar',
   timelineControlTestId = 'flowchat-header-timeline',
-  onResetHistory,
+  showGoalControl = true,
   sidecarActions = [],
 }) => {
   const { t } = useTranslation('flow-chat');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const { settings: aiExperienceSettings } = useAIExperienceSettings();
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const sessionMoreMenuAnchorRef = useRef<HTMLDivElement | null>(null);
-  const [sessionMoreMenuOpen, setSessionMoreMenuOpen] = useState(false);
   const activeAuxiliaryHost = useAuxiliarySurfaceStore(selectActiveAuxiliaryHostState);
 
   const timelineTooltip =
@@ -147,13 +133,8 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
     t('flowChatHeader.timeline', {
       defaultValue: 'Timeline',
     });
-  const keepThinkingItemEnabled = aiExperienceSettings?.show_completed_thinking_item === true;
-  const thinkingItemToggleTooltip = keepThinkingItemEnabled
-    ? t('flowChatHeader.hideCompletedThinkingItems', { defaultValue: 'Hide completed thinking items' })
-    : t('flowChatHeader.showCompletedThinkingItems', { defaultValue: 'Show completed thinking items' });
   const hasTimelineNavigation =
     showTimelineControl && (forceTimelineEnabled || (turns.length > 0 && !!onJumpToTurn));
-  const moreMenuLabel = t('flowChatHeader.moreMenu', { defaultValue: 'More' });
   const rightPanelOpen = activeAuxiliaryHost?.presentation === 'docked';
   const rightPanelLabel = rightPanelOpen
     ? t('flowChatHeader.collapseRightPanel', { defaultValue: 'Collapse right panel' })
@@ -221,57 +202,6 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
     onTimelineOpenChange?.(!timelineOpen);
   };
 
-  const handleToggleCompletedThinkingItems = useCallback(async () => {
-    if (!aiExperienceSettings) return;
-    const nextSettings = {
-      ...aiExperienceSettings,
-      show_completed_thinking_item: !keepThinkingItemEnabled,
-    };
-    try {
-      await aiExperienceConfigService.saveSettings(nextSettings);
-    } catch (error) {
-      log.error('Failed to toggle completed thinking items', { error });
-    }
-  }, [aiExperienceSettings, keepThinkingItemEnabled]);
-
-  const agenticOsSessionMenuItems = useMemo((): DropdownMenuEntry[] => {
-    if (!onResetHistory) return [];
-    const entries: DropdownMenuEntry[] = [];
-    if (aiExperienceSettings) {
-      entries.push({
-        type: 'item',
-        id: 'thinking-settings',
-        label: t('flowChatHeader.showCompletedThinkingInConversation', {
-          defaultValue: 'Show/hide thinking',
-        }),
-        checked: keepThinkingItemEnabled,
-        onClick: () => {
-          void handleToggleCompletedThinkingItems();
-        },
-      });
-      entries.push({ type: 'separator', id: 'agentic-os-session-menu-sep' });
-    }
-    entries.push({
-      type: 'item',
-      id: 'reset-session',
-      label: t('flowChatHeader.resetSession', { defaultValue: 'Reset session' }),
-      onClick: onResetHistory,
-    });
-    return entries;
-  }, [
-    onResetHistory,
-    aiExperienceSettings,
-    keepThinkingItemEnabled,
-    t,
-    handleToggleCompletedThinkingItems,
-  ]);
-
-  useEffect(() => {
-    if (!visible) {
-      setSessionMoreMenuOpen(false);
-    }
-  }, [visible]);
-
   if (!visible) {
     return null;
   }
@@ -282,12 +212,12 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
         <SessionFilesBadge sessionId={sessionId} />
       </div>
 
-      {!timelineOpen && !isSearchOpen && !onResetHistory ? (
+      {!timelineOpen && !isSearchOpen && showGoalControl ? (
         <GoalHeaderControl sessionId={sessionId} workspacePath={workspacePath} />
       ) : null}
 
       <div className="flowchat-header__actions">
-        {!timelineOpen && isSearchOpen ? (
+        {showSearchControl && !timelineOpen && isSearchOpen ? (
           <div className="flowchat-header__search" role="search" data-testid="flowchat-header-search-bar">
             <Input
               ref={searchInputRef}
@@ -353,26 +283,10 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
             </IconButton>
           </div>
         ) : null}
-        {!timelineOpen && !isSearchOpen && !onResetHistory && aiExperienceSettings ? (
-          <IconButton
-            className="flowchat-header__thinking-toggle"
-            variant="ghost"
-            size="xs"
-            onClick={() => {
-              void handleToggleCompletedThinkingItems();
-            }}
-            tooltip={thinkingItemToggleTooltip}
-            aria-label={thinkingItemToggleTooltip}
-            aria-pressed={keepThinkingItemEnabled}
-            data-testid="flowchat-header-thinking-toggle"
-          >
-            {keepThinkingItemEnabled ? <Eye size={14} /> : <EyeOff size={14} />}
-          </IconButton>
-        ) : null}
         {!timelineOpen && !isSearchOpen && sidecarActions.length > 0 ? (
           <FlowChatSidecarActions actions={sidecarActions} />
         ) : null}
-        {!timelineOpen && !isSearchOpen && (
+        {showSearchControl && !timelineOpen && !isSearchOpen && (
           <IconButton
             className="flowchat-header__search-action"
             variant="ghost"
@@ -401,31 +315,6 @@ export const FlowChatHeader: React.FC<FlowChatHeaderProps> = ({
             >
               <List size={14} />
             </IconButton>
-          </div>
-        ) : null}
-        {onResetHistory ? (
-          <div className="flowchat-header__more-wrap" ref={sessionMoreMenuAnchorRef}>
-            <IconButton
-              className="flowchat-header__more-menu-trigger"
-              variant="ghost"
-              size="xs"
-              onClick={() => setSessionMoreMenuOpen(v => !v)}
-              tooltip={moreMenuLabel}
-              aria-label={moreMenuLabel}
-              aria-haspopup="menu"
-              aria-expanded={sessionMoreMenuOpen}
-              data-testid="flowchat-header-session-more"
-            >
-              <MoreVertical size={14} aria-hidden />
-            </IconButton>
-            <DropdownMenu
-              open={sessionMoreMenuOpen}
-              anchorRef={sessionMoreMenuAnchorRef}
-              items={agenticOsSessionMenuItems}
-              onClose={() => setSessionMoreMenuOpen(false)}
-              align="right"
-              minWidth={180}
-            />
           </div>
         ) : null}
         <IconButton

@@ -1,6 +1,6 @@
 import React from 'react';
+import { SparoMark } from '../components/brand/SparoMark';
 import { useShellStore } from './shellStore';
-import logoMark from '../assets/sparo-logo-mark.png';
 import './TopBar.scss';
 
 interface TopBarProps {
@@ -67,8 +67,8 @@ const TopBar: React.FC<TopBarProps> = ({ onLogoClick, onTasksClick, onAppsClick 
           onClick={onLogoClick}
           aria-label="Open menu"
         >
-          <img
-            src={logoMark}
+          <SparoMark
+            size={28}
             alt="Sparo OS"
             className="sparo-topbar__logo-img"
           />

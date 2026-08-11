@@ -77,19 +77,19 @@
   }
 
   &--focus-danger {
-    --ds-input-focus-border: var(--ds-color-danger-border, var(--color-error, #c77070));
+    --ds-input-focus-border: var(--ds-color-danger-border);
   }
 
   &--error {
     .ds-input-container {
-      border-color: var(--color-error-border, rgba(199, 112, 112, 0.3)) !important;
+      border-color: var(--ds-color-danger-border) !important;
 
       &:hover:not(.ds-input-wrapper--disabled &) {
-        border-color: var(--color-error, #c77070) !important;
+        border-color: var(--ds-color-danger) !important;
       }
 
       &:focus-within {
-        border-color: var(--color-error, #c77070) !important;
+        border-color: var(--ds-color-danger) !important;
       }
     }
   }
@@ -135,11 +135,11 @@
 }
 
 .ds-input-wrapper--focus-danger .ds-input-container:focus-within {
-  border-color: var(--ds-color-danger, var(--color-error, #c77070)) !important;
+  border-color: var(--ds-color-danger) !important;
 }
 
 .ds-input-wrapper--focus-danger:not(.ds-input-wrapper--disabled) .ds-input-container:hover {
-  border-color: var(--ds-color-danger, var(--color-error, #c77070));
+  border-color: var(--ds-color-danger);
 }
 
 .ds-input {
@@ -194,6 +194,6 @@
 
 .ds-input-error-message {
   font-size: var(--font-size-xs, 12px);
-  color: var(--color-error, #c77070);
+  color: var(--ds-color-danger);
   margin-top: -2px;
 }

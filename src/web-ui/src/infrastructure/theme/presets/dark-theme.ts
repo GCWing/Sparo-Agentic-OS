@@ -1,6 +1,7 @@
  
 
 import { ThemeConfig } from '../types';
+import { SPARO_BRAND, SPARO_BRAND_FOCUS_RING, sparoBrandAlpha } from './sparo-brand';
 
 /** Default Sparo OS dark preset — aligns accent with the Light theme ink-red ramp. */
 export const darkTheme: ThemeConfig = {
@@ -30,17 +31,22 @@ export const darkTheme: ThemeConfig = {
       muted: '#858585',
       disabled: '#555555',
     },
+
+    brand: {
+      ...SPARO_BRAND,
+      focusRing: SPARO_BRAND_FOCUS_RING.dark,
+    },
     
     accent: {
-      50: 'rgba(183, 55, 47, 0.05)',
-      100: 'rgba(183, 55, 47, 0.09)',
-      200: 'rgba(183, 55, 47, 0.14)',
-      300: 'rgba(183, 55, 47, 0.24)',
-      400: 'rgba(183, 55, 47, 0.42)',
-      500: '#B7372F',
-      600: '#9E2F29',
-      700: 'rgba(158, 47, 41, 0.88)',
-      800: 'rgba(128, 36, 32, 0.94)',
+      50: sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.05),
+      100: sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.09),
+      200: sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.14),
+      300: sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.24),
+      400: sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.42),
+      500: SPARO_BRAND_FOCUS_RING.dark,
+      600: SPARO_BRAND_FOCUS_RING.dark,
+      700: SPARO_BRAND.actionHover,
+      800: SPARO_BRAND.actionActive,
     },
     
     purple: {
@@ -64,16 +70,16 @@ export const darkTheme: ThemeConfig = {
       warningBg: 'rgba(245, 158, 11, 0.1)',
       warningBorder: 'rgba(245, 158, 11, 0.3)',
       
-      error: '#B7372F',
-      errorBg: 'rgba(183, 55, 47, 0.12)',
-      errorBorder: 'rgba(183, 55, 47, 0.35)',
+      error: SPARO_BRAND_FOCUS_RING.dark,
+      errorBg: sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.12),
+      errorBorder: sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.35),
       
       info: '#a1a1aa',
       infoBg: 'rgba(255, 255, 255, 0.08)',
       infoBorder: 'rgba(255, 255, 255, 0.22)',
       
-      highlight: '#B7372F',
-      highlightBg: 'rgba(183, 55, 47, 0.14)',
+      highlight: SPARO_BRAND_FOCUS_RING.dark,
+      highlightBg: sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.14),
     },
     
     border: {
@@ -100,8 +106,8 @@ export const darkTheme: ThemeConfig = {
       changesBg: 'rgba(245, 158, 11, 0.1)',
       added: 'rgb(34, 197, 94)',
       addedBg: 'rgba(34, 197, 94, 0.1)',
-      deleted: 'rgb(239, 68, 68)',
-      deletedBg: 'rgba(239, 68, 68, 0.1)',
+      deleted: SPARO_BRAND_FOCUS_RING.dark,
+      deletedBg: sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.1),
       staged: 'rgb(34, 197, 94)',
       stagedBg: 'rgba(34, 197, 94, 0.1)',
     },
@@ -124,9 +130,9 @@ export const darkTheme: ThemeConfig = {
     },
     
     glow: {
-      blue: '0 12px 32px rgba(183, 55, 47, 0.18), 0 6px 16px rgba(183, 55, 47, 0.1), 0 3px 8px rgba(0, 0, 0, 0.12)',
+      blue: `0 12px 32px ${sparoBrandAlpha(SPARO_BRAND.action, 0.18)}, 0 6px 16px ${sparoBrandAlpha(SPARO_BRAND.action, 0.1)}, 0 3px 8px rgba(0, 0, 0, 0.12)`,
       purple: '0 12px 32px rgba(139, 92, 246, 0.22), 0 6px 16px rgba(124, 58, 237, 0.14), 0 3px 8px rgba(0, 0, 0, 0.12)',
-      mixed: '0 12px 32px rgba(255, 255, 255, 0.06), 0 6px 16px rgba(183, 55, 47, 0.1), 0 3px 8px rgba(0, 0, 0, 0.12)',
+      mixed: `0 12px 32px rgba(255, 255, 255, 0.06), 0 6px 16px ${sparoBrandAlpha(SPARO_BRAND.action, 0.1)}, 0 3px 8px rgba(0, 0, 0, 0.12)`,
     },
     
     blur: {
@@ -240,18 +246,18 @@ export const darkTheme: ThemeConfig = {
         hoverShadow: '0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
       },
       close: {
-        dot: 'rgba(239, 68, 68, 0.45)',
-        dotShadow: '0 0 4px rgba(239, 68, 68, 0.2)',
-        hoverBg: 'rgba(239, 68, 68, 0.12)',
-        hoverColor: '#ef4444',
-        hoverBorder: 'rgba(239, 68, 68, 0.2)',
-        hoverShadow: '0 2px 8px rgba(239, 68, 68, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+        dot: sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.45),
+        dotShadow: `0 0 4px ${sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.2)}`,
+        hoverBg: sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.12),
+        hoverColor: SPARO_BRAND_FOCUS_RING.dark,
+        hoverBorder: sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.2),
+        hoverShadow: `0 2px 8px ${sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.15)}, inset 0 1px 0 rgba(255, 255, 255, 0.1)`,
       },
       common: {
         defaultColor: 'rgba(232, 232, 232, 0.9)',
         defaultDot: 'rgba(255, 255, 255, 0.2)',
         disabledDot: 'rgba(255, 255, 255, 0.1)',
-        flowGradient: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04), rgba(183, 55, 47, 0.1), rgba(255, 255, 255, 0.04), transparent)',
+        flowGradient: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.04), transparent)',
       },
     },
     
@@ -281,23 +287,23 @@ export const darkTheme: ThemeConfig = {
       
       primary: {
         default: {
-          background: '#B7372F',
-          color: '#FFFFFF',
+          background: SPARO_BRAND.action,
+          color: SPARO_BRAND.onAction,
           border: 'transparent',
-          shadow: '0 2px 8px rgba(183, 55, 47, 0.22)',
+          shadow: `0 2px 8px ${sparoBrandAlpha(SPARO_BRAND.action, 0.22)}`,
         },
         hover: {
-          background: '#9E2F29',
-          color: '#FFFFFF',
+          background: SPARO_BRAND.actionHover,
+          color: SPARO_BRAND.onAction,
           border: 'transparent',
-          shadow: '0 4px 14px rgba(183, 55, 47, 0.28)',
+          shadow: `0 4px 14px ${sparoBrandAlpha(SPARO_BRAND.action, 0.28)}`,
           transform: 'none',
         },
         active: {
-          background: '#802420',
-          color: '#FFFFFF',
+          background: SPARO_BRAND.actionActive,
+          color: SPARO_BRAND.onAction,
           border: 'transparent',
-          shadow: '0 2px 8px rgba(183, 55, 47, 0.22)',
+          shadow: `0 2px 8px ${sparoBrandAlpha(SPARO_BRAND.action, 0.22)}`,
           transform: 'none',
         },
       },
@@ -339,8 +345,8 @@ export const darkTheme: ThemeConfig = {
       background: '#121214',
       foreground: '#e8e8e8',
       lineHighlight: '#18181a',
-      selection: 'rgba(183, 55, 47, 0.28)',
-      cursor: '#B7372F',
+      selection: sparoBrandAlpha(SPARO_BRAND_FOCUS_RING.dark, 0.28),
+      cursor: SPARO_BRAND_FOCUS_RING.dark,
     },
   },
 };

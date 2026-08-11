@@ -51,6 +51,18 @@ export interface AccentColors {
   800: ColorValue;
 }
 
+export interface BrandColors {
+  /** Canonical color used by the logo and brand assets. */
+  core: ColorValue;
+  /** Contrast-safe fill for primary actions. */
+  action: ColorValue;
+  actionHover: ColorValue;
+  actionActive: ColorValue;
+  onAction: ColorValue;
+  /** Theme-specific keyboard focus indicator. */
+  focusRing: ColorValue;
+}
+
  
 export interface SemanticColors {
   success: ColorValue;
@@ -393,6 +405,7 @@ export interface ThemeConfig {
   colors: {
     background: BackgroundColors;
     text: TextColors;
+    brand?: BrandColors;
     accent: AccentColors;
     purple?: AccentColors; 
     semantic: SemanticColors;

@@ -89,7 +89,11 @@
     "examples": {
       "ds-sparo-logo-mark": {
         "name": "Sparo logo mark",
-        "description": "Vector brand mark with configurable size, stroke width, and currentColor inheritance."
+        "description": "Responsive vector brand mark with target-specific geometry below 64 px."
+      },
+      "ds-sparo-logo-core": {
+        "name": "Sparo logo core",
+        "description": "Compact source-derived red core shared with the default tray state."
       },
       "ds-sparo-system-icons": {
         "name": "Sparo semantic icon families",

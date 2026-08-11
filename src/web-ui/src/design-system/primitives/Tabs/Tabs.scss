@@ -83,8 +83,8 @@
       opacity: 1;
 
       &:hover {
-        background: rgba(239, 68, 68, 0.2);
-        color: #ef4444;
+        background: color-mix(in srgb, var(--ds-color-danger) 20%, transparent);
+        color: var(--ds-color-danger);
       }
     }
   }

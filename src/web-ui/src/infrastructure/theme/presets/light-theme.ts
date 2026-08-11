@@ -1,4 +1,5 @@
 import { ThemeConfig } from '../types';
+import { SPARO_BRAND, SPARO_BRAND_FOCUS_RING, sparoBrandAlpha } from './sparo-brand';
 
 export const lightTheme: ThemeConfig = {
   id: 'light',
@@ -30,16 +31,21 @@ export const lightTheme: ThemeConfig = {
       disabled: 'rgba(91, 107, 140, 0.56)',
     },
 
+    brand: {
+      ...SPARO_BRAND,
+      focusRing: SPARO_BRAND_FOCUS_RING.light,
+    },
+
     accent: {
-      50: 'rgba(183, 55, 47, 0.045)',
-      100: 'rgba(183, 55, 47, 0.08)',
-      200: 'rgba(183, 55, 47, 0.13)',
-      300: 'rgba(183, 55, 47, 0.22)',
-      400: 'rgba(183, 55, 47, 0.42)',
-      500: '#B7372F',
-      600: '#9E2F29',
-      700: 'rgba(158, 47, 41, 0.88)',
-      800: 'rgba(128, 36, 32, 0.94)',
+      50: sparoBrandAlpha(SPARO_BRAND.action, 0.045),
+      100: sparoBrandAlpha(SPARO_BRAND.action, 0.08),
+      200: sparoBrandAlpha(SPARO_BRAND.action, 0.13),
+      300: sparoBrandAlpha(SPARO_BRAND.action, 0.22),
+      400: sparoBrandAlpha(SPARO_BRAND.action, 0.42),
+      500: SPARO_BRAND.action,
+      600: SPARO_BRAND.actionHover,
+      700: SPARO_BRAND.actionActive,
+      800: SPARO_BRAND.actionActive,
     },
 
     purple: {
@@ -63,16 +69,16 @@ export const lightTheme: ThemeConfig = {
       warningBg: 'rgba(184, 132, 43, 0.1)',
       warningBorder: 'rgba(184, 132, 43, 0.28)',
 
-      error: '#B7372F',
-      errorBg: 'rgba(183, 55, 47, 0.09)',
-      errorBorder: 'rgba(183, 55, 47, 0.28)',
+      error: SPARO_BRAND.action,
+      errorBg: sparoBrandAlpha(SPARO_BRAND.action, 0.09),
+      errorBorder: sparoBrandAlpha(SPARO_BRAND.action, 0.28),
 
       info: '#5B6B8C',
       infoBg: 'rgba(91, 107, 140, 0.1)',
       infoBorder: 'rgba(91, 107, 140, 0.25)',
 
-      highlight: '#B7372F',
-      highlightBg: 'rgba(183, 55, 47, 0.11)',
+      highlight: SPARO_BRAND.action,
+      highlightBg: sparoBrandAlpha(SPARO_BRAND.action, 0.11),
     },
 
     border: {
@@ -99,8 +105,8 @@ export const lightTheme: ThemeConfig = {
       changesBg: 'rgba(184, 132, 43, 0.09)',
       added: '#12B76A',
       addedBg: 'rgba(18, 183, 106, 0.12)',
-      deleted: '#B7372F',
-      deletedBg: 'rgba(183, 55, 47, 0.09)',
+      deleted: SPARO_BRAND.action,
+      deletedBg: sparoBrandAlpha(SPARO_BRAND.action, 0.09),
       staged: '#12B76A',
       stagedBg: 'rgba(18, 183, 106, 0.12)',
     },
@@ -124,7 +130,7 @@ export const lightTheme: ThemeConfig = {
     glow: {
       blue: '0 10px 28px rgba(15, 23, 42, 0.06), 0 4px 14px rgba(91, 107, 140, 0.06)',
       purple: '0 10px 28px rgba(91, 107, 140, 0.08), 0 4px 14px rgba(15, 23, 42, 0.05)',
-      mixed: '0 10px 28px rgba(183, 55, 47, 0.08), 0 4px 14px rgba(15, 23, 42, 0.05)',
+      mixed: `0 10px 28px ${sparoBrandAlpha(SPARO_BRAND.action, 0.08)}, 0 4px 14px rgba(15, 23, 42, 0.05)`,
     },
 
     blur: {
@@ -234,18 +240,18 @@ export const lightTheme: ThemeConfig = {
         hoverShadow: '0 2px 8px rgba(15, 23, 42, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
       },
       close: {
-        dot: 'rgba(183, 55, 47, 0.55)',
-        dotShadow: '0 0 4px rgba(183, 55, 47, 0.18)',
-        hoverBg: 'rgba(183, 55, 47, 0.12)',
-        hoverColor: '#B7372F',
-        hoverBorder: 'rgba(183, 55, 47, 0.24)',
-        hoverShadow: '0 2px 8px rgba(183, 55, 47, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.85)',
+        dot: sparoBrandAlpha(SPARO_BRAND.action, 0.55),
+        dotShadow: `0 0 4px ${sparoBrandAlpha(SPARO_BRAND.action, 0.18)}`,
+        hoverBg: sparoBrandAlpha(SPARO_BRAND.action, 0.12),
+        hoverColor: SPARO_BRAND.action,
+        hoverBorder: sparoBrandAlpha(SPARO_BRAND.action, 0.24),
+        hoverShadow: `0 2px 8px ${sparoBrandAlpha(SPARO_BRAND.action, 0.14)}, inset 0 1px 0 rgba(255, 255, 255, 0.85)`,
       },
       common: {
         defaultColor: 'rgba(15, 23, 42, 0.92)',
         defaultDot: 'rgba(91, 107, 140, 0.28)',
         disabledDot: 'rgba(91, 107, 140, 0.16)',
-        flowGradient: 'linear-gradient(90deg, transparent, rgba(91, 107, 140, 0.05), rgba(183, 55, 47, 0.08), rgba(91, 107, 140, 0.05), transparent)',
+        flowGradient: 'linear-gradient(90deg, transparent, rgba(91, 107, 140, 0.05), rgba(91, 107, 140, 0.08), rgba(91, 107, 140, 0.05), transparent)',
       },
     },
 
@@ -273,23 +279,23 @@ export const lightTheme: ThemeConfig = {
 
       primary: {
         default: {
-          background: '#B7372F',
-          color: '#FFFFFF',
+          background: SPARO_BRAND.action,
+          color: SPARO_BRAND.onAction,
           border: 'transparent',
-          shadow: '0 2px 8px rgba(183, 55, 47, 0.18)',
+          shadow: `0 2px 8px ${sparoBrandAlpha(SPARO_BRAND.action, 0.18)}`,
         },
         hover: {
-          background: '#9E2F29',
-          color: '#FFFFFF',
+          background: SPARO_BRAND.actionHover,
+          color: SPARO_BRAND.onAction,
           border: 'transparent',
-          shadow: '0 4px 14px rgba(183, 55, 47, 0.22)',
+          shadow: `0 4px 14px ${sparoBrandAlpha(SPARO_BRAND.action, 0.22)}`,
           transform: 'none',
         },
         active: {
-          background: '#802420',
-          color: '#FFFFFF',
+          background: SPARO_BRAND.actionActive,
+          color: SPARO_BRAND.onAction,
           border: 'transparent',
-          shadow: '0 2px 8px rgba(183, 55, 47, 0.18)',
+          shadow: `0 2px 8px ${sparoBrandAlpha(SPARO_BRAND.action, 0.18)}`,
           transform: 'none',
         },
       },
@@ -341,18 +347,18 @@ export const lightTheme: ThemeConfig = {
       background: '#F8FAFC',
       foreground: '#0F172A',
       lineHighlight: '#F1F5F9',
-      selection: 'rgba(183, 55, 47, 0.16)',
-      cursor: '#B7372F',
+      selection: sparoBrandAlpha(SPARO_BRAND.action, 0.16),
+      cursor: SPARO_BRAND.action,
 
-      'editor.selectionBackground': 'rgba(183, 55, 47, 0.16)',
+      'editor.selectionBackground': sparoBrandAlpha(SPARO_BRAND.action, 0.16),
       'editor.selectionForeground': '#0F172A',
       'editor.inactiveSelectionBackground': 'rgba(15, 23, 42, 0.08)',
-      'editor.selectionHighlightBackground': 'rgba(183, 55, 47, 0.1)',
-      'editor.selectionHighlightBorder': 'rgba(183, 55, 47, 0.22)',
-      'editorCursor.foreground': '#B7372F',
+      'editor.selectionHighlightBackground': sparoBrandAlpha(SPARO_BRAND.action, 0.1),
+      'editor.selectionHighlightBorder': sparoBrandAlpha(SPARO_BRAND.action, 0.22),
+      'editorCursor.foreground': SPARO_BRAND.action,
 
       'editor.wordHighlightBackground': 'rgba(15, 23, 42, 0.06)',
-      'editor.wordHighlightStrongBackground': 'rgba(183, 55, 47, 0.1)',
+      'editor.wordHighlightStrongBackground': sparoBrandAlpha(SPARO_BRAND.action, 0.1),
     },
   },
 };

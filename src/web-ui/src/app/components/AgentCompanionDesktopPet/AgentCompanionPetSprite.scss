@@ -2,12 +2,12 @@
   --sparo-petdex-width: 42px;
   --sparo-petdex-height: 46px;
   --sparo-petdex-margin-top: -8px;
-  --app-pet-loader-orbit-border: color-mix(in srgb, var(--ds-color-danger) 28%, transparent);
-  --app-pet-loader-orbit-active: color-mix(in srgb, var(--ds-color-danger) 90%, transparent);
+  --app-pet-loader-orbit-border: color-mix(in srgb, var(--ds-color-brand-core) 28%, transparent);
+  --app-pet-loader-orbit-active: color-mix(in srgb, var(--ds-color-brand-core) 90%, transparent);
   --app-pet-loader-face-ink: var(--ds-color-text-primary);
   --app-pet-loader-face-bg-start: var(--ds-color-warning-bg);
   --app-pet-loader-face-bg-end: color-mix(in srgb, var(--ds-color-warning) 38%, var(--ds-color-bg-elevated));
-  --app-pet-loader-face-ring: color-mix(in srgb, var(--ds-color-danger) 26%, transparent);
+  --app-pet-loader-face-ring: color-mix(in srgb, var(--ds-color-brand-core) 26%, transparent);
   --app-pet-loader-face-shadow: 0 8px 18px color-mix(in srgb, var(--ds-color-text-primary) 16%, transparent);
   --app-pet-loader-spark: var(--ds-color-warning);
   --app-pet-loader-spark-shadow: 0 0 10px color-mix(in srgb, var(--ds-color-warning) 55%, transparent);

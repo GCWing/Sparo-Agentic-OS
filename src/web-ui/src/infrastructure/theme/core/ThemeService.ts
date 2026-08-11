@@ -96,6 +96,7 @@ export class ThemeService {
    
   async initialize(): Promise<void> {
     this.initializing = true;
+    this.injectBootstrapFallbackTheme();
     this.ensureConfigWatch();
     try {
       const storedConfig = await this.loadStoredThemesConfig();
@@ -113,6 +114,35 @@ export class ThemeService {
         await this.queueAuthoritativeRefresh();
       }
     }
+  }
+
+  /**
+   * Installs a complete built-in token map before the asynchronous Catalog
+   * projection is available. This is visual fallback only: authoritative
+   * selection state remains unset until configuration loads successfully.
+   */
+  private injectBootstrapFallbackTheme(): void {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const root = document.documentElement;
+    const cachedThemeId = root.dataset.theme;
+    const cachedThemeType = root.dataset.themeType;
+    const fallbackId = cachedThemeId && this.themes.has(cachedThemeId)
+      ? cachedThemeId
+      : cachedThemeType === 'dark' || cachedThemeType === 'light'
+        ? cachedThemeType
+        : getSystemPreferredDefaultThemeId();
+    const fallbackTheme = this.themes.get(fallbackId);
+
+    if (!fallbackTheme) {
+      log.error('Builtin fallback theme is unavailable', { fallbackId });
+      return;
+    }
+
+    this.injectCSSVariables(fallbackTheme);
+    log.debug('Installed bootstrap theme tokens', { fallbackId });
   }
   
   private async loadStoredThemesConfig(): Promise<StoredThemesConfig> {

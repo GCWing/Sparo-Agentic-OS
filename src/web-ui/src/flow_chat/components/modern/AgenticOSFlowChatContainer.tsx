@@ -411,19 +411,8 @@ export const AgenticOSFlowChatContainer: React.FC<AgenticOSFlowChatContainerProp
               sessionId={activeSession?.sessionId}
               turns={turnSummaries}
               onJumpToTurn={handleJumpToTurn}
-              onResetHistory={() => {
-                void handleAgenticOsCreateSession();
-              }}
-              // Header-level search is hidden while the timeline sidebar is
-              // open; Ctrl+F routes to the timeline search instead.
-              searchQuery=""
-              onSearchChange={() => {}}
-              searchMatchCount={0}
-              searchCurrentMatch={0}
-              onSearchNext={() => {}}
-              onSearchPrev={() => {}}
-              onSearchClose={() => {}}
-              searchOpenRequest={0}
+              showSearchControl={false}
+              showGoalControl={false}
               timelineOpen={timelineOpen}
               onTimelineOpenChange={setTimelineOpen}
               forceTimelineEnabled

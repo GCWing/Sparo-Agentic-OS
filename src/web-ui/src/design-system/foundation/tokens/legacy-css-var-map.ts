@@ -23,6 +23,14 @@ function toRgbChannels(color: string): string | null {
 
 export function createLegacyCssVarMap(theme: ThemeConfig): CssVarMap {
   const { colors, effects, motion, typography } = theme;
+  const brand = colors.brand ?? {
+    core: colors.accent[500],
+    action: colors.accent[500],
+    actionHover: colors.accent[600],
+    actionActive: colors.accent[800],
+    onAction: '#ffffff',
+    focusRing: colors.accent[500],
+  };
   const vars: CssVarMap = {
     '--color-bg-primary': colors.background.primary,
     '--color-bg-secondary': colors.background.secondary,
@@ -37,8 +45,14 @@ export function createLegacyCssVarMap(theme: ThemeConfig): CssVarMap {
     '--color-text-secondary': colors.text.secondary,
     '--color-text-muted': colors.text.muted,
     '--color-text-disabled': colors.text.disabled,
-    '--color-primary': colors.accent[500],
-    '--color-primary-hover': colors.accent[600],
+    '--color-primary': brand.action,
+    '--color-primary-hover': brand.actionHover,
+    '--color-brand-core': brand.core,
+    '--color-brand-action': brand.action,
+    '--color-brand-action-hover': brand.actionHover,
+    '--color-brand-action-active': brand.actionActive,
+    '--color-brand-on-action': brand.onAction,
+    '--color-brand-focus-ring': brand.focusRing,
     '--color-accent': colors.accent[500],
     '--color-accent-primary': colors.accent[500],
     '--color-success': colors.semantic.success,
@@ -94,7 +108,7 @@ export function createLegacyCssVarMap(theme: ThemeConfig): CssVarMap {
     vars['--color-bg-tooltip'] = colors.background.tooltip;
   }
 
-  const primaryRgb = toRgbChannels(colors.accent[500]);
+  const primaryRgb = toRgbChannels(brand.action);
   if (primaryRgb) {
     vars['--color-primary-rgb'] = primaryRgb;
   }

@@ -44,8 +44,8 @@
   }
 
   &--error {
-    background: var(--color-error-bg);
-    color: var(--color-error);
+    background: var(--ds-color-danger-bg);
+    color: var(--ds-color-danger);
   }
 
   &--info {

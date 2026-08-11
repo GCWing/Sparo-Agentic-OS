@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import LanguageToggleButton from '../components/LanguageToggleButton';
+import { SparoMark } from '../components/brand/SparoMark';
 import { useI18n } from '../i18n';
 import { RemoteSessionManager, type RecentWorkspaceEntry } from '../services/RemoteSessionManager';
 import { useMobileStore } from '../services/store';
 import { useTheme } from '../theme';
-import logoMark from '../assets/sparo-logo-mark.png';
 
 const PAGE_SIZE = 30;
 
@@ -310,7 +310,7 @@ const SessionListPage: React.FC<SessionListPageProps> = ({ sessionMgr, onSelectS
     <div className="session-list">
       <div className="session-list__header">
         <div className="session-list__header-brand">
-          <img src={logoMark} alt={t('common.appName')} className="session-list__logo" />
+          <SparoMark size={26} alt={t('common.appName')} className="session-list__logo" />
           <div className="session-list__header-copy">
             <h1>{t('common.appName')}</h1>
             {authenticatedUserId && (

@@ -28,13 +28,11 @@
   }
 
   &--error {
-    border-color: var(--color-error-border);
-    background: linear-gradient(135deg,
-      rgba(239, 68, 68, 0.06) 0%,
-      rgba(239, 68, 68, 0.04) 100%);
+    border-color: var(--ds-color-danger-border);
+    background: var(--ds-color-danger-bg);
 
     .alert__icon {
-      color: var(--color-error);
+      color: var(--ds-color-danger);
     }
 
     .alert__title {

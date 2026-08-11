@@ -173,7 +173,7 @@ export const ExportImageButton: React.FC<ExportImageButtonProps> = ({
           img.onload = () => resolve(img);
           img.onerror = reject;
           // Cache-bust to avoid stale decoded copies when re-exporting.
-          img.src = `/sparo-app-icon.png?t=${Date.now()}`;
+          img.src = `/brand/app-icon-512.png?t=${Date.now()}`;
         });
       } catch (e) {
         log.warn('Logo preload failed; export will proceed without logo overlay', e);
@@ -202,6 +202,7 @@ export const ExportImageButton: React.FC<ExportImageButtonProps> = ({
         '--border-base', '--border-medium', '--border-prominent',
         '--element-bg-base', '--element-bg-soft', '--element-bg-medium', '--element-bg-strong',
         '--color-success', '--color-success-bg', '--color-warning', '--color-error',
+        '--ds-color-danger', '--ds-color-danger-bg', '--ds-color-danger-border',
         '--color-primary', '--color-accent',
       ];
       cssVars.forEach(varName => {

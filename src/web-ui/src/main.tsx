@@ -1,4 +1,8 @@
 import ReactDOM from "react-dom/client";
+import {
+  dismissInlineSplash,
+  forceDismissInlineSplash,
+} from './boot/startupSplash';
 import { installGlobalSurfaceEscapeToHome } from "./app/globalOverlayEscape";
 import App from "./app/App";
 import AgentCompanionDesktopPet from "./app/components/AgentCompanionDesktopPet/AgentCompanionDesktopPet";
@@ -351,20 +355,6 @@ async function initializeAfterRender(): Promise<void> {
  *
  * Idempotent: safe to call from multiple subscribers / safety timers.
  */
-let splashDismissed = false;
-function dismissInlineSplash(): void {
-  if (splashDismissed) return;
-  splashDismissed = true;
-  const splash = document.getElementById('sparo-splash');
-  if (!splash) return;
-  splash.dataset.leaving = '1';
-  // Match the 360ms CSS opacity transition; remove afterwards so it doesn't
-  // intercept events even though it already has `pointer-events: none`.
-  window.setTimeout(() => {
-    splash.parentNode?.removeChild(splash);
-  }, 400);
-}
-
 /**
  * Subscribe to the boot-stage bridge and dismiss the splash on the first
  * stage that means the shell can take over (`workspaceReady`) — or
@@ -399,9 +389,9 @@ function wireSplashDismissalToBootStage(): void {
   });
 
   window.setTimeout(() => {
-    if (!splashDismissed) {
+    if (document.getElementById('sparo-splash')) {
       log.warn('Splash watchdog firing — backend never reported workspaceReady');
-      dismissInlineSplash();
+      forceDismissInlineSplash();
     }
   }, 8000);
 }

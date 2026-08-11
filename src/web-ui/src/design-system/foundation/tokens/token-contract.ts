@@ -12,6 +12,15 @@ export interface ThemeColorScale {
   800: string;
 }
 
+export interface ThemeBrandColors {
+  core: string;
+  action: string;
+  actionHover: string;
+  actionActive: string;
+  onAction: string;
+  focusRing: string;
+}
+
 export interface ThemeColorConfig {
   background: {
     primary: string;
@@ -44,6 +53,7 @@ export interface ThemeColorConfig {
     strong: string;
     elevated: string;
   };
+  brand?: ThemeBrandColors;
   accent: ThemeColorScale;
   purple?: ThemeColorScale;
   semantic: {
@@ -227,6 +237,7 @@ export interface DesignTokens {
       strong: string;
       elevated: string;
     };
+    brand: ThemeBrandColors;
     accent: DesignTokenScale;
     purple: DesignTokenScale;
     success: DesignStatusToken;
@@ -387,6 +398,14 @@ function status(fg: string, bg: string, border: string): DesignStatusToken {
 export function createDesignTokens(theme: ThemeConfig): DesignTokens {
   const { colors, effects, motion, typography } = theme;
   const isDark = theme.type === 'dark';
+  const brand: ThemeBrandColors = colors.brand ?? {
+    core: colors.accent[500],
+    action: colors.accent[500],
+    actionHover: colors.accent[600],
+    actionActive: colors.accent[800],
+    onAction: '#ffffff',
+    focusRing: colors.accent[500],
+  };
   const purple = colors.purple ?? colors.accent;
   const neutralSurface = status(colors.text.secondary, colors.element.base, colors.border.base);
   const runningSurface = status(colors.accent[500], colors.accent[100], colors.accent[300]);
@@ -418,9 +437,10 @@ export function createDesignTokens(theme: ThemeConfig): DesignTokens {
       },
       border: {
         ...colors.border,
-        focus: colors.accent[400],
+        focus: brand.focusRing,
       },
       element: colors.element,
+      brand,
       accent: stringScale(colors.accent),
       purple: stringScale(colors.purple ?? colors.accent),
       success: {
@@ -449,9 +469,9 @@ export function createDesignTokens(theme: ThemeConfig): DesignTokens {
         backdrop: isDark ? 'rgba(10, 10, 12, 0.78)' : 'rgba(248, 250, 252, 0.78)',
       },
       focus: {
-        ring: colors.accent[400],
-        ringSubtle: colors.accent[200],
-        outline: colors.accent[500],
+        ring: brand.focusRing,
+        ringSubtle: brand.action,
+        outline: brand.focusRing,
       },
       selection: {
         bg: colors.semantic.highlightBg || colors.accent[200],
@@ -509,7 +529,7 @@ export function createDesignTokens(theme: ThemeConfig): DesignTokens {
         markdown: status(colors.text.secondary, colors.element.soft, colors.border.base),
         rust: status(colors.semantic.error, colors.semantic.errorBg, colors.semantic.errorBorder),
         css: status(colors.accent[600], colors.accent[100], colors.accent[300]),
-        html: status(colors.semantic.error, colors.semantic.errorBg, colors.semantic.errorBorder),
+        html: status(colors.accent[600], colors.accent[100], colors.accent[300]),
         shell: status(colors.semantic.success, colors.semantic.successBg, colors.semantic.successBorder),
         python: status(colors.semantic.info, colors.semantic.infoBg, colors.semantic.infoBorder),
       },

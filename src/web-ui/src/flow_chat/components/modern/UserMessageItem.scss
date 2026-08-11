@@ -302,7 +302,7 @@
     transition: border-color 0.14s ease, box-shadow 0.14s ease;
 
     &:focus-within {
-      border-color: color-mix(in srgb, var(--ds-chat-danger) 44%, transparent);
+      border-color: color-mix(in srgb, var(--ds-chat-focus-ring) 44%, transparent);
       box-shadow: var(--ds-chat-shadow-focus);
     }
   }
@@ -336,7 +336,7 @@
   }
 
   &:focus-within {
-    border-color: color-mix(in srgb, var(--ds-chat-danger) 58%, transparent) !important;
+    border-color: color-mix(in srgb, var(--ds-chat-focus-ring) 58%, transparent) !important;
     box-shadow: var(--ds-chat-shadow-focus) !important;
   }
 }

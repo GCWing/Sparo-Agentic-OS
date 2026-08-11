@@ -74,11 +74,11 @@
     min-width: 270px;
     padding: 0 2px 0 9px;
     gap: 5px;
-    border: 1px solid color-mix(in srgb, var(--ds-chat-danger) 76%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ds-chat-brand-core) 76%, transparent);
     border-radius: var(--ds-radius-full);
     background: color-mix(in srgb, var(--ds-color-bg-panel) 96%, var(--ds-chat-surface-elevated));
     box-shadow:
-      0 2px 8px color-mix(in srgb, var(--ds-chat-danger) 10%, transparent),
+      0 2px 8px color-mix(in srgb, var(--ds-chat-brand-core) 10%, transparent),
       inset 0 1px 0 color-mix(in srgb, var(--ds-color-bg-panel) 80%, transparent);
     animation: sparo-voice-pill-in 220ms cubic-bezier(0.18, 0.9, 0.3, 1.18) both;
   }
@@ -90,15 +90,15 @@
     width: 12px;
     height: 12px;
     flex: 0 0 12px;
-    color: var(--ds-chat-danger);
+    color: var(--ds-chat-brand-core);
   }
 
   &__voice-pill-recording-dot {
     width: 8px;
     height: 8px;
     border-radius: var(--ds-radius-full);
-    background: var(--ds-chat-danger);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-chat-danger) 9%, transparent);
+    background: var(--ds-chat-brand-core);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-chat-brand-core) 9%, transparent);
     animation: sparo-voice-recording-dot 1.6s ease-in-out infinite;
   }
 
@@ -122,7 +122,7 @@
     height: 18px;
     gap: 2px;
     overflow: hidden;
-    color: color-mix(in srgb, var(--ds-chat-danger) 74%, var(--ds-chat-text-secondary));
+    color: color-mix(in srgb, var(--ds-chat-brand-core) 74%, var(--ds-chat-text-secondary));
     pointer-events: none;
 
     &--paused {
@@ -167,7 +167,7 @@
 
     &:not(:disabled):hover {
       border: none;
-      background: color-mix(in srgb, var(--ds-chat-danger) 9%, transparent);
+      background: color-mix(in srgb, var(--ds-chat-brand-action) 9%, transparent);
       color: var(--ds-color-text-primary);
       transform: scale(1.08);
     }
@@ -177,7 +177,7 @@
     }
 
     &.sparo-chat-input__voice-pill-action--transcribe {
-      color: color-mix(in srgb, var(--ds-chat-danger) 76%, var(--ds-chat-text-secondary));
+      color: color-mix(in srgb, var(--ds-chat-brand-action) 76%, var(--ds-chat-text-secondary));
     }
   }
 
@@ -188,9 +188,9 @@
     min-height: 28px;
     border: none;
     border-radius: var(--ds-radius-full);
-    background: var(--ds-chat-danger);
-    color: var(--ds-color-on-danger, white);
-    box-shadow: 0 2px 6px color-mix(in srgb, var(--ds-chat-danger) 22%, transparent);
+    background: var(--ds-chat-brand-action);
+    color: var(--ds-chat-brand-on-action);
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--ds-chat-brand-action) 22%, transparent);
     flex: 0 0 28px;
     transition:
       background-color 150ms ease,
@@ -199,9 +199,9 @@
 
     &:not(:disabled):hover {
       border: none;
-      background: color-mix(in srgb, var(--ds-chat-danger) 88%, var(--ds-color-text-primary));
-      color: var(--ds-color-on-danger, white);
-      box-shadow: 0 3px 8px color-mix(in srgb, var(--ds-chat-danger) 26%, transparent);
+      background: var(--ds-chat-brand-action-hover);
+      color: var(--ds-chat-brand-on-action);
+      box-shadow: 0 3px 8px color-mix(in srgb, var(--ds-chat-brand-action) 26%, transparent);
       transform: none;
     }
 
@@ -211,8 +211,8 @@
 
     &:disabled {
       border: none;
-      background: var(--ds-chat-danger);
-      color: var(--ds-color-on-danger, white);
+      background: var(--ds-chat-brand-action);
+      color: var(--ds-chat-brand-on-action);
       opacity: 0.58;
     }
   }
@@ -226,8 +226,8 @@
     padding: 0;
     border-radius: 50%;
     border: none;
-    background: color-mix(in srgb, var(--ds-chat-danger) 80%, transparent);
-    color: var(--ds-color-on-danger, white);
+    background: color-mix(in srgb, var(--ds-chat-brand-action) 80%, transparent);
+    color: var(--ds-chat-brand-on-action);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -236,23 +236,23 @@
     flex-shrink: 0;
     
     &:not(:disabled) {
-      background: var(--ds-chat-danger);
+      background: var(--ds-chat-brand-action);
       border: none;
-      color: var(--ds-color-on-danger, white);
+      color: var(--ds-chat-brand-on-action);
       box-shadow: none;
     }
     
     .sparo-chat-input__box:focus-within &:not(:disabled) {
-      background: var(--ds-chat-danger);
+      background: var(--ds-chat-brand-action);
       border: none;
-      color: var(--ds-color-on-danger, white);
+      color: var(--ds-chat-brand-on-action);
       transform: var(--sparo-chat-input-send-focus-transform);
       box-shadow: none;
     }
     
     &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--ds-chat-danger) 86%, black);
-      color: var(--ds-color-on-danger, white);
+      background: var(--ds-chat-brand-action-hover);
+      color: var(--ds-chat-brand-on-action);
       transform: scale(1.12);
       box-shadow: none;
       border-radius: 50%;
@@ -260,14 +260,14 @@
     
     &:active:not(:disabled) {
       transform: scale(0.95);
-      background: color-mix(in srgb, var(--ds-chat-danger) 78%, black);
+      background: var(--ds-chat-brand-action-active);
       border-radius: 50%;
     }
     
     &:disabled {
-      background: color-mix(in srgb, var(--ds-chat-danger) 80%, transparent);
+      background: color-mix(in srgb, var(--ds-chat-brand-action) 80%, transparent);
       border: none;
-      color: var(--ds-color-on-danger, white);
+      color: var(--ds-chat-brand-on-action);
       opacity: 0.45;
       cursor: default;
       box-shadow: none;
@@ -303,7 +303,7 @@
       }
       
       &:hover .sparo-chat-input__breathing-circle {
-        background: color-mix(in srgb, var(--ds-chat-danger) 76%, black);
+        background: var(--ds-chat-brand-action-hover);
       }
     }
   }
