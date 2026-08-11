@@ -35,6 +35,10 @@ const TRAY_STATE_BADGES = Object.freeze({
   error: '#8B3AA8',
 });
 
+function isQaArtifact(relativePath) {
+  return relativePath.startsWith('qa/');
+}
+
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -652,10 +656,13 @@ async function buildTrayPreview(trayStates, traySizes) {
 
 function manifestFor(assets, sources, metadata, sourceBounds, coreBounds) {
   const files = [...assets.entries()]
+    // QA boards contain host-rendered labels. Their pixels can differ with the
+    // system font stack even when every product asset is byte-identical.
+    .filter(([filePath]) => !isQaArtifact(filePath))
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([filePath, value]) => ({ path: filePath, bytes: value.length, sha256: sha256(value) }));
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     brandVersion: '2026.08-tight-circular-system-icons',
     status: 'current',
     generatedBy: 'pnpm run brand:generate',
@@ -687,6 +694,7 @@ function manifestFor(assets, sources, metadata, sourceBounds, coreBounds) {
       wordmark: 'Globally optically bold Sparo OS wordmark with a red core inside the lowercase a',
     },
     formatPolicy: 'Brand artwork is PNG-only. Product code must not redraw or embed brand geometry as SVG.',
+    qaPolicy: 'QA preview boards are validated for presence, PNG format, and dimensions but excluded from cross-platform byte hashes because their labels use host font rasterization.',
     colors: {
       coreRed: COLORS.coreRed,
       warmWhite: COLORS.warmWhite,
@@ -888,7 +896,12 @@ export async function generateBrandAssets() {
     await mkdir(path.dirname(destination), { recursive: true });
     await writeFile(destination, value);
   }
-  console.log('Generated ' + assets.size + ' deterministic raster Sparo brand assets.');
+  const qaCount = [...assets.keys()].filter(isQaArtifact).length;
+  const deterministicCount = assets.size - qaCount;
+  console.log(
+    'Generated ' + deterministicCount + ' deterministic Sparo brand files and ' +
+      qaCount + ' host-rendered QA previews.',
+  );
 }
 
 export async function checkBrandAssets() {
@@ -897,7 +910,21 @@ export async function checkBrandAssets() {
   for (const [relativePath, value] of expected) {
     try {
       const actual = await readFile(path.join(BRAND_ROOT, relativePath));
-      if (!actual.equals(value)) failures.push(relativePath + ' is stale');
+      if (isQaArtifact(relativePath)) {
+        const [actualMetadata, expectedMetadata] = await Promise.all([
+          sharp(actual).metadata(),
+          sharp(value).metadata(),
+        ]);
+        if (
+          actualMetadata.format !== 'png' ||
+          actualMetadata.width !== expectedMetadata.width ||
+          actualMetadata.height !== expectedMetadata.height
+        ) {
+          failures.push(relativePath + ' has an invalid format or dimensions');
+        }
+      } else if (!actual.equals(value)) {
+        failures.push(relativePath + ' is stale');
+      }
     } catch {
       failures.push(relativePath + ' is missing');
     }
@@ -922,7 +949,12 @@ export async function checkBrandAssets() {
   if (failures.length > 0) {
     throw new Error('Brand assets are not current:\n- ' + failures.join('\n- ') + '\nRun pnpm run brand:generate.');
   }
-  console.log('Verified ' + expected.size + ' deterministic raster Sparo brand assets.');
+  const qaCount = [...expected.keys()].filter(isQaArtifact).length;
+  const deterministicCount = expected.size - qaCount;
+  console.log(
+    'Verified ' + deterministicCount + ' deterministic Sparo brand files and ' +
+      qaCount + ' host-rendered QA previews.',
+  );
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

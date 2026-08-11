@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "brandVersion": "2026.08-tight-circular-system-icons",
   "status": "current",
   "generatedBy": "pnpm run brand:generate",
@@ -40,6 +40,7 @@
     "wordmark": "Globally optically bold Sparo OS wordmark with a red core inside the lowercase a"
   },
   "formatPolicy": "Brand artwork is PNG-only. Product code must not redraw or embed brand geometry as SVG.",
+  "qaPolicy": "QA preview boards are validated for presence, PNG format, and dimensions but excluded from cross-platform byte hashes because their labels use host font rasterization.",
   "colors": {
     "coreRed": "#E53935",
     "warmWhite": "#F5F2EE",
@@ -387,31 +388,6 @@
       "path": "exports/wordmark/sparo-wordmark-reversed.png",
       "bytes": 34511,
       "sha256": "772b0f73821ba015ae6b3f37cfbbdb897fd4db07b504d5fdf70062cf5c207348"
-    },
-    {
-      "path": "qa/sparo-app-icon-size-matrix.png",
-      "bytes": 102284,
-      "sha256": "ae100d6a9f620a49dda95f1aeadbc107f4aec009eb19de709abcd1518c3eb440"
-    },
-    {
-      "path": "qa/sparo-brand-asset-matrix.png",
-      "bytes": 466588,
-      "sha256": "1828997863f7cb42cff1eaa3493ef427dece56dec529e8e4bb51b5e0e2ff65c5"
-    },
-    {
-      "path": "qa/sparo-small-mark-matrix.png",
-      "bytes": 137295,
-      "sha256": "4b3a64229323a47628a4137e62ba541619629a93a84b1bfb231b0f3d922e23f8"
-    },
-    {
-      "path": "qa/sparo-startup-brand-preview.png",
-      "bytes": 72252,
-      "sha256": "c707feb546f67a21dd20c89ccca7876d3b97de31dc037fbcaab03314e19fa994"
-    },
-    {
-      "path": "qa/sparo-tray-state-matrix.png",
-      "bytes": 50085,
-      "sha256": "3024d799f4c430a4bba154c111900768c0c16936299e3574d5a8b3cad9f84451"
     }
   ]
 }

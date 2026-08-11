@@ -27,8 +27,13 @@ The generator removes low-alpha speckles, normalizes the visible mark to a true 
 - `exports/tray/` — target-specific 16, 20, 24, 32, and 48 px full-Logo tray PNGs, plus light, dark, and semantic state variants.
 - `exports/web/` — favicons, Apple touch icon, and Web app icons.
 - `qa/` — large-format, small-size, and tray-state review matrices.
-- `manifest.json` — source provenance and deterministic output hashes.
+- `manifest.json` — source provenance and deterministic product-output hashes.
 - `adoption-manifest.json` — hashes of synchronized product copies and platform icon files.
+
+QA preview boards are review artifacts rather than product inputs. Their labels
+use the host font renderer, so checks require the committed PNGs to exist with
+the expected dimensions but intentionally omit their byte hashes from the
+cross-platform deterministic manifest.
 
 ## Color reference
 
